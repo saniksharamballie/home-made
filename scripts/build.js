@@ -35,14 +35,14 @@ function build() {
     )
     .replace(
       /var ADMIN_EMAIL\s*=\s*'admin@yourdomain.com';\s*\/\/[^\n]*/g,
-      "var ADMIN_EMAIL = (window.HM_CONFIG && window.HM_CONFIG.ADMIN_EMAIL) || 'saniksha@gmail.com';"
+      "var ADMIN_EMAIL = (window.HM_CONFIG && window.HM_CONFIG.ADMIN_EMAIL) || 'saniksha@gmail.com,sycoticzn@gmail.com';"
     );
 
   const envJs = [
     "window.HM_CONFIG = {",
     `  SUPABASE_URL: ${jsString(process.env.NEXT_PUBLIC_SUPABASE_URL)},`,
     `  SUPABASE_ANON_KEY: ${jsString(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)},`,
-    `  ADMIN_EMAIL: ${jsString(process.env.NEXT_PUBLIC_ADMIN_EMAIL || "saniksha@gmail.com")},`,
+    `  ADMIN_EMAIL: ${jsString(process.env.NEXT_PUBLIC_ADMIN_EMAIL || "saniksha@gmail.com,sycoticzn@gmail.com")},`,
     `  SITE_URL: ${jsString(process.env.NEXT_PUBLIC_SITE_URL || "https://home-made.co.za")}`,
     "};",
     ""

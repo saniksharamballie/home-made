@@ -2167,7 +2167,7 @@ document.addEventListener('DOMContentLoaded',function(){
 ══════════════════════════════════════════════════════════════ */
 var SUPABASE_URL  = 'YOUR_SUPABASE_URL';   // e.g. https://xyzxyz.supabase.co
 var SUPABASE_ANON = 'YOUR_SUPABASE_ANON_KEY';
-var ADMIN_EMAIL   = 'admin@yourdomain.com'; // this email gets the admin role
+var ADMIN_EMAIL   = 'admin@yourdomain.com'; // comma-separated admin emails get the admin role
 
 /* ══════════════════════════════════════════════════════════════
    hmAuth — Supabase auth wrapper
@@ -2180,6 +2180,14 @@ var hmAuth = (function(){
   var _session = null;
   var _profile = null;
   var _demoMode = (!SUPABASE_URL || SUPABASE_URL==='YOUR_SUPABASE_URL');
+
+  function _adminEmails(){
+    return String(ADMIN_EMAIL||'').split(',').map(function(e){return e.trim().toLowerCase();}).filter(Boolean);
+  }
+
+  function _isAdminEmail(email){
+    return !!email && _adminEmails().indexOf(String(email).toLowerCase()) >= 0;
+  }
 
   function _initClient(){
     if(_sb || _demoMode) return;
@@ -2194,39 +2202,62 @@ var hmAuth = (function(){
   function boot(cb){
     if(_demoMode){ cb(null); return; }
     _initClient();
-    _sb.auth.getSession().then(function(res){
-      _session = res.data && res.data.session;
-      if(!_session){ cb(null); return; }
-      _loadProfile(_session.user, cb);
-    });
+
+    function finishBoot(){
+      _sb.auth.getSession().then(function(res){
+        _session = res.data && res.data.session;
+        if(!_session){ cb(null); return; }
+        _loadProfile(_session.user, cb);
+      });
+    }
+
+    var code = new URLSearchParams(window.location.search).get('code');
+    if(code && _sb.auth.exchangeCodeForSession){
+      _sb.auth.exchangeCodeForSession(code).then(function(){
+        window.history.replaceState({}, '', window.location.pathname);
+        finishBoot();
+      });
+    }else{
+      finishBoot();
+    }
+
     /* Live auth state changes (tab refocus, token refresh, sign-out) */
     _sb.auth.onAuthStateChange(function(event, session){
       _session = session;
-      if(event==='SIGNED_OUT'){ _profile=null; _showLogin(); }
+      if(event==='SIGNED_OUT'){ _profile=null; _applyProfile({role:'guest', displayName:'Guest', emoji:'👤'}); }
       if(event==='SIGNED_IN' && session){ _loadProfile(session.user, function(p){ if(p) _applyProfile(p); }); }
     });
   }
 
   function _loadProfile(user, cb){
-    /* Check sellers table first */
-    _sb.from('sellers').select('*').eq('auth_id', user.id).maybeSingle()
-    .then(function(res){
-      if(res.data){
-        _profile = {role:'seller', displayName:res.data.name, sellerId:res.data.id, email:user.email, raw:res.data};
+    var fallbackName = (user.user_metadata && user.user_metadata.full_name) || (user.email||'').split('@')[0] || 'Member';
+
+    function finishFromProfile(profileRow){
+      if((profileRow && profileRow.role === 'admin') || _isAdminEmail(user.email)){
+        _profile = {role:'admin', displayName:(profileRow && profileRow.display_name) || 'Admin', sellerId:null, email:user.email, raw:profileRow};
         cb(_profile); return;
       }
-      /* Check if admin email */
-      if(user.email && user.email.toLowerCase()===ADMIN_EMAIL.toLowerCase()){
-        _profile = {role:'admin', displayName:'Admin', sellerId:null, email:user.email};
-        cb(_profile); return;
-      }
-      /* Otherwise buyer — upsert buyers row */
-      var name = (user.user_metadata && user.user_metadata.full_name) || user.email.split('@')[0];
-      _sb.from('buyers').upsert({auth_id:user.id, email:user.email, name:name}, {onConflict:'auth_id'})
-      .then(function(){
-        _profile = {role:'buyer', displayName:name, sellerId:null, email:user.email};
-        cb(_profile);
+
+      _sb.from('sellers').select('*').eq('auth_id', user.id).maybeSingle()
+      .then(function(res){
+        if(res.data || (profileRow && profileRow.role === 'seller')){
+          var seller = res.data || {};
+          _profile = {role:'seller', displayName:seller.name || (profileRow && profileRow.display_name) || fallbackName, sellerId:seller.id || null, email:user.email, raw:seller};
+          cb(_profile); return;
+        }
+
+        var name = (profileRow && profileRow.display_name) || fallbackName;
+        _sb.from('buyers').upsert({auth_id:user.id, email:user.email, name:name}, {onConflict:'auth_id'})
+        .then(function(){
+          _profile = {role:'buyer', displayName:name, sellerId:null, email:user.email, raw:profileRow};
+          cb(_profile);
+        });
       });
+    }
+
+    _sb.rpc('get_home_made_profile').then(function(res){
+      if(res && res.data){ finishFromProfile(res.data); return; }
+      finishFromProfile(null);
     });
   }
 
@@ -2260,19 +2291,21 @@ var hmAuth = (function(){
   function signInWithEmail(email, cb){
     if(_demoMode){ cb({error:'Demo mode — add your Supabase keys to enable login.'}); return; }
     _initClient();
-    _sb.auth.signInWithOtp({email:email, options:{emailRedirectTo: window.location.href}})
+    var redirectTo = window.location.origin + window.location.pathname;
+    _sb.auth.signInWithOtp({email:email, options:{emailRedirectTo: redirectTo, shouldCreateUser:true}})
     .then(function(res){ cb(res.error ? {error:res.error.message} : {ok:true}); });
   }
 
   /* Sign out */
   function signOut(){
-    /* Return to guest mode — app stays browsable */
-    if(_demoMode || true){
-      sessionStorage.removeItem('hm_safety_ack'); /* reset so guest can't carry over ack */
+    sessionStorage.removeItem('hm_safety_ack'); /* reset so guest can't carry over ack */
+    if(_demoMode || !_sb){
       _applyProfile({role:'guest', displayName:'Guest', emoji:'👤'});
       return;
     }
-    _sb.auth.signOut();
+    _sb.auth.signOut().then(function(){
+      _applyProfile({role:'guest', displayName:'Guest', emoji:'👤'});
+    });
   }
 
   /* Insert a row into any table */
@@ -2414,6 +2447,25 @@ var hmAuth = (function(){
     ].join('');
 
     document.body.appendChild(d);
+    if(!_demoMode){
+      var userInput = document.getElementById('hm-login-user');
+      var pwWrap = document.getElementById('hm-login-pw');
+      var btn = document.getElementById('hm-login-btn');
+      if(userInput){
+        userInput.type = 'email';
+        userInput.placeholder = 'you@example.com';
+        userInput.autocomplete = 'email';
+      }
+      if(pwWrap){
+        var pwContainer = pwWrap.closest('div[style*="margin-bottom:10px"]');
+        if(pwContainer) pwContainer.style.display = 'none';
+      }
+      if(btn) btn.textContent = 'Send Sign-In Link';
+      d.querySelectorAll('button[onclick*="_quickLogin"], div').forEach(function(el){
+        var textOnly = !el.querySelector('button,input');
+        if(el.getAttribute('onclick') || (textOnly && /TEST ACCOUNTS|Test password|Each role unlocks/.test(el.textContent||''))) el.style.display='none';
+      });
+    }
     setTimeout(function(){ var el=document.getElementById('hm-login-user'); if(el) el.focus(); }, 80);
   }
 
@@ -2451,6 +2503,21 @@ var hmAuth = (function(){
     var pw       = ((document.getElementById('hm-login-pw')||{}).value||'').trim();
     var msgEl    = document.getElementById('hm-login-msg');
     var btn      = document.getElementById('hm-login-btn');
+
+    if(!_demoMode){
+      if(!username || username.indexOf('@')<1){ if(msgEl){ msgEl.textContent='Please enter your email address.'; } return; }
+      if(btn){ btn.disabled=true; btn.textContent='Sending secure link...'; }
+      signInWithEmail(username, function(res){
+        if(res.error){
+          if(msgEl) msgEl.textContent=res.error;
+          if(btn){ btn.disabled=false; btn.textContent='Send Sign-In Link'; }
+          return;
+        }
+        if(msgEl){ msgEl.style.color='var(--lime)'; msgEl.textContent='Check your email for the secure sign-in link.'; }
+        if(btn){ btn.textContent='Link Sent'; }
+      });
+      return;
+    }
 
     if(!username){ if(msgEl){ msgEl.textContent='Please enter a username.'; } return; }
     if(!pw)      { if(msgEl){ msgEl.textContent='Please enter your password.'; } return; }
@@ -2531,6 +2598,25 @@ var hmAuth = (function(){
     ].join('');
 
     document.body.appendChild(overlay);
+    if(!_demoMode){
+      var gateUser = document.getElementById('hm-gate-user');
+      var gatePw = document.getElementById('hm-gate-pw');
+      var gateBtn = document.getElementById('hm-gate-btn');
+      if(gateUser){
+        gateUser.type = 'email';
+        gateUser.placeholder = 'you@example.com';
+        gateUser.autocomplete = 'email';
+      }
+      if(gatePw){
+        var gatePwContainer = gatePw.closest('div[style*="margin-bottom:8px"]');
+        if(gatePwContainer) gatePwContainer.style.display = 'none';
+      }
+      if(gateBtn) gateBtn.textContent = 'Send Sign-In Link';
+      overlay.querySelectorAll('button[onclick*="_gateQuick"], div').forEach(function(el){
+        var textOnly = !el.querySelector('button,input');
+        if(el.getAttribute('onclick') || (textOnly && /Test password/.test(el.textContent||''))) el.style.display='none';
+      });
+    }
     setTimeout(function(){ var u=document.getElementById('hm-gate-user'); if(u) u.focus(); }, 60);
 
     /* Store callback for after successful login */
@@ -2543,6 +2629,20 @@ var hmAuth = (function(){
     var pw       = ((document.getElementById('hm-gate-pw')||{}).value||'').trim();
     var msgEl    = document.getElementById('hm-gate-msg');
     var btn      = document.getElementById('hm-gate-btn');
+    if(!_demoMode){
+      if(!username || username.indexOf('@')<1){ if(msgEl) msgEl.textContent='Please enter your email address.'; return; }
+      if(btn){ btn.disabled=true; btn.textContent='Sending secure link...'; }
+      signInWithEmail(username, function(res){
+        if(res.error){
+          if(msgEl) msgEl.textContent=res.error;
+          if(btn){ btn.disabled=false; btn.textContent='Send Sign-In Link'; }
+          return;
+        }
+        if(msgEl){ msgEl.style.color='var(--lime)'; msgEl.textContent='Check your email for the secure sign-in link.'; }
+        if(btn){ btn.textContent='Link Sent'; }
+      });
+      return;
+    }
     if(!username){ if(msgEl) msgEl.textContent='Please enter a username.'; return; }
     if(!pw)      { if(msgEl) msgEl.textContent='Please enter your password.'; return; }
     var user = DEMO_USERS[username];
