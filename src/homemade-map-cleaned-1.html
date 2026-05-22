@@ -2306,6 +2306,24 @@ var hmAuth = (function(){
     return function(){ _sb.removeChannel(ch); }; /* returns unsubscribe fn */
   }
 
+  /* Public Supabase Storage upload for listing/profile images. */
+  function uploadPublicImage(file, folder, cb){
+    if(_demoMode||!_sb){ if(cb) cb({error:'Storage is unavailable in demo mode'}); return; }
+    var safeFolder = folder || 'listing-uploads';
+    var ext = (file.name.split('.').pop() || 'webp').toLowerCase().replace(/[^a-z0-9]/g,'') || 'webp';
+    var stem = (file.name.replace(/\.[^.]+$/,'') || 'image').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60) || 'image';
+    var path = safeFolder + '/' + Date.now() + '-' + Math.random().toString(36).slice(2,8) + '-' + stem + '.' + ext;
+    _sb.storage.from('seller-images').upload(path, file, {
+      cacheControl:'31536000',
+      contentType:file.type || 'image/webp',
+      upsert:false
+    }).then(function(res){
+      if(res.error){ if(cb) cb({error:res.error.message}); return; }
+      var pub = _sb.storage.from('seller-images').getPublicUrl(path);
+      if(cb) cb({url:pub && pub.data ? pub.data.publicUrl : '', path:path});
+    });
+  }
+
   function getProfile(){ return _profile; }
   function isDemoMode(){ return _demoMode; }
 
@@ -2557,6 +2575,7 @@ var hmAuth = (function(){
 
   return {boot:boot, signOut:signOut, signInWithEmail:signInWithEmail,
           insert:insert, update:update, select:select, subscribe:subscribe,
+          uploadPublicImage:uploadPublicImage,
           getProfile:getProfile, isDemoMode:isDemoMode,
           submitLogin:submitLogin, _demoSkip:_demoSkip, showLogin:showLogin,
           _applyProfile:_applyProfile, _quickLogin:_quickLogin, _launchApp:_launchApp,
@@ -2600,7 +2619,7 @@ let ST={page:'home',ctx:{},saved:[1,8],role:'buyer',notif:true,aiOpen:false,detL
   bf:{q:'',cat:'all',region:'',dietary:[],health:[],sort:'featured'},
   mf:'',mapTx:0,mapTy:0,_mapDragged:false,
   ps:1,pt:'standard',
-  pf:{name:'',desc:'',region:'',cat:'african',dietary:[],healthTags:[],del:false,fee:'',pu:true,minOrder:10,maxOrder:100,leadDays:3,pricingModel:'per_person',eventTypes:[],serviceTypes:[],cookingStyle:'pre-cooked',setupIncluded:false,equipmentProvided:[],depositPct:0,travelRadius:30,cancellationPolicy:''},
+  pf:{name:'',desc:'',region:'',cat:'african',dietary:[],healthTags:[],del:false,fee:'',pu:true,minOrder:10,maxOrder:100,leadDays:3,pricingModel:'per_person',eventTypes:[],serviceTypes:[],cookingStyle:'pre-cooked',setupIncluded:false,equipmentProvided:[],depositPct:0,travelRadius:30,cancellationPolicy:'',img:'',imgPath:'',imgName:'',imgUploading:false,imgError:''},
   pi:[{n:'',p:'',svs:'',hot:false}],
   pd:[{qty:2,pct:10}],
   pdone:false,dtab:'menu',homeView:'grid',scrollPos:{}};
@@ -5184,6 +5203,7 @@ function goLiveListing(){
     ord:'0',
     e:catObj.e||'🍽️',
     img:f.img||'',
+    imgPath:f.imgPath||'',
     bg:'linear-gradient(135deg,#FFF0E0,#FFE0C0)',
     ec:'#C44410',
     items:items.length?items:[{n:'Homemade Special',p:100,svs:'1 person'}],
@@ -5196,7 +5216,7 @@ function goLiveListing(){
   SELLER_OWN_ID=newId;
   ST.pdone=true;
   // Reset form for next time
-  ST.pf={name:'',desc:'',region:'',cat:'african',dietary:[],healthTags:[],del:false,fee:'',pu:true,minOrder:10,maxOrder:100,leadDays:3,pricingModel:'per_person',eventTypes:[],serviceTypes:[],cookingStyle:'pre-cooked',setupIncluded:false,equipmentProvided:[],depositPct:0,travelRadius:30,cancellationPolicy:'',img:'',imgName:''};
+  ST.pf={name:'',desc:'',region:'',cat:'african',dietary:[],healthTags:[],del:false,fee:'',pu:true,minOrder:10,maxOrder:100,leadDays:3,pricingModel:'per_person',eventTypes:[],serviceTypes:[],cookingStyle:'pre-cooked',setupIncluded:false,equipmentProvided:[],depositPct:0,travelRadius:30,cancellationPolicy:'',img:'',imgPath:'',imgName:'',imgUploading:false,imgError:''};
   ST.pi=[]; ST.pd=[];
   rPost();
   showToast('🎉 Your listing is now live!');
@@ -5214,14 +5234,65 @@ function rPost(){
 function uploadListingImg(input){
   var file = input.files && input.files[0];
   if(!file) return;
+  if(!/^image\/(jpeg|png|webp|gif)$/.test(file.type)){ showToast('Please upload a JPG, PNG, WebP or GIF image.'); input.value=''; return; }
   if(file.size > 5*1024*1024){ showToast('Image must be under 5 MB'); input.value=''; return; }
+
+  ST.pf.imgError = '';
+  ST.pf.imgUploading = !(hmAuth && hmAuth.isDemoMode && hmAuth.isDemoMode());
+  ST.pf.imgName = file.name;
+
   var reader = new FileReader();
   reader.onload = function(ev){
-    ST.pf.img     = ev.target.result;
-    ST.pf.imgName = file.name;
+    ST.pf.img = ev.target.result;
     rPS();
+
+    if(!hmAuth || !hmAuth.uploadPublicImage || (hmAuth.isDemoMode && hmAuth.isDemoMode())){
+      ST.pf.imgUploading = false;
+      rPS();
+      return;
+    }
+
+    prepareListingImage(file, function(uploadFile){
+      hmAuth.uploadPublicImage(uploadFile, 'listing-uploads', function(res){
+        ST.pf.imgUploading = false;
+        if(res && res.url){
+          ST.pf.img = res.url;
+          ST.pf.imgPath = res.path || '';
+          ST.pf.imgName = file.name + ' (hosted)';
+          showToast('Photo uploaded to secure hosting.');
+        }else{
+          ST.pf.imgError = (res && res.error) || 'Could not upload photo yet.';
+          showToast('Photo preview saved, but hosting upload failed.');
+        }
+        rPS();
+      });
+    });
   };
   reader.readAsDataURL(file);
+  input.value='';
+}
+
+function prepareListingImage(file, cb){
+  if(file.type === 'image/gif'){ cb(file); return; }
+  var img = new Image();
+  var url = URL.createObjectURL(file);
+  img.onload = function(){
+    var max = 1600;
+    var scale = Math.min(1, max / Math.max(img.width, img.height));
+    var w = Math.max(1, Math.round(img.width * scale));
+    var h = Math.max(1, Math.round(img.height * scale));
+    var canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    URL.revokeObjectURL(url);
+    canvas.toBlob(function(blob){
+      if(!blob){ cb(file); return; }
+      var name = file.name.replace(/\.[^.]+$/, '') + '.webp';
+      cb(new File([blob], name, {type:'image/webp'}));
+    }, 'image/webp', 0.78);
+  };
+  img.onerror = function(){ URL.revokeObjectURL(url); cb(file); };
+  img.src = url;
 }
 
 function rPS(){
@@ -5237,9 +5308,9 @@ function rPS(){
         <div class="lsm" style="margin-bottom:7px">Listing Photo <span style="font-weight:400;color:var(--muted);font-size:10px">(recommended — listings with photos get 4× more clicks)</span></div>
         ${f.img
           ? `<div style="position:relative;display:inline-block;width:100%">
-               
-               <button onclick="ST.pf.img='';ST.pf.imgName='';rPS()" style="position:absolute;top:8px;right:8px;background:rgba(30,14,4,.65);border:none;border-radius:50%;width:30px;height:30px;color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">×</button>
-               <div style="font-size:11px;color:var(--muted);margin-top:6px">📷 ${f.imgName||'Photo uploaded'} — tap × to remove</div>
+               <img src="${f.img}" alt="Listing photo preview" style="width:100%;max-height:220px;object-fit:cover;border-radius:14px;border:1.5px solid var(--border);display:block"/>
+               <button onclick="ST.pf.img='';ST.pf.imgPath='';ST.pf.imgName='';ST.pf.imgUploading=false;ST.pf.imgError='';rPS()" style="position:absolute;top:8px;right:8px;background:rgba(30,14,4,.65);border:none;border-radius:50%;width:30px;height:30px;color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">×</button>
+               <div style="font-size:11px;color:${f.imgError?'var(--danger)':(f.imgUploading?'var(--accent)':'var(--muted)')};margin-top:6px">📷 ${f.imgUploading?'Uploading to secure hosting...':(f.imgError?f.imgError:(f.imgPath?'Photo hosted securely':(f.imgName||'Photo uploaded')))} ${!f.imgUploading?'— tap × to remove':''}</div>
              </div>`
           : `<label style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:var(--surface);border:2px dashed var(--border);border-radius:14px;padding:28px 20px;cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
                <span style="font-size:36px">📷</span>
