@@ -907,6 +907,10 @@ const FOOD_IMGS=[
 
 function sellerImg(s){return FOOD_IMGS[s.id%FOOD_IMGS.length];}
 
+function sellerPhoto(s, fallbackIndex){
+  return (s && s.img) || FOOD_IMGS[(fallbackIndex || (s && s.id) || 0) % FOOD_IMGS.length];
+}
+
 /* ── Artisan oval badge generator — pure SVG, perfect oval, zero extra weight ── */
 function sellerBadge(s){
   /* 5 colour schemes matching the artisan palette */
@@ -971,21 +975,57 @@ function sellerBadge(s){
 /* ── Seller food-photo icon (circular, used in cards, detail, map) ── */
 function sellerIcon(s, px, style){
   px = px||44;
-  var img = FOOD_IMGS[s.id % FOOD_IMGS.length];
+  var img = sellerPhoto(s);
   return '<div style="width:'+px+'px;height:'+px+'px;border-radius:50%;overflow:hidden;flex-shrink:0;'
     +'border:2.5px solid rgba(217,106,29,.35);box-shadow:0 2px 8px rgba(60,30,10,.18);'
     +(style||'')+'">'
-    +''
+    +'<img src="'+img+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block"/>'
     +'</div>';
 }
 /* Square food icon with rounded corners — for cards/pins */
 function sellerThumb(s, px, radius){
   px = px||52; radius = radius||'14px';
-  var img = FOOD_IMGS[s.id % FOOD_IMGS.length];
+  var img = sellerPhoto(s);
   return '<div style="width:'+px+'px;height:'+px+'px;border-radius:'+radius+';overflow:hidden;flex-shrink:0;'
     +'box-shadow:0 2px 8px rgba(60,30,10,.14)">'
-    +''
+    +'<img src="'+img+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block"/>'
     +'</div>';
+}
+
+function mergeLiveSellers(rows){
+  if(!rows||!rows.length) return false;
+  var changed=false;
+  rows.forEach(function(row){
+    var d=row.data||{};
+    var id=row.id;
+    var existing=SELLERS.find(function(s){return s.id===id;});
+    var mapped=Object.assign({}, d, {
+      id:id,
+      name:row.name||d.name||row.seller||'Home-Made Seller',
+      seller:row.seller||d.seller||row.name||'Home Chef',
+      cat:row.category||d.cat||'african',
+      tier:row.tier||d.tier||'standard',
+      region:row.region||d.region||'Durban CBD',
+      wa:row.wa||d.wa||'27000000000',
+      _supabase:true
+    });
+    if(row.lat&&row.lng) SELLER_LL[id]=[parseFloat(row.lat),parseFloat(row.lng)];
+    if(existing){ Object.assign(existing, mapped); }
+    else { SELLERS.push(mapped); }
+    changed=true;
+  });
+  return changed;
+}
+
+function loadLiveSellers(cb){
+  if(!hmAuth||hmAuth.isDemoMode()) { if(cb) cb(false); return; }
+  hmAuth.select('sellers',{active:true},function(rows){
+    var changed=mergeLiveSellers(rows);
+    if(changed&&ST&&ST.page){
+      try{ render(); }catch(e){}
+    }
+    if(cb) cb(changed);
+  });
 }
 
 /* ── Real Durban lat/lng for Leaflet map ── */
@@ -2281,6 +2321,7 @@ var hmAuth = (function(){
     /* Role-appropriate landing page */
     var landing = p.role==='admin' ? 'admin' : p.role==='seller' ? 'admin' : p.role==='buyer' ? 'profile' : 'home';
     nav(landing);
+    loadLiveSellers();
     /* Show a welcome toast (not for silent guest boot) */
     if(p.role !== 'guest'){
       var greet = p.role==='admin'  ? '👑 Welcome back, Admin!'
@@ -4326,7 +4367,7 @@ function mapPin(id){
           (outOfStock?'opacity:.4;':'')+'">'+
           /* meal photo thumbnail */
           '<div style="width:54px;height:54px;border-radius:10px;overflow:hidden;flex-shrink:0;position:relative">'+
-            ''+
+            '<img src="'+_mimg+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block"/>'+
             (outOfStock?'<div style="position:absolute;inset:0;background:rgba(255,255,255,.55);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--red)">SOLD OUT</div>':'')+
           '</div>'+
           '<div style="flex:1;min-width:0">'+

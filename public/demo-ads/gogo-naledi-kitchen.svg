@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-label="Gogo Naledi's Kitchen advert artwork">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2f3b21"/>
+      <stop offset="0.62" stop-color="#7a8b52"/>
+      <stop offset="1" stop-color="#f0c66a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#bg)"/>
+  <path d="M0 660c230-95 390-90 560-30 210 75 390 72 640-46v216H0z" fill="#fff2"/>
+  <circle cx="760" cy="410" r="230" fill="#fff8"/>
+  <ellipse cx="760" cy="470" rx="250" ry="78" fill="#2e1c1240"/>
+  <rect x="585" y="275" width="350" height="265" rx="48" fill="#7b2d12"/>
+  <ellipse cx="760" cy="275" rx="175" ry="52" fill="#e9d6b8"/>
+  <ellipse cx="760" cy="275" rx="118" ry="32" fill="#d96a1d"/>
+  <circle cx="720" cy="275" r="18" fill="#f8d77a"/>
+  <circle cx="790" cy="285" r="16" fill="#8fa860"/>
+  <circle cx="835" cy="266" r="14" fill="#f8d77a"/>
+  <text x="120" y="220" fill="#fff" font-family="Georgia,serif" font-size="68" font-weight="700">Gogo Naledi's</text>
+  <text x="120" y="295" fill="#fff" font-family="Georgia,serif" font-size="68" font-weight="700">Kitchen</text>
+  <text x="124" y="350" fill="#fff9" font-family="Arial,sans-serif" font-size="28">Sunday plates, samp, beans and chakalaka</text>
+  <rect x="124" y="608" width="265" height="58" rx="29" fill="#fff"/>
+  <text x="256" y="646" text-anchor="middle" fill="#61713b" font-family="Arial,sans-serif" font-size="24" font-weight="700">Gold Seller</text>
+</svg>

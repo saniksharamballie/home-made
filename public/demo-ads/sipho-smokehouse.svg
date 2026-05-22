@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-label="Sipho's Smokehouse advert artwork">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1e0e04"/>
+      <stop offset="0.62" stop-color="#7a2e12"/>
+      <stop offset="1" stop-color="#d48a00"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#bg)"/>
+  <path d="M760 230c-75 85 55 120-25 210 115-55 165-138 87-245z" fill="#fff2"/>
+  <rect x="610" y="450" width="370" height="95" rx="42" fill="#1e0e04"/>
+  <path d="M665 445c35-85 105-115 150-62 45 53 118 24 135 72" fill="none" stroke="#f2c14e" stroke-width="38" stroke-linecap="round"/>
+  <path d="M650 545h315" stroke="#fff4" stroke-width="12" stroke-linecap="round" stroke-dasharray="20 28"/>
+  <text x="110" y="240" fill="#fff" font-family="Georgia,serif" font-size="72" font-weight="700">Sipho's</text>
+  <text x="110" y="318" fill="#fff" font-family="Georgia,serif" font-size="72" font-weight="700">Smokehouse</text>
+  <text x="115" y="372" fill="#fff9" font-family="Arial,sans-serif" font-size="28">Shisa nyama, ribs and weekend braai packs</text>
+  <rect x="115" y="610" width="330" height="58" rx="29" fill="#fff"/>
+  <text x="280" y="647" text-anchor="middle" fill="#7a2e12" font-family="Arial,sans-serif" font-size="24" font-weight="700">Platinum Seller</text>
+</svg>
