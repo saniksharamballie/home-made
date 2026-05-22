@@ -1,0 +1,19 @@
+project_id = "home-made"
+
+[api]
+enabled = true
+schemas = ["public", "storage"]
+extra_search_path = ["public", "extensions"]
+
+[auth]
+enabled = true
+site_url = "https://home-made.co.za"
+additional_redirect_urls = [
+  "https://www.home-made.co.za",
+  "http://localhost:3000"
+]
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = true
