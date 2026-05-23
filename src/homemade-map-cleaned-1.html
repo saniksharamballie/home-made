@@ -2279,7 +2279,7 @@ var hmAuth = (function(){
       var effectiveEmail = ((user.email || (profileRow && profileRow.email) || '') + '').trim().toLowerCase();
       var metaRole = user.app_metadata && user.app_metadata.role;
       if((profileRow && profileRow.role === 'admin') || metaRole === 'admin' || _isAdminEmail(effectiveEmail)){
-        _profile = {role:'admin', displayName:(profileRow && profileRow.display_name) || 'Admin', sellerId:null, email:effectiveEmail, raw:profileRow};
+        _profile = {role:'admin', displayName:(profileRow && profileRow.display_name) || 'Admin', sellerId:null, authId:user.id, email:effectiveEmail, raw:profileRow};
         cb(_profile); return;
       }
 
@@ -2287,15 +2287,19 @@ var hmAuth = (function(){
       .then(function(res){
         if(res.data || (profileRow && profileRow.role === 'seller')){
           var seller = res.data || {};
-          _profile = {role:'seller', displayName:seller.name || (profileRow && profileRow.display_name) || fallbackName, sellerId:seller.id || null, email:user.email, raw:seller};
+          _profile = {role:'seller', displayName:seller.name || (profileRow && profileRow.display_name) || fallbackName, sellerId:seller.id || null, authId:user.id, email:user.email, raw:seller};
           cb(_profile); return;
         }
 
         var name = (profileRow && profileRow.display_name) || fallbackName;
         _sb.from('buyers').upsert({auth_id:user.id, email:user.email, name:name}, {onConflict:'auth_id'})
         .then(function(){
-          _profile = {role:'buyer', displayName:name, sellerId:null, email:user.email, raw:profileRow};
-          cb(_profile);
+          _sb.from('buyers').select('*').eq('auth_id', user.id).maybeSingle()
+          .then(function(buyerRes){
+            var buyer = buyerRes && buyerRes.data ? buyerRes.data : {};
+            _profile = {role:'buyer', displayName:buyer.name || name, sellerId:null, authId:user.id, email:buyer.email || user.email, raw:buyer};
+            cb(_profile);
+          });
         });
       });
     }
@@ -6859,6 +6863,7 @@ function rProfile(){
       {id:'today',  label:'📊 Today'},
       {id:'revenue',label:'💰 Revenue'},
       {id:'menu',   label:'🍽️ Menu'},
+      {id:'storefront',label:'Storefront'},
       {id:'rep',    label:'⭐ Rep'},
       {id:'alerts', label:'🚨 Alerts'},
       {id:'myprefs',label:'🎛️ My Preferences'},
@@ -6886,6 +6891,7 @@ function rProfile(){
   function buyTabBar(){
     var tabs=[
       {id:'today',   label:'📊 Today'},
+      {id:'bio',     label:'Bio'},
       {id:'orders',  label:'📦 Orders'},
       {id:'taste',   label:'🍽️ Taste'},
       {id:'markets', label:'🧳 Markets'},
@@ -6911,7 +6917,7 @@ function rProfile(){
         : _selTab==='ratings'   ? buildAdminRatingsTab()
         : buildAdminTodayPanel())
     : r==='seller'
-    ? (_selTab==='myprefs' ? buildDietPanel()+buildSellerPrefsPanel(saved) : buildSellerDashboard(_selTab))
+    ? (_selTab==='myprefs' ? buildDietPanel()+buildSellerPrefsPanel(saved) : _selTab==='storefront' ? buildSellerStorefrontPanel() : buildSellerDashboard(_selTab))
     : '';
   const _tabBarHTML=(r==='admin'||r==='seller') ? selTabBar() : '';
   const statPanel=(r==='admin'||r==='seller')
@@ -6922,11 +6928,14 @@ function rProfile(){
   var _buyTab = _pdt.buyer||'today';
   const buyerPanels = r==='buyer' ? (
     buyTabBar()
+    + '<div id="prof-dash-content">'
     + (_buyTab==='today'  ? buildBuyerStatsPanel() + buildBuyerQuickPrefs() + buildBuyerSAPanel() + buildBuyerAddressPanel() : '')
+    + (_buyTab==='bio'    ? buildBuyerBioPanel() : '')
     + (_buyTab==='orders' ? buildBuyerOrderHistory() : '')
     + (_buyTab==='taste'  ? buildBuyerTastePanel() : '')
     + (_buyTab==='markets'? renderPassport() : '')
     + (_buyTab==='myprefs'? buildDietPanel() + buildBuyerPrefsPanel(saved) : '')
+    + '</div>'
   ) : '';
 
   document.getElementById('page-profile').innerHTML=`
@@ -7004,6 +7013,116 @@ function swR(r){
   }, 120);
 }
 /* ── refreshDashContent: swap only #prof-dash-content, never touch the tab bar ── */
+function hmText(v){
+  return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function hmField(id){
+  var el=document.getElementById(id);
+  return el ? el.value.trim() : '';
+}
+function hmOwnSeller(){
+  var p=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
+  var sid=(p&&p.sellerId)||SELLER_OWN_ID;
+  return SELLERS.find(function(s){return s.id===sid;}) || (p&&p.raw) || null;
+}
+function profileImagePreview(url, fallback, px){
+  var size=px||92;
+  return url
+    ? '<img src="'+hmText(url)+'" alt="" style="width:'+size+'px;height:'+size+'px;border-radius:16px;object-fit:cover;display:block;border:1.5px solid var(--border);box-shadow:var(--shadow)"/>'
+    : '<div style="width:'+size+'px;height:'+size+'px;border-radius:16px;background:var(--bg);border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--muted)">'+fallback+'</div>';
+}
+function profileInput(label, id, value, placeholder, type){
+  return '<div><div class="lsm" style="margin-bottom:7px">'+label+'</div><input id="'+id+'" class="inp" type="'+(type||'text')+'" value="'+hmText(value||'')+'" placeholder="'+hmText(placeholder||'')+'"/></div>';
+}
+function profileTextarea(label, id, value, placeholder, rows){
+  return '<div><div class="lsm" style="margin-bottom:7px">'+label+'</div><textarea id="'+id+'" class="inp" rows="'+(rows||3)+'" placeholder="'+hmText(placeholder||'')+'">'+hmText(value||'')+'</textarea></div>';
+}
+function buildSellerStorefrontPanel(){
+  var p=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
+  var s=hmOwnSeller() || {};
+  var d=s.data || {};
+  var storePic=d.storePic || s.img || '';
+  var avatar=d.avatar || d.icon || '';
+  var contactEmail=d.contactEmail || s.email || (p&&p.email) || '';
+  return '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:var(--shadow)">'
+    +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px"><div><div style="font-size:16px;font-weight:800;color:var(--heading)">Storefront Profile</div><div style="font-size:12px;color:var(--muted);margin-top:2px">This is the business information buyers see and use to contact you.</div></div><button class="btn btn-a btn-sm" onclick="saveSellerStorefront()">'+ic('save',14,'#fff')+' Save</button></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:14px">'
+      +'<div style="display:flex;gap:12px;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px"><div id="seller-storepic-preview">'+profileImagePreview(storePic,'🏪',86)+'</div><div style="flex:1;min-width:0"><div class="lsm" style="margin-bottom:7px">Store Picture</div><input id="seller_store_pic" type="hidden" value="'+hmText(storePic)+'"/><input class="inp" type="file" accept="image/*" onchange="uploadProfileImage(this,\'seller_store_pic\',\'seller-profiles\')" style="font-size:12px;padding:9px"/></div></div>'
+      +'<div style="display:flex;gap:12px;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px"><div id="seller-avatar-preview">'+profileImagePreview(avatar,'👤',86)+'</div><div style="flex:1;min-width:0"><div class="lsm" style="margin-bottom:7px">Icon / Avatar</div><input id="seller_avatar" type="hidden" value="'+hmText(avatar)+'"/><input class="inp" type="file" accept="image/*" onchange="uploadProfileImage(this,\'seller_avatar\',\'seller-profiles\')" style="font-size:12px;padding:9px"/></div></div>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">'
+      +profileInput('Name of Store','seller_store_name',s.name||d.storeName||'',"Thandi's Spice Pot")
+      +profileInput('Owner / Contact Name','seller_contact_name',s.seller||d.contactName||'','Thandi Naidoo')
+      +profileInput('Contact Email','seller_contact_email',contactEmail,'orders@example.co.za','email')
+      +profileInput('Contact Number','seller_phone',s.wa||d.phone||'','27821234567','tel')
+      +profileInput('Address / Pickup Area','seller_address',d.address||'','Street, suburb, city')
+      +profileInput('Payment Information','seller_payment',d.paymentInfo||'','Cash, EFT, bank details, eWallet')
+    +'</div><div style="margin-top:12px">'+profileTextarea('Store Bio','seller_bio',d.bio||s.desc||'','Tell buyers what you make, your style, and collection notes.',4)+'</div></div>';
+}
+function buildBuyerBioPanel(){
+  var p=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
+  var raw=(p&&p.raw)||{};
+  var d=raw.data || {};
+  var avatar=d.avatar || '';
+  var name=ST.bp.displayName || (p&&p.displayName) || '';
+  return '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:var(--shadow)">'
+    +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px"><div><div style="font-size:16px;font-weight:800;color:var(--heading)">Buyer Bio</div><div style="font-size:12px;color:var(--muted);margin-top:2px">Keep your contact details ready for orders, markets and seller messages.</div></div><button class="btn btn-a btn-sm" onclick="saveBuyerBio()">'+ic('save',14,'#fff')+' Save</button></div>'
+    +'<div style="display:flex;gap:12px;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:14px;max-width:520px"><div id="buyer-avatar-preview">'+profileImagePreview(avatar,'👤',86)+'</div><div style="flex:1;min-width:0"><div class="lsm" style="margin-bottom:7px">Avatar</div><input id="buyer_avatar" type="hidden" value="'+hmText(avatar)+'"/><input class="inp" type="file" accept="image/*" onchange="uploadProfileImage(this,\'buyer_avatar\',\'buyer-profiles\')" style="font-size:12px;padding:9px"/></div></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">'
+      +profileInput('Name','buyer_name',raw.name||name,'Your name')
+      +profileInput('Email','buyer_email',raw.email||(p&&p.email)||'','you@example.co.za','email')
+      +profileInput('Contact Number','buyer_phone',raw.phone||d.phone||'','','tel')
+      +profileInput('Address','buyer_address',d.address||'','Delivery or collection suburb')
+    +'</div><div style="margin-top:12px">'+profileTextarea('Bio / Preferences','buyer_bio',d.bio||'','Anything sellers should know about your orders.',3)+'</div></div>';
+}
+function uploadProfileImage(input, targetId, folder){
+  var file=input.files&&input.files[0];
+  if(!file) return;
+  if(!/^image\/(jpeg|png|webp|gif)$/.test(file.type)){ showToast('Please upload a JPG, PNG, WebP or GIF image.'); input.value=''; return; }
+  if(file.size > 5*1024*1024){ showToast('Image must be under 5 MB'); input.value=''; return; }
+  showToast('Uploading image...');
+  prepareListingImage(file, function(uploadFile){
+    hmAuth.uploadPublicImage(uploadFile, folder, function(res){
+      input.value='';
+      if(!res || !res.url){ showToast((res&&res.error)||'Could not upload image yet.'); return; }
+      var target=document.getElementById(targetId);
+      if(target) target.value=res.url;
+      var prevId=targetId==='seller_store_pic'?'seller-storepic-preview':targetId==='seller_avatar'?'seller-avatar-preview':'buyer-avatar-preview';
+      var prev=document.getElementById(prevId);
+      if(prev) prev.innerHTML=profileImagePreview(res.url,'👤',86);
+      showToast('Image uploaded.');
+    });
+  });
+}
+function saveSellerStorefront(){
+  var p=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
+  var s=hmOwnSeller();
+  if(!p || !s || !s.id){ showToast('Seller profile is still loading.'); return; }
+  var data=Object.assign({}, s.data||{}, {storeName:hmField('seller_store_name'),contactName:hmField('seller_contact_name'),contactEmail:hmField('seller_contact_email'),phone:hmField('seller_phone'),address:hmField('seller_address'),paymentInfo:hmField('seller_payment'),bio:hmField('seller_bio'),storePic:hmField('seller_store_pic'),avatar:hmField('seller_avatar')});
+  var values={name:data.storeName || s.name,seller:data.contactName || s.seller,email:data.contactEmail || s.email || p.email,wa:data.phone || s.wa,data:data};
+  hmAuth.update('sellers',{id:s.id},values,function(res){
+    if(res&&res.error){ showToast('Could not save storefront: '+res.error); return; }
+    Object.assign(s, values, {img:data.storePic || s.img, desc:data.bio || s.desc});
+    if(p){ p.displayName=values.name; p.raw=Object.assign({}, p.raw||{}, values); }
+    ST.bp.displayName=values.name;
+    showToast('Storefront saved.');
+    rProfile();
+  });
+}
+function saveBuyerBio(){
+  var p=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
+  if(!p || !p.authId){ showToast('Buyer profile is still loading.'); return; }
+  var raw=(p.raw)||{};
+  var data=Object.assign({}, raw.data||{}, {avatar:hmField('buyer_avatar'),address:hmField('buyer_address'),bio:hmField('buyer_bio'),phone:hmField('buyer_phone')});
+  var values={auth_id:p.authId,name:hmField('buyer_name') || p.displayName || 'Buyer',email:hmField('buyer_email') || p.email,phone:hmField('buyer_phone'),data:data};
+  hmAuth.update('buyers',{auth_id:p.authId},values,function(res){
+    if(res&&res.error){ showToast('Could not save bio: '+res.error); return; }
+    p.displayName=values.name; p.email=values.email; p.raw=Object.assign({}, raw, values);
+    ST.bp.displayName=values.name;
+    showToast('Buyer bio saved.');
+    rProfile();
+  });
+}
 function refreshDashContent(){
   var contentEl=document.getElementById('prof-dash-content');
   if(!contentEl) return;
@@ -7020,9 +7139,10 @@ function refreshDashContent(){
          :tab==='ratings'   ?buildAdminRatingsTab()
          :buildAdminTodayPanel());
   } else if(r==='seller'){
-    html=(tab==='myprefs'?buildDietPanel()+buildSellerPrefsPanel(saved):buildSellerDashboard(tab));
+    html=(tab==='myprefs'?buildDietPanel()+buildSellerPrefsPanel(saved):tab==='storefront'?buildSellerStorefrontPanel():buildSellerDashboard(tab));
   } else if(r==='buyer'){
     html=(tab==='today'  ?buildBuyerStatsPanel()+buildBuyerQuickPrefs()+buildBuyerSAPanel()+buildBuyerAddressPanel()
+         :tab==='bio'    ?buildBuyerBioPanel()
          :tab==='orders' ?buildBuyerOrderHistory()
          :tab==='taste'  ?buildBuyerTastePanel()
          :tab==='markets'?renderPassport()
