@@ -43,7 +43,7 @@ function build() {
     `  SUPABASE_URL: ${jsString(process.env.NEXT_PUBLIC_SUPABASE_URL)},`,
     `  SUPABASE_ANON_KEY: ${jsString(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)},`,
     `  ADMIN_EMAIL: ${jsString(process.env.NEXT_PUBLIC_ADMIN_EMAIL || "saniksha@gmail.com,sycoticzn@gmail.com")},`,
-    `  SITE_URL: ${jsString(process.env.NEXT_PUBLIC_SITE_URL || "https://home-made.co.za")}`,
+    `  SITE_URL: ${jsString(process.env.NEXT_PUBLIC_SITE_URL || "https://home-made-six.vercel.app")}`,
     "};",
     ""
   ].join("\n");

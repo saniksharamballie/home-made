@@ -2337,7 +2337,8 @@ var hmAuth = (function(){
   function signInWithEmail(email, cb){
     if(_demoMode){ cb({error:'Demo mode — add your Supabase keys to enable login.'}); return; }
     _initClient();
-    var redirectTo = window.location.origin + window.location.pathname;
+    var redirectTo = (window.HM_CONFIG && window.HM_CONFIG.SITE_URL) || window.location.origin;
+    redirectTo = redirectTo.replace(/\/$/, '') + window.location.pathname;
     _sb.auth.signInWithOtp({email:email, options:{emailRedirectTo: redirectTo, shouldCreateUser:true}})
     .then(function(res){ cb(res.error ? {error:res.error.message} : {ok:true}); });
   }

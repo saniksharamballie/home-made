@@ -26,7 +26,7 @@ The built app is emitted to `public/index.html`.
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 NEXT_PUBLIC_ADMIN_EMAIL=saniksha@gmail.com,sycoticzn@gmail.com
-NEXT_PUBLIC_SITE_URL=https://home-made.co.za
+NEXT_PUBLIC_SITE_URL=https://home-made-six.vercel.app
 ```
 
 If Supabase values are missing, the app stays in the original demo fallback mode.
