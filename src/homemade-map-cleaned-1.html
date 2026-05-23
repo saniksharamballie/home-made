@@ -2276,8 +2276,10 @@ var hmAuth = (function(){
     var fallbackName = (user.user_metadata && user.user_metadata.full_name) || (user.email||'').split('@')[0] || 'Member';
 
     function finishFromProfile(profileRow){
-      if((profileRow && profileRow.role === 'admin') || _isAdminEmail(user.email)){
-        _profile = {role:'admin', displayName:(profileRow && profileRow.display_name) || 'Admin', sellerId:null, email:user.email, raw:profileRow};
+      var effectiveEmail = ((user.email || (profileRow && profileRow.email) || '') + '').trim().toLowerCase();
+      var metaRole = user.app_metadata && user.app_metadata.role;
+      if((profileRow && profileRow.role === 'admin') || metaRole === 'admin' || _isAdminEmail(effectiveEmail)){
+        _profile = {role:'admin', displayName:(profileRow && profileRow.display_name) || 'Admin', sellerId:null, email:effectiveEmail, raw:profileRow};
         cb(_profile); return;
       }
 
