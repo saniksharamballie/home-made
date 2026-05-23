@@ -1,7 +1,15 @@
-const VERSION = "hm-prod-v2";
+const VERSION = "hm-prod-v3";
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
-const SHELL_ASSETS = ["/", "/index.html", "/env.js"];
+const SHELL_ASSETS = [
+  "/",
+  "/index.html",
+  "/env.js",
+  "/manifest.json",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+  "/icons/apple-touch-icon.png"
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
