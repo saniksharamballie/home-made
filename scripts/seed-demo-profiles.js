@@ -1,5 +1,6 @@
 const base = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://yemdirpmtqzzduxtgfqh.supabase.co";
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const demoPassword = process.env.HM_DEMO_PASSWORD || "HomeMadeDemo!2026";
 
 if (!key) {
   console.error("Missing SUPABASE_SERVICE_ROLE_KEY");
@@ -196,40 +197,116 @@ async function request(path, options = {}) {
   return text ? JSON.parse(text) : null;
 }
 
-async function upsertBuyers() {
-  return request("/rest/v1/buyers?on_conflict=email", {
+async function getAuthUsers() {
+  const response = await fetch(`${base}/auth/v1/admin/users?page=1&per_page=1000`, {
+    headers: { apikey: key, Authorization: `Bearer ${key}` }
+  });
+  const text = await response.text();
+  if (!response.ok) throw new Error(`GET /auth/v1/admin/users: ${response.status} ${text}`);
+  return JSON.parse(text).users || [];
+}
+
+async function upsertAuthUser(account, role, users) {
+  const existing = users.find((user) => (user.email || "").toLowerCase() === account.email.toLowerCase());
+  const body = {
+    email: account.email,
+    password: demoPassword,
+    email_confirm: true,
+    user_metadata: { full_name: account.name },
+    app_metadata: { role }
+  };
+
+  if (existing) {
+    const response = await fetch(`${base}/auth/v1/admin/users/${existing.id}`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify(body)
+    });
+    const text = await response.text();
+    if (!response.ok) throw new Error(`PUT /auth/v1/admin/users/${existing.id}: ${response.status} ${text}`);
+    return JSON.parse(text);
+  }
+
+  const response = await fetch(`${base}/auth/v1/admin/users`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body)
+  });
+  const text = await response.text();
+  if (!response.ok) throw new Error(`POST /auth/v1/admin/users: ${response.status} ${text}`);
+  return JSON.parse(text);
+}
+
+async function upsertProfile(user, account, role) {
+  return request("/rest/v1/profiles?on_conflict=id", {
     method: "POST",
     headers: { ...headers, Prefer: "resolution=merge-duplicates,return=representation" },
-    body: JSON.stringify(buyers)
+    body: JSON.stringify({
+      id: user.id,
+      email: account.email,
+      display_name: account.name,
+      role
+    })
   });
 }
 
-async function upsertSeller(row) {
+async function upsertBuyers(authByEmail = new Map()) {
+  return request("/rest/v1/buyers?on_conflict=email", {
+    method: "POST",
+    headers: { ...headers, Prefer: "resolution=merge-duplicates,return=representation" },
+    body: JSON.stringify(buyers.map((buyer) => ({
+      ...buyer,
+      auth_id: authByEmail.get(buyer.email.toLowerCase()) || null
+    })))
+  });
+}
+
+async function upsertSeller(row, authId = null) {
   const existing = await request(`/rest/v1/sellers?select=id&email=eq.${encodeURIComponent(row.email)}&limit=1`);
   if (existing.length) {
     return request(`/rest/v1/sellers?id=eq.${existing[0].id}`, {
       method: "PATCH",
-      body: JSON.stringify({ ...row, active: true })
+      body: JSON.stringify({ ...row, auth_id: authId, active: true })
     });
   }
   return request("/rest/v1/sellers", {
     method: "POST",
-    body: JSON.stringify({ ...row, active: true })
+    body: JSON.stringify({ ...row, auth_id: authId, active: true })
   });
 }
 
 async function main() {
-  const buyerRows = await upsertBuyers();
-  const sellerRows = [];
-  for (const seller of sellers) sellerRows.push(await upsertSeller(seller));
+  const authByEmail = new Map();
+  const existingUsers = await getAuthUsers();
 
-  const verifySellers = await request("/rest/v1/sellers?select=id,email,name,tier,region&email=like.demo.seller.*&order=email.asc");
-  const verifyBuyers = await request("/rest/v1/buyers?select=id,email,name&email=like.demo.buyer.*&order=email.asc");
+  for (const buyer of buyers) {
+    const user = await upsertAuthUser(buyer, "buyer", existingUsers);
+    authByEmail.set(buyer.email.toLowerCase(), user.id);
+    await upsertProfile(user, buyer, "buyer");
+  }
+
+  for (const seller of sellers) {
+    const user = await upsertAuthUser(seller, "seller", existingUsers);
+    authByEmail.set(seller.email.toLowerCase(), user.id);
+    await upsertProfile(user, seller, "seller");
+  }
+
+  const buyerRows = await upsertBuyers(authByEmail);
+  const sellerRows = [];
+  for (const seller of sellers) sellerRows.push(await upsertSeller(seller, authByEmail.get(seller.email.toLowerCase())));
+
+  const verifySellers = await request("/rest/v1/sellers?select=id,email,auth_id,name,tier,region&email=like.demo.seller.*&order=email.asc");
+  const verifyBuyers = await request("/rest/v1/buyers?select=id,email,auth_id,name&email=like.demo.buyer.*&order=email.asc");
+  const verifyProfiles = await request("/rest/v1/profiles?select=email,role&email=like.demo.%&order=email.asc");
   console.log(JSON.stringify({
+    demoPassword,
     insertedOrUpdatedBuyers: buyerRows.length,
     insertedOrUpdatedSellers: sellerRows.length,
     verifiedBuyerCount: verifyBuyers.length,
     verifiedSellerCount: verifySellers.length,
+    linkedBuyerCount: verifyBuyers.filter((buyer) => buyer.auth_id).length,
+    linkedSellerCount: verifySellers.filter((seller) => seller.auth_id).length,
+    profileCount: verifyProfiles.length,
     sellers: verifySellers
   }, null, 2));
 }
