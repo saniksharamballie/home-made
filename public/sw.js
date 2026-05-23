@@ -1,4 +1,4 @@
-const VERSION = "hm-prod-v1";
+const VERSION = "hm-prod-v2";
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 const SHELL_ASSETS = ["/", "/index.html", "/env.js"];
@@ -43,6 +43,21 @@ self.addEventListener("fetch", (event) => {
           return cached || network;
         })
       )
+    );
+    return;
+  }
+
+  if (url.pathname === "/" || url.pathname === "/index.html" || url.pathname === "/env.js" || url.pathname.endsWith(".js")) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.ok) {
+            const copy = response.clone();
+            caches.open(RUNTIME).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request))
     );
     return;
   }
