@@ -73,7 +73,8 @@ body{background:var(--bg);color:var(--body);font-family:var(--font-body);-webkit
 
 /* Sidebar */
 #sidebar{width:240px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:60;transform:translateX(0);transition:transform .25s cubic-bezier(.4,0,.2,1);box-shadow:2px 0 16px rgba(30,14,4,.06)}
-#sb-logo{padding:22px 18px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+#sb-logo{padding:16px 14px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:center}
+.sb-logo-img{display:block;width:100%;max-width:200px;height:auto;object-fit:contain}
 .sb-icon{width:42px;height:42px;border-radius:14px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
 .sb-name{font-family:var(--font-head);font-size:19px;font-weight:700;color:var(--heading);line-height:1.1}
 .sb-sub{font-size:10px;color:var(--muted);margin-top:1px;font-weight:500}
@@ -96,7 +97,7 @@ body{background:var(--bg);color:var(--body);font-family:var(--font-body);-webkit
 
 /* Topbar */
 #topbar{position:fixed;top:0;left:0;right:0;z-index:45;background:rgba(253,246,238,.98);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:12px 28px;display:flex;align-items:center;justify-content:space-between;gap:14px;transition:transform .3s ease}
-#topbar-spacer{height:54px;flex-shrink:0;transition:height .25s ease}
+#topbar-spacer{height:68px;flex-shrink:0;transition:height .25s ease}
 #topbar-spacer.hidden-spacer{height:0}
 .tb-l{display:flex;align-items:center;gap:14px;flex:1;min-width:0}
 
@@ -679,8 +680,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
 <!-- ═══ SIDEBAR ═══ -->
 <aside id="sidebar">
   <div id="sb-logo">
-    <div class="sb-icon">🍽️</div>
-    <div><div class="sb-name">Home-Made</div><div class="sb-sub">Real Food. Real Homes.</div></div>
+    <img class="sb-logo-img" src="/icons/home-made-desktop-logo.jpeg" alt="Home-Made">
   </div>
   <nav id="sb-nav">
     <button class="si active" data-p="home"    onclick="nav('home')">   <span class="ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg></span>Home</button>
@@ -3164,7 +3164,10 @@ function nav(page,ctx){
   srAnnounce(pageNames[page]||page);
   // Move focus to main content after navigation
   var mc=document.getElementById('main-content');
-  if(mc) setTimeout(function(){mc.focus();},120);
+  if(mc) setTimeout(function(){
+    try { mc.focus({preventScroll:true}); }
+    catch(e){ mc.focus(); window.scrollTo({top:savedY,behavior:'instant'}); }
+  },120);
   // Scroll: detail and home always go to top; returning to other pages restores position
   /* Restore scroll for all pages except detail (which always resets to top) */
   var savedY=(page!=='detail'&&ST.scrollPos[page]!=null)?ST.scrollPos[page]:0;
@@ -4927,7 +4930,7 @@ function initLeafMap(mf,tag){
       var pinHtml=
         '<div style="position:relative;width:88px;text-align:center;opacity:'+opacity+'">'+
         '<div class="plat-pulse" style="position:absolute;inset:-6px;border-radius:50%;border:2.5px solid rgba(217,106,29,.55);pointer-events:none"></div>'+
-        ''+
+        '<div style="width:52px;height:52px;border-radius:18px;margin:0 auto 4px;background:linear-gradient(135deg,#FFF6CC,#D48A00);border:3px solid #fff;box-shadow:0 7px 18px rgba(80,40,0,.28);display:flex;align-items:center;justify-content:center;font-size:25px;line-height:1">&#11088;</div>'+
         '<div class="plat-label" data-full="'+s.name+'" data-short="'+short+'" style="display:inline-block;background:linear-gradient(135deg,#C89808,#F0D050);color:#2A1800;font-size:9px;font-weight:800;padding:2px 8px;border-radius:100px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88px;box-shadow:0 2px 6px rgba(184,146,10,.35)">&#11088; '+short+'</div>'+
         '</div>'
       icon=L.divIcon({className:'',html:pinHtml,iconSize:[88,116],iconAnchor:[44,110]});
@@ -4937,7 +4940,7 @@ function initLeafMap(mf,tag){
     }else if(s.tier==='gold'){
       var goldHtml=
         '<div style="opacity:'+opacity+';display:flex;align-items:center;justify-content:center">'+
-        ''+
+        '<div style="width:42px;height:42px;border-radius:15px;background:linear-gradient(135deg,#FFE1A8,#E55A18);border:3px solid #fff;box-shadow:0 5px 14px rgba(80,40,0,.24);display:flex;align-items:center;justify-content:center;font-size:21px;line-height:1">&#128293;</div>'+
         '</div>';
       icon=L.divIcon({className:'',html:goldHtml,iconSize:[48,58],iconAnchor:[24,58]});
       marker=L.marker(ll,{icon:icon,zIndexOffset:zOff}).addTo(map);
@@ -8719,7 +8722,7 @@ function rAdmin(){
     {id:'feed',      label:'⚡ Feed'},
     {id:'controls',  label:'🎮 Controls'},
   ];
-  var tabBar='<div style="display:flex;gap:4px;overflow-x:auto;padding:0 28px 14px;scrollbar-width:none;-webkit-overflow-scrolling:touch">'
+  var tabBar='<div style="display:flex;gap:4px;flex-wrap:wrap;overflow-x:visible;padding:0 28px 14px;scrollbar-width:none;-webkit-overflow-scrolling:touch">'
     +tabs.map(function(tb){
       var on=(tb.id===t);
       return '<button onclick="admSetTab(\''+tb.id+'\')" style="flex-shrink:0;padding:8px 16px;border-radius:10px;border:1.5px solid '+(on?'var(--accent)':'var(--border)')+';background:'+(on?'var(--accent)':'var(--surface)')+';color:'+(on?'#fff':'var(--muted)')+';font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font-body);transition:all .15s;white-space:nowrap">'+tb.label+'</button>';
