@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="48x48" href="/icons/icon-48.png"/>
 <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png"/>
 <link rel="manifest" id="pwa-manifest" href="/manifest.json"/>
-<title>Home-Made v4.8 — Real Food. Real Homes. Durban</title>
+<title>Home-Made v4.9 — Real Food. Real Homes. Durban</title>
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -75,6 +75,10 @@ body{background:var(--bg);color:var(--body);font-family:var(--font-body);-webkit
 #sidebar{width:240px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:60;transform:translateX(0);transition:transform .25s cubic-bezier(.4,0,.2,1);box-shadow:2px 0 16px rgba(30,14,4,.06)}
 #sb-logo{padding:16px 14px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:center}
 .sb-logo-img{display:block;width:100%;max-width:200px;height:auto;object-fit:contain}
+.sb-version{margin-top:10px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:rgba(253,246,238,.72);display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center}
+.sb-version span{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:800}
+.sb-version strong{font-size:12px;color:var(--heading);font-weight:800}
+.sb-version small{grid-column:1 / -1;font-size:10px;color:var(--muted);line-height:1.25}
 .sb-icon{width:42px;height:42px;border-radius:14px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
 .sb-name{font-family:var(--font-head);font-size:19px;font-weight:700;color:var(--heading);line-height:1.1}
 .sb-sub{font-size:10px;color:var(--muted);margin-top:1px;font-weight:500}
@@ -702,6 +706,9 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <div class="sb-rinfo"><div class="sb-rname" id="sb-rname">Food Lover</div><div class="sb-rsub" id="sb-rsub">Buyer account</div></div>
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
+    <div class="sb-version" aria-label="App version">
+      <span>Version</span><strong>v4.9</strong><small>Production build</small>
+    </div>
   </div>
 </aside>
 
@@ -884,6 +891,8 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
+const APP_VERSION='4.9';
+const APP_RELEASE='Production';
 
 /* Durban-specific sellers with real neighbourhoods — 30 demo listings */
 const SELLERS=[];
@@ -1018,8 +1027,31 @@ function mergeLiveSellers(rows){
   return changed;
 }
 
+function fetchLiveSellerRows(cb){
+  if(!SUPABASE_URL||SUPABASE_URL==='YOUR_SUPABASE_URL'||!SUPABASE_ANON||SUPABASE_ANON==='YOUR_SUPABASE_ANON_KEY'){
+    if(cb) cb([]);
+    return;
+  }
+  var base=SUPABASE_URL.replace(/\/$/,'');
+  fetch(base+'/rest/v1/sellers?select=*&active=eq.true&order=tier.desc,name.asc',{
+    headers:{apikey:SUPABASE_ANON,Authorization:'Bearer '+SUPABASE_ANON}
+  })
+  .then(function(res){return res.ok?res.json():[];})
+  .then(function(rows){if(cb) cb(Array.isArray(rows)?rows:[]);})
+  .catch(function(){if(cb) cb([]);});
+}
+
 function loadLiveSellers(cb){
-  if(!hmAuth||hmAuth.isDemoMode()) { if(cb) cb(false); return; }
+  if(!hmAuth||hmAuth.isDemoMode()) {
+    fetchLiveSellerRows(function(rows){
+      var changed=mergeLiveSellers(rows);
+      if(changed&&ST&&ST.page){
+        try{ render(); }catch(e){}
+      }
+      if(cb) cb(changed);
+    });
+    return;
+  }
   hmAuth.select('sellers',{active:true},function(rows){
     var changed=mergeLiveSellers(rows);
     if(changed&&ST&&ST.page){
