@@ -1,7 +1,7 @@
 {
-  "name": "Home-Made - Real Food. Real Homes.",
+  "name": "Home-Made | Homemade Food Marketplace in Durban",
   "short_name": "Home-Made",
-  "description": "Buy and sell homemade food in your community.",
+  "description": "Find local home chefs, homemade meals, platters, baked goods and catering across Durban and eThekwini.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
