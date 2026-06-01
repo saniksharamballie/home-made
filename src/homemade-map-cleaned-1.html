@@ -371,7 +371,7 @@ textarea.inp{resize:vertical}
 #ai-inp:focus{border-color:var(--accent)}
 
 /* ════ ADMIN ANALYTICS ════ */
-.adm-kpi{background:var(--surface);border:1.5px solid var(--border);border-radius:18px;padding:18px 20px;box-shadow:var(--shadow);transition:transform .18s,box-shadow .18s;cursor:default}
+.adm-kpi{background:var(--surface);border:1.5px solid var(--border);border-radius:18px;padding:18px 20px;box-shadow:var(--shadow);transition:transform .18s,box-shadow .18s;cursor:pointer}
 .adm-kpi:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
 .adm-kpi-val{font-family:var(--font-head);font-size:28px;font-weight:700;color:var(--heading);margin:6px 0 2px;line-height:1}
 .adm-kpi-lbl{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px}
@@ -767,7 +767,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.13</strong><small>Production build</small>
+      <span>Version</span><strong>v4.14</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -951,8 +951,16 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.13';
+const APP_VERSION='4.14';
 const APP_RELEASE='Production';
+
+function cleanSidebarLabels(){
+  document.querySelectorAll('#sb-nav .si .ico').forEach(function(icon){
+    var node=icon.nextSibling;
+    if(node&&node.nodeType===3) node.nodeValue=node.nodeValue.replace(/^[^A-Za-z0-9]+/,'');
+  });
+}
+cleanSidebarLabels();
 
 /* Durban-specific sellers with real neighbourhoods — 30 demo listings */
 const SELLERS=[];
@@ -3735,8 +3743,75 @@ function buildTonightForYou(){
   +'</div>';
 }
 
+var HOME_HERO_GALLERY=(function(){
+  try{return JSON.parse(localStorage.getItem('hm_home_hero_gallery')||'[]');}catch(e){return [];}
+})();
+var HOME_HERO_SYNCED=false;
+
+function homeHeroImage(){
+  return HOME_HERO_GALLERY.length?HOME_HERO_GALLERY[0]:'';
+}
+function loadHomeHeroGallery(){
+  if(HOME_HERO_SYNCED||!hmAuth||!hmAuth.select) return;
+  HOME_HERO_SYNCED=true;
+  hmAuth.select('app_settings',{key:'home_hero_gallery'},function(rows){
+    var images=rows&&rows[0]&&rows[0].value&&rows[0].value.images;
+    if(!Array.isArray(images)) return;
+    HOME_HERO_GALLERY=images.filter(function(url){return typeof url==='string'&&url;});
+    try{localStorage.setItem('hm_home_hero_gallery',JSON.stringify(HOME_HERO_GALLERY));}catch(e){}
+    if(ST.page==='home') rHome();
+  });
+}
+function saveHomeHeroGallery(){
+  try{localStorage.setItem('hm_home_hero_gallery',JSON.stringify(HOME_HERO_GALLERY));}catch(e){}
+  if(hmAuth&&hmAuth.update){
+    hmAuth.update('app_settings',{key:'home_hero_gallery'},{value:{images:HOME_HERO_GALLERY},updated_at:new Date().toISOString()},function(res){
+      if(res&&res.error) showToast('Gallery saved locally. Apply the app settings migration to publish it.');
+    });
+  }
+}
+function uploadHomeHeroImage(input){
+  var file=input&&input.files&&input.files[0];
+  if(!file) return;
+  if(!/^image\/(jpeg|png|webp|gif)$/.test(file.type)){showToast('Please upload a JPG, PNG, WebP or GIF image.');input.value='';return;}
+  if(!hmAuth||!hmAuth.uploadPublicImage){showToast('Image hosting is unavailable.');return;}
+  showToast('Uploading hero image...');
+  prepareListingImage(file,function(uploadFile){
+    hmAuth.uploadPublicImage(uploadFile,'hero-gallery',function(res){
+      input.value='';
+      if(!res||!res.url){showToast((res&&res.error)||'Could not upload hero image.');return;}
+      HOME_HERO_GALLERY.unshift(res.url);
+      saveHomeHeroGallery();
+      showToast('Hero image published.');
+      rAdmin();
+    });
+  });
+}
+function removeHomeHeroImage(index){
+  HOME_HERO_GALLERY.splice(index,1);
+  saveHomeHeroGallery();
+  showToast('Hero image removed.');
+  rAdmin();
+}
+function buildHomeHeroGalleryControl(){
+  var gallery=HOME_HERO_GALLERY.map(function(url,index){
+    return '<div style="position:relative;width:112px;height:76px;border-radius:10px;overflow:hidden;border:1.5px solid var(--border);background:var(--bg)">'
+      +'<img src="'+hmText(url)+'" alt="Home hero graphic" style="width:100%;height:100%;object-fit:cover"/>'
+      +(index===0?'<span style="position:absolute;left:6px;bottom:6px;background:var(--accent);color:#fff;border-radius:100px;padding:2px 7px;font-size:9px;font-weight:800">LIVE</span>':'')
+      +'<button aria-label="Remove hero image" onclick="removeHomeHeroImage('+index+')" style="position:absolute;top:5px;right:5px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(30,14,4,.72);color:#fff;cursor:pointer">×</button>'
+    +'</div>';
+  }).join('');
+  return '<div class="adm-sec" style="margin-bottom:16px">'
+    +'<div class="adm-sec-hd"><div><div class="adm-sec-title">🖼️ Homepage Hero Gallery</div><div style="font-size:11px;color:var(--muted);margin-top:3px">The first image is shown in the homepage hero. Upload a new image to replace it.</div></div>'
+      +'<label class="btn btn-a btn-sm" style="cursor:pointer">Upload image<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onchange="uploadHomeHeroImage(this)" style="display:none"/></label>'
+    +'</div>'
+    +'<div style="display:flex;gap:10px;flex-wrap:wrap">'+(gallery||'<div style="font-size:12px;color:var(--muted)">No hero image uploaded yet.</div>')+'</div>'
+  +'</div>';
+}
+
 /* ══════════════ HOME ══════════════ */
 function rHome(){
+  loadHomeHeroGallery();
   var featured=applyDietLock(SELLERS).filter(function(s){return s.tier==='platinum';});
   var trending=applyDietLock(SELLERS).filter(function(s){return s.rat>=4.7;}).slice(0,6);
   var featIds=featured.map(function(x){return x.id;});
@@ -4017,8 +4092,9 @@ function rHome(){
 
     /* Food image — absolute top-right, bleeds off edge */
     +'<div style="position:absolute;top:0;right:0;width:52%;height:100%;min-height:280px;z-index:1;pointer-events:none">'
-    +''
+    +(homeHeroImage()?'<img src="'+hmText(homeHeroImage())+'" alt="" style="width:100%;height:100%;object-fit:cover"/>':'')
     /* Gradient blend from cream bg into image */
+    +'<div style="position:absolute;inset:0;background:linear-gradient(90deg,#F7F1E8 0%,rgba(247,241,232,.72) 18%,rgba(247,241,232,0) 54%)"></div>'
 
     /* Warm spice-scatter blobs */
 
@@ -7020,6 +7096,7 @@ function sellerShareRatingWA(sid){
 
 function rProfile(){
   if(!ST.role || ST.role==='guest'){ hmAuth.requireLogin(function(){ nav('profile'); }); return; }
+  if(ST.role==='admin'){ nav('admin'); return; }
   const r=ST.role,saved=SELLERS.filter(s=>ST.saved.includes(s.id));
   const e=r==='admin'?'👑':r==='seller'?'🍳':'🍽️';
   const nm=r==='admin'?'Admin User':r==='seller'?'Home Chef':ST.bp.displayName;
@@ -8931,6 +9008,7 @@ function rAdmin(){
     {id:'leaders',   label:'🏆 Leaders'},
     {id:'feed',      label:'⚡ Feed'},
     {id:'controls',  label:'🎮 Controls'},
+    {id:'settings',  label:'⚙️ Settings'},
   ];
   var tabBar='<div style="display:flex;gap:4px;flex-wrap:wrap;overflow-x:visible;padding:0 28px 14px;scrollbar-width:none;-webkit-overflow-scrolling:touch">'
     +tabs.map(function(tb){
@@ -9972,6 +10050,7 @@ function rAdmin(){
     tabContent='<div style="background:rgba(229,90,24,.06);border:1.5px solid rgba(229,90,24,.2);border-radius:14px;padding:14px 18px;margin-bottom:20px;font-size:12px;color:var(--body)">'
       +'⚠️ <b>Control Panel</b> — Changes made here affect live marketplace visibility. Actions are logged. Pausing a seller removes their listing from Browse and Search.'
     +'</div>'
+    +buildHomeHeroGalleryControl()
     +'<div class="adm-sec" style="margin-bottom:16px">'
       +'<div class="adm-sec-hd"><div class="adm-sec-title">🌐 Platform-Wide Actions</div></div>'
       +platformHTML
@@ -9981,6 +10060,13 @@ function rAdmin(){
       +controlRows
     +'</div>';
   } // end controls tab
+
+  else if(t==='settings'){
+    tabContent='<div class="adm-sec">'
+      +'<div class="adm-sec-hd"><div class="adm-sec-title">⚙️ Admin Preferences</div></div>'
+      +buildDietPanel()+buildSellerPrefsPanel(SELLERS.filter(function(s){return ST.saved.includes(s.id);}))
+    +'</div>';
+  }
 
   /* ══════════════════════════════════════════
      TAB: MARKETS & EVENTS (Admin Analytics)
@@ -10079,10 +10165,23 @@ function rAdmin(){
     +'<div style="padding:24px 28px 60px;max-width:1200px">'+tabContent+'</div>';
 }
 
-function admKPI(e,lbl,val,sub,trend,trendLbl){
+function admKPIAction(lbl){
+  var key=String(lbl||'').toLowerCase();
+  if(/revenue|annual|week/.test(key)) return "admSetTab('revenue')";
+  if(/seller|joins|risk/.test(key)) return "admSetTab('sellers')";
+  if(/event|check-in|conversion/.test(key)) return "admSetTab('events')";
+  if(/rating|review|token|suspicious/.test(key)) return "admSetTab('ratings')";
+  if(/search|gap|want/.test(key)) return "admSetTab('demand')";
+  if(/impression|ctr|dwell|ads/.test(key)) return "admSetTab('ads')";
+  if(/order|sold|alert/.test(key)) return "admSetTab('feed')";
+  if(/user|dau|session|retention/.test(key)) return "admSetTab('users')";
+  return "admSetTab('overview')";
+}
+function admKPI(e,lbl,val,sub,trend,trendLbl,action){
   var tClass=trend==='up'?'adm-kpi-up':trend==='dn'?'adm-kpi-dn':'adm-kpi-nt';
   var tArrow=trend==='up'?'↑':trend==='dn'?'↓':'→';
-  return '<div class="adm-kpi">'
+  var click=action||admKPIAction(lbl);
+  return '<div class="adm-kpi" role="button" tabindex="0" onclick="'+click+'" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'+click+'}">'
     +'<div class="adm-kpi-lbl">'+e+' '+lbl+'</div>'
     +'<div class="adm-kpi-val">'+val+'</div>'
     +'<div class="adm-kpi-sub">'+sub+'</div>'
