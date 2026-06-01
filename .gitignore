@@ -5,6 +5,11 @@ node_modules/
 .env.*.local
 public/index.html
 public/env.js
+public/browse-sellers.html
+public/markets-events.html
+public/browse/
+public/categories/
+public/seller/
 .DS_Store
 Thumbs.db
 

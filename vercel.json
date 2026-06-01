@@ -39,6 +39,11 @@
     }
   ],
   "rewrites": [
+    { "source": "/browse-sellers", "destination": "/browse-sellers.html" },
+    { "source": "/markets-events", "destination": "/markets-events.html" },
+    { "source": "/seller/:slug", "destination": "/seller/:slug.html" },
+    { "source": "/browse/:suburb", "destination": "/browse/:suburb.html" },
+    { "source": "/categories/:category", "destination": "/categories/:category.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

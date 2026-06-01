@@ -6,12 +6,13 @@ const src = path.join(root, "src", "homemade-map-cleaned-1.html");
 const outDir = path.join(root, "public");
 const out = path.join(outDir, "index.html");
 const envOut = path.join(outDir, "env.js");
+const { buildSeoPages } = require("./build-seo-pages");
 
 function jsString(value) {
   return JSON.stringify(value || "");
 }
 
-function build() {
+async function build() {
   fs.mkdirSync(outDir, { recursive: true });
 
   let html = fs.readFileSync(src, "utf8");
@@ -50,12 +51,16 @@ function build() {
 
   fs.writeFileSync(out, html, "utf8");
   fs.writeFileSync(envOut, envJs, "utf8");
+  await buildSeoPages();
   console.log(`Built ${path.relative(root, out)}`);
 }
 
-build();
+build().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
 
 if (process.argv.includes("--watch")) {
-  fs.watchFile(src, { interval: 500 }, build);
+  fs.watchFile(src, { interval: 500 }, () => build().catch(console.error));
   console.log("Watching source HTML...");
 }
