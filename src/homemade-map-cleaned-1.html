@@ -764,7 +764,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.9</strong><small>Production build</small>
+      <span>Version</span><strong>v4.10</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -948,7 +948,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.9';
+const APP_VERSION='4.10';
 const APP_RELEASE='Production';
 
 /* Durban-specific sellers with real neighbourhoods — 30 demo listings */
@@ -2359,6 +2359,7 @@ var hmAuth = (function(){
       _session = session;
       if(event==='SIGNED_OUT'){ _profile=null; _applyProfile({role:'guest', displayName:'Guest', emoji:'👤'}); }
       if(event==='SIGNED_IN' && session){ _loadProfile(session.user, function(p){ if(p) _applyProfile(p); }); }
+      if(event==='PASSWORD_RECOVERY'){ setTimeout(showResetPassword, 120); }
     });
   }
 
@@ -2429,16 +2430,6 @@ var hmAuth = (function(){
     }
   }
 
-  /* Send magic link */
-  function signInWithEmail(email, cb){
-    if(_demoMode){ cb({error:'Demo mode — add your Supabase keys to enable login.'}); return; }
-    _initClient();
-    var redirectTo = (window.HM_CONFIG && window.HM_CONFIG.SITE_URL) || window.location.origin;
-    redirectTo = redirectTo.replace(/\/$/, '') + window.location.pathname;
-    _sb.auth.signInWithOtp({email:email, options:{emailRedirectTo: redirectTo, shouldCreateUser:true}})
-    .then(function(res){ cb(res.error ? {error:res.error.message} : {ok:true}); });
-  }
-
   function signInWithPassword(email, password, cb){
     if(_demoMode){ cb({error:'Demo mode — add your Supabase keys to enable login.'}); return; }
     _initClient();
@@ -2449,6 +2440,80 @@ var hmAuth = (function(){
       if(_session && _session.user){
         _loadProfile(_session.user, function(p){ if(p) _applyProfile(p); if(cb) cb({ok:true, profile:p}); });
       }else if(cb) cb({ok:true});
+    });
+  }
+
+  function createAccount(email, password, cb){
+    if(_demoMode){ cb({error:'Account setup is unavailable in demo mode.'}); return; }
+    _initClient();
+    var redirectTo = ((window.HM_CONFIG && window.HM_CONFIG.SITE_URL) || window.location.origin).replace(/\/$/, '') + window.location.pathname;
+    _sb.auth.signUp({email:email,password:password,options:{emailRedirectTo:redirectTo}})
+    .then(function(res){ cb(res.error ? {error:res.error.message} : {ok:true, needsVerification:!(res.data&&res.data.session)}); });
+  }
+
+  function sendPasswordReset(email, cb){
+    if(_demoMode){ cb({error:'Password reset is unavailable in demo mode.'}); return; }
+    _initClient();
+    var redirectTo = ((window.HM_CONFIG && window.HM_CONFIG.SITE_URL) || window.location.origin).replace(/\/$/, '') + window.location.pathname;
+    _sb.auth.resetPasswordForEmail(email,{redirectTo:redirectTo})
+    .then(function(res){ cb(res.error ? {error:res.error.message} : {ok:true}); });
+  }
+
+  function updatePassword(password, cb){
+    if(_demoMode){ cb({error:'Password reset is unavailable in demo mode.'}); return; }
+    _initClient();
+    _sb.auth.updateUser({password:password})
+    .then(function(res){ cb(res.error ? {error:res.error.message} : {ok:true}); });
+  }
+
+  function showAuthAction(mode){
+    var old=document.getElementById('hm-auth-action'); if(old) old.remove();
+    var isSetup=mode==='setup';
+    var ov=document.createElement('div');
+    ov.id='hm-auth-action';
+    ov.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(30,14,4,.55);display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.onclick=function(e){if(e.target===ov)ov.remove();};
+    ov.innerHTML='<div style="width:100%;max-width:390px;background:var(--surface);border:1.5px solid var(--border);border-radius:18px;padding:22px;box-shadow:0 16px 48px rgba(30,14,4,.2)">'
+      +'<div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:14px"><div><div style="font-family:var(--font-head);font-size:22px;color:var(--heading)">'+(isSetup?'Create your account':'Reset your password')+'</div><div style="font-size:12px;color:var(--muted);margin-top:3px">'+(isSetup?'We will email you once to verify the new account.':'We will email you a secure password-reset link.')+'</div></div><button aria-label="Close" onclick="document.getElementById(\'hm-auth-action\').remove()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">✕</button></div>'
+      +'<input id="hm-action-email" type="email" autocomplete="email" placeholder="you@example.com" class="inp" style="margin-bottom:10px">'
+      +(isSetup?'<input id="hm-action-pw" type="password" autocomplete="new-password" placeholder="Create a password (minimum 8 characters)" class="inp" style="margin-bottom:10px">':'')
+      +'<div id="hm-action-msg" role="alert" style="min-height:18px;font-size:12px;color:var(--red);font-weight:700;margin-bottom:8px"></div>'
+      +'<button id="hm-action-btn" onclick="hmAuth.submitAuthAction(\''+mode+'\')" class="btn btn-a btn-fw">'+(isSetup?'Create Account':'Send Reset Link')+'</button></div>';
+    document.body.appendChild(ov);
+    setTimeout(function(){var el=document.getElementById('hm-action-email');if(el)el.focus();},60);
+  }
+
+  function submitAuthAction(mode){
+    var email=((document.getElementById('hm-action-email')||{}).value||'').trim().toLowerCase();
+    var pw=((document.getElementById('hm-action-pw')||{}).value||'').trim();
+    var msg=document.getElementById('hm-action-msg'),btn=document.getElementById('hm-action-btn');
+    if(!email||email.indexOf('@')<1){if(msg)msg.textContent='Please enter your email address.';return;}
+    if(mode==='setup'&&pw.length<8){if(msg)msg.textContent='Use at least 8 characters for your password.';return;}
+    if(btn){btn.disabled=true;btn.textContent=mode==='setup'?'Creating account...':'Sending link...';}
+    var done=function(res){
+      if(res.error){if(msg)msg.textContent=res.error;if(btn){btn.disabled=false;btn.textContent=mode==='setup'?'Create Account':'Send Reset Link';}return;}
+      if(msg){msg.style.color='var(--lime)';msg.textContent=mode==='setup'?'Account created. Check your email to verify it, then sign in with your password.':'Password reset link sent. Check your email.';}
+      if(btn)btn.textContent='Email Sent';
+    };
+    if(mode==='setup')createAccount(email,pw,done);else sendPasswordReset(email,done);
+  }
+
+  function showResetPassword(){
+    var old=document.getElementById('hm-reset-password'); if(old) old.remove();
+    var ov=document.createElement('div');
+    ov.id='hm-reset-password';
+    ov.style.cssText='position:fixed;inset:0;z-index:100001;background:rgba(30,14,4,.6);display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.innerHTML='<div style="width:100%;max-width:390px;background:var(--surface);border-radius:18px;padding:22px"><div style="font-family:var(--font-head);font-size:22px;color:var(--heading);margin-bottom:6px">Choose a new password</div><div style="font-size:12px;color:var(--muted);margin-bottom:14px">Enter a new password for your Home-Made account.</div><input id="hm-new-pw" type="password" autocomplete="new-password" placeholder="Minimum 8 characters" class="inp" style="margin-bottom:10px"><div id="hm-reset-msg" role="alert" style="min-height:18px;font-size:12px;color:var(--red);font-weight:700;margin-bottom:8px"></div><button class="btn btn-a btn-fw" onclick="hmAuth.submitNewPassword()">Update Password</button></div>';
+    document.body.appendChild(ov);
+  }
+
+  function submitNewPassword(){
+    var pw=((document.getElementById('hm-new-pw')||{}).value||'').trim(),msg=document.getElementById('hm-reset-msg');
+    if(pw.length<8){if(msg)msg.textContent='Use at least 8 characters for your password.';return;}
+    updatePassword(pw,function(res){
+      if(res.error){if(msg)msg.textContent=res.error;return;}
+      var ov=document.getElementById('hm-reset-password');if(ov)ov.remove();
+      showToast('Password updated successfully');
     });
   }
 
@@ -2577,7 +2642,8 @@ var hmAuth = (function(){
           '<div id="hm-login-msg" role="alert" style="min-height:20px;font-size:13px;color:var(--red);font-weight:600;margin-bottom:10px;text-align:center"></div>',
 
           /* Sign-in button */
-          '<button id="hm-login-btn" onclick="hmAuth.submitLogin()" style="width:100%;padding:15px;background:linear-gradient(135deg,#E55A18,#C44410);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font-body);box-shadow:0 4px 16px rgba(229,90,24,.3);transition:opacity .15s;margin-bottom:20px">Sign In →</button>',
+          '<button id="hm-login-btn" onclick="hmAuth.submitLogin()" style="width:100%;padding:15px;background:linear-gradient(135deg,#E55A18,#C44410);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font-body);box-shadow:0 4px 16px rgba(229,90,24,.3);transition:opacity .15s;margin-bottom:10px">Sign In →</button>',
+          '<div class="hm-live-auth-actions" style="display:none;justify-content:space-between;gap:12px;margin-bottom:16px"><button onclick="hmAuth.showAuthAction(\'forgot\')" style="background:none;border:none;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer">Forgot password?</button><button onclick="hmAuth.showAuthAction(\'setup\')" style="background:none;border:none;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer">Create account</button></div>',
 
           /* Divider */
           '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">',
@@ -2617,10 +2683,11 @@ var hmAuth = (function(){
         if(pwContainer){
           pwContainer.style.display = '';
           var label = pwContainer.querySelector('label');
-          if(label) label.innerHTML = 'Password <span style="font-weight:400;color:var(--muted);font-size:10px">(optional for magic link)</span>';
+          if(label) label.textContent = 'Password';
         }
       }
-      if(btn) btn.textContent = 'Sign In or Send Link';
+      if(btn) btn.textContent = 'Sign In';
+      d.querySelectorAll('.hm-live-auth-actions').forEach(function(el){el.style.display='flex';});
       d.querySelectorAll('button[onclick*="_quickLogin"], div').forEach(function(el){
         var textOnly = !el.querySelector('button,input');
         if(el.getAttribute('onclick') || (textOnly && /TEST ACCOUNTS|Test password|Each role unlocks/.test(el.textContent||''))) el.style.display='none';
@@ -2666,28 +2733,16 @@ var hmAuth = (function(){
 
     if(!_demoMode){
       if(!username || username.indexOf('@')<1){ if(msgEl){ msgEl.textContent='Please enter your email address.'; } return; }
-      if(pw){
-        if(btn){ btn.disabled=true; btn.textContent='Signing in...'; }
-        signInWithPassword(username, pw, function(res){
-          if(res.error){
-            if(msgEl) msgEl.textContent=res.error;
-            if(btn){ btn.disabled=false; btn.textContent='Sign In or Send Link'; }
-            return;
-          }
-          var ls=document.getElementById('hm-login-screen');
-          if(ls) ls.remove();
-        });
-        return;
-      }
-      if(btn){ btn.disabled=true; btn.textContent='Sending secure link...'; }
-      signInWithEmail(username, function(res){
+      if(!pw){ if(msgEl) msgEl.textContent='Please enter your password.'; return; }
+      if(btn){ btn.disabled=true; btn.textContent='Signing in...'; }
+      signInWithPassword(username, pw, function(res){
         if(res.error){
           if(msgEl) msgEl.textContent=res.error;
-          if(btn){ btn.disabled=false; btn.textContent='Sign In or Send Link'; }
+          if(btn){ btn.disabled=false; btn.textContent='Sign In'; }
           return;
         }
-        if(msgEl){ msgEl.style.color='var(--lime)'; msgEl.textContent='Check your email for the secure sign-in link.'; }
-        if(btn){ btn.textContent='Link Sent'; }
+        var ls=document.getElementById('hm-login-screen');
+        if(ls) ls.remove();
       });
       return;
     }
@@ -2759,7 +2814,8 @@ var hmAuth = (function(){
           '</div>',
         '</div>',
         '<div id="hm-gate-msg" style="min-height:18px;font-size:12px;color:var(--red);font-weight:600;text-align:center;margin-bottom:10px"></div>',
-        '<button id="hm-gate-btn" onclick="hmAuth._gateSubmit()" style="width:100%;padding:14px;background:linear-gradient(135deg,#E55A18,#C44410);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font-body);margin-bottom:14px">Sign In →</button>',
+        '<button id="hm-gate-btn" onclick="hmAuth._gateSubmit()" style="width:100%;padding:14px;background:linear-gradient(135deg,#E55A18,#C44410);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font-body);margin-bottom:8px">Sign In →</button>',
+        '<div class="hm-live-auth-actions" style="display:none;justify-content:space-between;gap:12px;margin-bottom:12px"><button onclick="hmAuth.showAuthAction(\'forgot\')" style="background:none;border:none;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer">Forgot password?</button><button onclick="hmAuth.showAuthAction(\'setup\')" style="background:none;border:none;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer">Create account</button></div>',
         /* Quick-login pills */
         '<div style="display:flex;gap:8px">',
           '<button onclick="hmAuth._gateQuick(\'buyer\')"  style="flex:1;padding:9px 4px;background:var(--accent-l);border:1.5px solid rgba(229,90,24,.25);border-radius:10px;color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-body)">🍽️ Buyer</button>',
@@ -2784,7 +2840,8 @@ var hmAuth = (function(){
         var gatePwContainer = gatePw.closest('div[style*="margin-bottom:8px"]');
         if(gatePwContainer) gatePwContainer.style.display = '';
       }
-      if(gateBtn) gateBtn.textContent = 'Sign In or Send Link';
+      if(gateBtn) gateBtn.textContent = 'Sign In';
+      overlay.querySelectorAll('.hm-live-auth-actions').forEach(function(el){el.style.display='flex';});
       overlay.querySelectorAll('button[onclick*="_gateQuick"], div').forEach(function(el){
         var textOnly = !el.querySelector('button,input');
         if(el.getAttribute('onclick') || (textOnly && /Test password/.test(el.textContent||''))) el.style.display='none';
@@ -2804,30 +2861,18 @@ var hmAuth = (function(){
     var btn      = document.getElementById('hm-gate-btn');
     if(!_demoMode){
       if(!username || username.indexOf('@')<1){ if(msgEl) msgEl.textContent='Please enter your email address.'; return; }
-      if(pw){
-        if(btn){ btn.disabled=true; btn.textContent='Signing in...'; }
-        signInWithPassword(username, pw, function(res){
-          if(res.error){
-            if(msgEl) msgEl.textContent=res.error;
-            if(btn){ btn.disabled=false; btn.textContent='Sign In or Send Link'; }
-            return;
-          }
-          var overlay=document.getElementById('hm-gate-modal');
-          if(overlay) overlay.remove();
-          var cb=window._hm_gate_cb; window._hm_gate_cb=null;
-          if(cb) setTimeout(cb, 300);
-        });
-        return;
-      }
-      if(btn){ btn.disabled=true; btn.textContent='Sending secure link...'; }
-      signInWithEmail(username, function(res){
+      if(!pw){ if(msgEl) msgEl.textContent='Please enter your password.'; return; }
+      if(btn){ btn.disabled=true; btn.textContent='Signing in...'; }
+      signInWithPassword(username, pw, function(res){
         if(res.error){
           if(msgEl) msgEl.textContent=res.error;
-          if(btn){ btn.disabled=false; btn.textContent='Sign In or Send Link'; }
+          if(btn){ btn.disabled=false; btn.textContent='Sign In'; }
           return;
         }
-        if(msgEl){ msgEl.style.color='var(--lime)'; msgEl.textContent='Check your email for the secure sign-in link.'; }
-        if(btn){ btn.textContent='Link Sent'; }
+        var overlay=document.getElementById('hm-gate-modal');
+        if(overlay) overlay.remove();
+        var cb=window._hm_gate_cb; window._hm_gate_cb=null;
+        if(cb) setTimeout(cb, 300);
       });
       return;
     }
@@ -2861,7 +2906,9 @@ var hmAuth = (function(){
 
 
 
-  return {boot:boot, signOut:signOut, signInWithEmail:signInWithEmail, signInWithPassword:signInWithPassword,
+  return {boot:boot, signOut:signOut, signInWithPassword:signInWithPassword,
+          createAccount:createAccount, sendPasswordReset:sendPasswordReset, updatePassword:updatePassword,
+          showAuthAction:showAuthAction, submitAuthAction:submitAuthAction, submitNewPassword:submitNewPassword,
           insert:insert, update:update, select:select, subscribe:subscribe,
           uploadPublicImage:uploadPublicImage,
           getProfile:getProfile, isDemoMode:isDemoMode,
@@ -3322,6 +3369,10 @@ function updRole(){
   // Update topbar profile icon tooltip
   var tbProf=document.getElementById('tb-profile-btn');
   if(tbProf) tbProf.setAttribute('aria-label', isGuest?'Sign in':'My profile');
+  var wantBtn=document.querySelector('.si[data-p="wantlist"]');
+  var eventsBtn=document.querySelector('.si[data-p="events"]');
+  if(wantBtn&&wantBtn.lastChild) wantBtn.lastChild.nodeValue='Want List';
+  if(eventsBtn&&eventsBtn.lastChild) eventsBtn.lastChild.nodeValue='Markets & Events';
 }
 function toggleNotif(){openAlerts();}
 function doTBS(){const q=(document.getElementById('tb-q')||{}).value||'';ST.bf={...ST.bf,q};ST.mf=ST.bf.region;nav('browse');}
@@ -4373,7 +4424,8 @@ function mapPan(dx,dy){if(window._leafMap)window._leafMap.panBy([dx*100,dy*100])
 
 
 function showMapWelcome(){
-  if(typeof localStorage!=='undefined'&&localStorage.getItem('hm_map_welcome_v2')) return;
+  if(typeof sessionStorage!=='undefined'&&sessionStorage.getItem('hm_map_welcome_seen')) return;
+  try{sessionStorage.setItem('hm_map_welcome_seen','1');}catch(e){}
   var ov=document.createElement('div');
   ov.id='map-welcome';
   ov.style.cssText='position:fixed;inset:0;z-index:10010;background:rgba(10,5,0,.72);'+
@@ -4435,8 +4487,9 @@ function showMapWelcome(){
           '</div>'+
           /* Standard */
           '<div style="display:flex;align-items:center;gap:12px">'+
-                    '<div style="width:44px;height:44px;border-radius:10px;overflow:hidden;flex-shrink:0;border:1.5px solid rgba(217,106,29,.2)">'
-        +'</div>'+            '</div>'+
+            '<div style="width:40px;height:40px;flex-shrink:0;display:flex;align-items:center;justify-content:center">'+
+              '<div style="position:relative;width:34px;height:28px;border-radius:9px;background:var(--surface);border:1.5px solid rgba(217,106,29,.28);display:flex;align-items:center;justify-content:center;font-size:13px">🍽️<span style="position:absolute;top:-7px;right:-7px;width:16px;height:16px;border-radius:50%;background:var(--muted);color:#fff;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid #fff">5</span></div>'+
+            '</div>'+
             '<div style="flex:1">'+
               '<div style="font-size:13px;font-weight:700;color:var(--heading)">Standard sellers</div>'+
               '<div style="font-size:11px;color:var(--muted)">Counter in bottom-left — tap it to browse all standard sellers</div>'+
@@ -4447,10 +4500,6 @@ function showMapWelcome(){
         '<button onclick="var o=document.getElementById(\'map-welcome\');if(o)o.remove();" '+
         'style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:100px;padding:14px;'+
         'font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font-body)">Got it — show me the map! →</button>'+
-        '<button onclick="try{localStorage.setItem(\'hm_map_welcome_v2\',\'1\');}catch(e){}'+
-        'var o=document.getElementById(\'map-welcome\');if(o)o.remove();" '+
-        'style="width:100%;background:transparent;border:none;color:var(--muted);font-size:11px;cursor:pointer;'+
-        'padding:10px;font-family:var(--font-body)">Don\'t show this again</button>'+
       '</div>'+
     '</div>';
   document.body.appendChild(ov);
@@ -4494,7 +4543,7 @@ function mapPin(id){
         h+='';
     h+='<div style="flex:1;min-width:0">';
     h+='<div style="font-family:var(--font-head);font-size:'+nameSz+'px;font-weight:700;color:var(--heading);margin-bottom:2px">'+s.name+'</div>';
-    h+='<div style="font-size:11px;color:var(--muted);margin-bottom:4px">'+ic('pin',9,'var(--muted)')+' '+s.region+'</div>';
+    h+='<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);margin-bottom:4px">'+ic('pin',9,'var(--muted)')+'<span>'+s.region+'</span></div>';
     h+=stars(s.rat)+'<span style="font-size:11px;color:var(--muted);margin-left:4px">('+s.rev+')</span>';
     h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">'+(tbadge(s.tier)||'');
     if(s.del) h+=tg(ic('truck',9,'var(--amber)')+' Delivery','ta');
@@ -4717,9 +4766,9 @@ function mapStdOrder(id){
     'style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:#25D366;'+
     'color:#fff;border:none;border-radius:100px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;'+
     'font-family:var(--font-body)">'+WA_SVG12+' Continue to Order Confirmation</button>';
-  html+='<button onclick="hideMapSheet()" style="width:100%;background:transparent;border:1.5px solid var(--border);'+
+  html+='<button onclick="mapPin('+id+')" style="width:100%;background:transparent;border:1.5px solid var(--border);'+
     'border-radius:100px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;color:var(--muted);'+
-    'font-family:var(--font-body);margin-top:8px">← Back</button>';
+    'font-family:var(--font-body);margin-top:8px">← Back to seller</button>';
   html+='</div>';
   showMapSheet(html);
 }
@@ -4790,9 +4839,9 @@ function mapShowOrderConfirm(id,orderItems){
     'style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:#25D366;'+
     'color:#fff;border:none;border-radius:100px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;'+
     'font-family:var(--font-body)">'+WA_SVG12+' Send Order via WhatsApp</button>';
-  html+='<button onclick="hideMapSheet()" style="width:100%;background:transparent;border:1.5px solid var(--border);'+
+  html+='<button onclick="mapPin('+id+')" style="width:100%;background:transparent;border:1.5px solid var(--border);'+
     'border-radius:100px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;color:var(--muted);'+
-    'font-family:var(--font-body);margin-top:8px">← Back</button>';
+    'font-family:var(--font-body);margin-top:8px">← Back to seller</button>';
   html+='</div>';
   showMapSheet(html);
 }
@@ -5133,6 +5182,7 @@ function rDetFull(s){
         <span style="font-size:14px">👉</span>
       </div>`
     : '';
+  const backLabel=ST.ctx.from==='map'?'Return to Map':'Back';
 
   const mHTML=s.items.map((i,idx)=>{
     const stk=getStock(s.id,idx);
@@ -5264,7 +5314,7 @@ function rDetFull(s){
     <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.15) 0%,transparent 40%,rgba(46,28,18,.75) 100%)"></div>
     <!-- Artisan badge seal -->
     
-    <button onclick="nav('${ST.ctx.from||'browse'}')" style="position:absolute;top:16px;left:20px;background:rgba(255,255,255,.85);backdrop-filter:blur(8px);border:1.5px solid var(--border);border-radius:12px;padding:8px 14px;display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--heading);font-size:13px;font-family:var(--font-body);box-shadow:var(--shadow)">${ic('back',14,'var(--heading)')} Back</button>
+    <button onclick="nav('${ST.ctx.from||'browse'}')" style="position:absolute;top:calc(env(safe-area-inset-top, 0px) + 16px);left:20px;z-index:4;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);border:1.5px solid var(--border);border-radius:12px;padding:8px 14px;display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--heading);font-size:13px;font-family:var(--font-body);box-shadow:var(--shadow)">${ic('back',14,'var(--heading)')} ${backLabel}</button>
     ${swNav}
     <button aria-label="${saved?'Remove '+s.name+' from saved':'Save '+s.name}" aria-pressed="${saved?'true':'false'}" data-save-id="${s.id}" data-save-sz="16" onclick="toggleSave(${s.id})" style="position:absolute;top:16px;right:20px;background:rgba(255,255,255,.85);backdrop-filter:blur(8px);border:1.5px solid var(--border);border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:var(--shadow)">
       ${saved?ic('hrtF',16,'#E02020'):ic('hrt',16,'var(--muted)')}
