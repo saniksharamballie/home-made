@@ -766,7 +766,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.11</strong><small>Production build</small>
+      <span>Version</span><strong>v4.12</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -950,7 +950,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.10';
+const APP_VERSION='4.12';
 const APP_RELEASE='Production';
 
 /* Durban-specific sellers with real neighbourhoods — 30 demo listings */
@@ -2486,7 +2486,7 @@ var hmAuth = (function(){
     ov.innerHTML='<div style="width:100%;max-width:390px;background:var(--surface);border:1.5px solid var(--border);border-radius:18px;padding:22px;box-shadow:0 16px 48px rgba(30,14,4,.2)">'
       +'<div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:14px"><div><div style="font-family:var(--font-head);font-size:22px;color:var(--heading)">'+(isSetup?'Create your account':'Reset your password')+'</div><div style="font-size:12px;color:var(--muted);margin-top:3px">'+(isSetup?'We will email you once to verify the new account.':'We will email you a secure password-reset link.')+'</div></div><button aria-label="Close" onclick="document.getElementById(\'hm-auth-action\').remove()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">✕</button></div>'
       +'<input id="hm-action-email" type="email" autocomplete="email" placeholder="you@example.com" class="inp" style="margin-bottom:10px">'
-      +(isSetup?'<input id="hm-action-pw" type="password" autocomplete="new-password" placeholder="Create a password (minimum 8 characters)" class="inp" style="margin-bottom:10px">':'')
+      +(isSetup?'<input id="hm-action-pw" type="password" autocomplete="new-password" placeholder="Create a password (minimum 8 characters)" class="inp" style="margin-bottom:10px" oninput="hmAuth.passwordMatchHint(\'hm-action-pw\',\'hm-action-pw-confirm\',\'hm-action-match\')"><input id="hm-action-pw-confirm" type="password" autocomplete="new-password" placeholder="Confirm your password" class="inp" style="margin-bottom:6px" oninput="hmAuth.passwordMatchHint(\'hm-action-pw\',\'hm-action-pw-confirm\',\'hm-action-match\')"><div id="hm-action-match" role="status" style="min-height:18px;font-size:12px;font-weight:700;margin-bottom:4px"></div>':'')
       +'<div id="hm-action-msg" role="alert" style="min-height:18px;font-size:12px;color:var(--red);font-weight:700;margin-bottom:8px"></div>'
       +'<button id="hm-action-btn" onclick="hmAuth.submitAuthAction(\''+mode+'\')" class="btn btn-a btn-fw">'+(isSetup?'Create Account':'Send Reset Link')+'</button></div>';
     document.body.appendChild(ov);
@@ -2496,9 +2496,11 @@ var hmAuth = (function(){
   function submitAuthAction(mode){
     var email=((document.getElementById('hm-action-email')||{}).value||'').trim().toLowerCase();
     var pw=((document.getElementById('hm-action-pw')||{}).value||'').trim();
+    var pwConfirm=((document.getElementById('hm-action-pw-confirm')||{}).value||'').trim();
     var msg=document.getElementById('hm-action-msg'),btn=document.getElementById('hm-action-btn');
     if(!email||email.indexOf('@')<1){if(msg)msg.textContent='Please enter your email address.';return;}
     if(mode==='setup'&&pw.length<8){if(msg)msg.textContent='Use at least 8 characters for your password.';return;}
+    if(mode==='setup'&&pw!==pwConfirm){if(msg)msg.textContent='Passwords do not match yet.';return;}
     if(btn){btn.disabled=true;btn.textContent=mode==='setup'?'Creating account...':'Sending link...';}
     var done=function(res){
       if(res.error){if(msg)msg.textContent=res.error;if(btn){btn.disabled=false;btn.textContent=mode==='setup'?'Create Account':'Send Reset Link';}return;}
@@ -2513,13 +2515,25 @@ var hmAuth = (function(){
     var ov=document.createElement('div');
     ov.id='hm-reset-password';
     ov.style.cssText='position:fixed;inset:0;z-index:100001;background:rgba(30,14,4,.6);display:flex;align-items:center;justify-content:center;padding:20px';
-    ov.innerHTML='<div style="width:100%;max-width:390px;background:var(--surface);border-radius:18px;padding:22px"><div style="font-family:var(--font-head);font-size:22px;color:var(--heading);margin-bottom:6px">Choose a new password</div><div style="font-size:12px;color:var(--muted);margin-bottom:14px">Enter a new password for your Home-Made account.</div><input id="hm-new-pw" type="password" autocomplete="new-password" placeholder="Minimum 8 characters" class="inp" style="margin-bottom:10px"><div id="hm-reset-msg" role="alert" style="min-height:18px;font-size:12px;color:var(--red);font-weight:700;margin-bottom:8px"></div><button class="btn btn-a btn-fw" onclick="hmAuth.submitNewPassword()">Update Password</button></div>';
+    ov.innerHTML='<div style="width:100%;max-width:390px;background:var(--surface);border-radius:18px;padding:22px"><div style="font-family:var(--font-head);font-size:22px;color:var(--heading);margin-bottom:6px">Choose a new password</div><div style="font-size:12px;color:var(--muted);margin-bottom:14px">Enter your new password twice to confirm it.</div><input id="hm-new-pw" type="password" autocomplete="new-password" placeholder="Minimum 8 characters" class="inp" style="margin-bottom:10px" oninput="hmAuth.passwordMatchHint(\'hm-new-pw\',\'hm-new-pw-confirm\',\'hm-reset-match\')"><input id="hm-new-pw-confirm" type="password" autocomplete="new-password" placeholder="Confirm your new password" class="inp" style="margin-bottom:6px" oninput="hmAuth.passwordMatchHint(\'hm-new-pw\',\'hm-new-pw-confirm\',\'hm-reset-match\')"><div id="hm-reset-match" role="status" style="min-height:18px;font-size:12px;font-weight:700;margin-bottom:4px"></div><div id="hm-reset-msg" role="alert" style="min-height:18px;font-size:12px;color:var(--red);font-weight:700;margin-bottom:8px"></div><button class="btn btn-a btn-fw" onclick="hmAuth.submitNewPassword()">Update Password</button></div>';
     document.body.appendChild(ov);
   }
 
+  function passwordMatchHint(firstId, confirmId, statusId){
+    var first=((document.getElementById(firstId)||{}).value||'').trim();
+    var confirm=((document.getElementById(confirmId)||{}).value||'').trim();
+    var status=document.getElementById(statusId);
+    if(!status) return;
+    if(!confirm){status.textContent='';return;}
+    var matches=first===confirm;
+    status.style.color=matches?'var(--lime)':'var(--red)';
+    status.textContent=matches?'Passwords match.':'Passwords do not match yet.';
+  }
+
   function submitNewPassword(){
-    var pw=((document.getElementById('hm-new-pw')||{}).value||'').trim(),msg=document.getElementById('hm-reset-msg');
+    var pw=((document.getElementById('hm-new-pw')||{}).value||'').trim(),pwConfirm=((document.getElementById('hm-new-pw-confirm')||{}).value||'').trim(),msg=document.getElementById('hm-reset-msg');
     if(pw.length<8){if(msg)msg.textContent='Use at least 8 characters for your password.';return;}
+    if(pw!==pwConfirm){if(msg)msg.textContent='Passwords do not match yet.';return;}
     updatePassword(pw,function(res){
       if(res.error){if(msg)msg.textContent=res.error;return;}
       var ov=document.getElementById('hm-reset-password');if(ov)ov.remove();
@@ -2918,7 +2932,7 @@ var hmAuth = (function(){
 
   return {boot:boot, signOut:signOut, signInWithPassword:signInWithPassword,
           createAccount:createAccount, sendPasswordReset:sendPasswordReset, updatePassword:updatePassword,
-          showAuthAction:showAuthAction, submitAuthAction:submitAuthAction, submitNewPassword:submitNewPassword,
+          showAuthAction:showAuthAction, submitAuthAction:submitAuthAction, passwordMatchHint:passwordMatchHint, submitNewPassword:submitNewPassword,
           insert:insert, update:update, select:select, subscribe:subscribe,
           uploadPublicImage:uploadPublicImage,
           getProfile:getProfile, isDemoMode:isDemoMode,
@@ -8820,23 +8834,26 @@ function rAdmin(){
     {stage:'Confirmed Order',n:146,pct:11.8}
   ];
   d.noResultSearches=d.noResultSearches&&d.noResultSearches.length?d.noResultSearches:[
-    {q:'poke bowls umhlanga',n:42,trend:'+31%'},
-    {q:'vegan birthday cake',n:38,trend:'+22%'},
-    {q:'halal platters westville',n:35,trend:'+18%'},
-    {q:'low salt meals',n:27,trend:'+14%'}
+    {q:'poke bowls umhlanga',n:42,trend:31,cat:'asian',regions:['Umhlanga']},
+    {q:'vegan birthday cake',n:38,trend:22,cat:'vegan',regions:['Westville','Umhlanga']},
+    {q:'halaal platters westville',n:35,trend:18,cat:'indian',regions:['Westville']},
+    {q:'low salt meals',n:27,trend:14,cat:'african',regions:['Durban North','Berea']}
   ];
   d.wantListAgg=d.wantListAgg&&d.wantListAgg.length?d.wantListAgg:[
-    {item:'Vegan lunch bowls',votes:48,trend:'+22%'},
-    {item:'Halal party platters',votes:42,trend:'+18%'},
-    {item:'Low-salt family meals',votes:31,trend:'+15%'},
-    {item:'Birthday cake minis',votes:28,trend:'+12%'}
+    {item:'Vegan lunch bowls',votes:48,trend:22,cats:['vegan'],regions:['Umhlanga','Westville']},
+    {item:'Halaal party platters',votes:42,trend:18,cats:['indian','catering'],regions:['Westville','Chatsworth']},
+    {item:'Low-salt family meals',votes:31,trend:15,cats:['african'],regions:['Durban North','Berea']},
+    {item:'Birthday cake minis',votes:28,trend:12,cats:['desserts','baked'],regions:['Pinetown','Westville']}
   ];
   d.hourOrders=d.hourOrders&&d.hourOrders.length?d.hourOrders:[2,1,0,0,1,3,12,28,42,55,68,82,94,88,72,64,58,72,89,96,88,71,44,18];
   d.hourOrdersWkd=d.hourOrdersWkd&&d.hourOrdersWkd.length?d.hourOrdersWkd:[1,1,0,0,1,4,16,34,58,74,90,108,124,118,96,82,76,92,110,126,120,96,62,28];
   d.dowOrders=d.dowOrders&&d.dowOrders.length?d.dowOrders:[480,512,498,524,598,842,910];
   d.monthlyRev=d.monthlyRev&&d.monthlyRev.length?d.monthlyRev:[14200,15840,15120,16980,18440,21120];
   d.regionStats=d.regionStats&&d.regionStats.length?d.regionStats:REGIONS.slice(1).map(function(r,i){return {region:r,buyers:120+i*24,sellers:Math.max(1,SELLERS.filter(function(s){return s.region===r;}).length),gap:Math.max(8,36-i*2),opportunity:Math.max(42,86-i*4)};});
-  d.catPop=d.catPop&&Object.keys(d.catPop).length?d.catPop:{african:{views:820,delta:12},indian:{views:760,delta:9},baked:{views:590,delta:15},catering:{views:520,delta:18},desserts:{views:410,delta:7}};
+  d.catPop=d.catPop&&Object.keys(d.catPop).length?d.catPop:{african:{n:820,delta:12,topSeller:'Gogo Naledi Kitchen',avgRat:4.8,sellers:8},indian:{n:760,delta:9,topSeller:'Thandi Spice Pot',avgRat:4.7,sellers:7},baked:{n:590,delta:15,topSeller:'Durban Bake Table',avgRat:4.6,sellers:6},catering:{n:520,delta:18,topSeller:'Sunday Spread Co',avgRat:4.8,sellers:5},desserts:{n:410,delta:7,topSeller:'Sweet Corner',avgRat:4.6,sellers:4}};
+  d.noResultSearches=d.noResultSearches.map(function(q){return Object.assign({},q,{trend:parseInt(q.trend,10)||0,cat:q.cat||'all',regions:q.regions&&q.regions.length?q.regions:['Durban']});});
+  d.wantListAgg=d.wantListAgg.map(function(w){return Object.assign({},w,{trend:parseInt(w.trend,10)||0,cats:w.cats&&w.cats.length?w.cats:['all'],regions:w.regions&&w.regions.length?w.regions:['Durban']});});
+  Object.keys(d.catPop).forEach(function(k){var c=d.catPop[k];c.n=c.n||c.views||0;c.topSeller=c.topSeller||'Local sellers';c.avgRat=c.avgRat||4.5;c.sellers=c.sellers||SELLERS.filter(function(s){return s.cat===k;}).length;});
   if(!d.sellerHealth||!d.sellerHealth.length){
     d.sellerHealth=SELLERS.map(function(s){
       var score=s.tier==='platinum'?86:s.tier==='gold'?72:52;
