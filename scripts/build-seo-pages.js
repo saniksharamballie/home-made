@@ -53,6 +53,26 @@ function sellerUrl(seller) {
   return `${siteUrl}/seller/${sellerSlug(seller)}`;
 }
 
+function suburbUrl(region) {
+  return `${siteUrl}/durban/${slugify(region)}`;
+}
+
+function cuisineUrl(category) {
+  return `${siteUrl}/cuisine/${slugify(category)}`;
+}
+
+function breadcrumbData(items) {
+  return {
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.name,
+      item: item.url
+    }))
+  };
+}
+
 function pageShell({ title, description, canonical, body, structuredData, image = `${siteUrl}/icons/icon-512.png` }) {
   const jsonLd = structuredData
     ? `<script type="application/ld+json">${JSON.stringify(structuredData).replace(/</g, "\\u003c")}</script>`
@@ -73,7 +93,11 @@ function pageShell({ title, description, canonical, body, structuredData, image 
   <meta property="og:description" content="${esc(description)}"/>
   <meta property="og:url" content="${esc(canonical)}"/>
   <meta property="og:image" content="${esc(image)}"/>
+  <meta property="og:image:alt" content="${esc(title)}"/>
   <meta name="twitter:card" content="summary_large_image"/>
+  <meta name="twitter:title" content="${esc(title)}"/>
+  <meta name="twitter:description" content="${esc(description)}"/>
+  <meta name="twitter:image" content="${esc(image)}"/>
   <title>${esc(title)}</title>
   ${jsonLd}
   <style>
@@ -87,7 +111,7 @@ function pageShell({ title, description, canonical, body, structuredData, image 
   </style>
 </head>
 <body>
-  <header><nav class="nav"><a class="brand" href="/"><img src="/icons/icon-96.png" alt="Home-Made logo"/>Home-Made</a><div class="navlinks"><a href="/browse-sellers">Browse sellers</a><a href="/markets-events">Markets &amp; events</a><a href="/">Open app</a></div></nav></header>
+  <header><nav class="nav" aria-label="Primary"><a class="brand" href="/"><img src="/icons/icon-96.png" alt="Home-Made logo"/>Home-Made</a><div class="navlinks"><a href="/browse-sellers">Browse sellers</a><a href="/durban">Durban areas</a><a href="/cuisine">Cuisines</a><a href="/markets-events">Markets &amp; events</a><a href="/">Open app</a></div></nav></header>
   ${body}
   <footer>Home-Made Durban Marketplace &middot; Discover local food sellers across eThekwini</footer>
 </body>
@@ -108,9 +132,9 @@ function sellerCard(seller) {
   </article>`;
 }
 
-function collectionPage({ title, description, canonical, sellers, intro, links = [] }) {
+function collectionPage({ title, description, canonical, sellers, intro, links = [], breadcrumbs = [] }) {
   const body = `<main>
-    <div class="crumbs"><a href="/">Home</a> / <a href="/browse-sellers">Browse sellers</a></div>
+    <div class="crumbs"><a href="/">Home</a> / <a href="/browse-sellers">Browse sellers</a>${breadcrumbs.length ? ` / ${esc(breadcrumbs[breadcrumbs.length - 1].name)}` : ""}</div>
     <h1>${esc(title)}</h1>
     <p class="lead">${esc(intro || description)}</p>
     ${links.length ? `<div class="links">${links.map((link) => `<a href="${esc(link.href)}">${esc(link.label)}</a>`).join("")}</div>` : ""}
@@ -124,14 +148,29 @@ function collectionPage({ title, description, canonical, sellers, intro, links =
     body,
     structuredData: {
       "@context": "https://schema.org",
-      "@type": "ItemList",
-      name: title,
-      itemListElement: sellers.map((seller, index) => ({
-        "@type": "ListItem",
-        position: index + 1,
-        url: sellerUrl(seller),
-        name: seller.name
-      }))
+      "@graph": [
+        {
+          "@type": "CollectionPage",
+          name: title,
+          url: canonical,
+          description
+        },
+        breadcrumbData([
+          { name: "Home", url: `${siteUrl}/` },
+          { name: "Browse sellers", url: `${siteUrl}/browse-sellers` },
+          ...breadcrumbs
+        ]),
+        {
+          "@type": "ItemList",
+          name: title,
+          itemListElement: sellers.map((seller, index) => ({
+            "@type": "ListItem",
+            position: index + 1,
+            url: sellerUrl(seller),
+            name: seller.name
+          }))
+        }
+      ]
     }
   });
 }
@@ -160,7 +199,7 @@ function sellerPage(seller) {
         <p>Based in ${esc(seller.region)}, Durban. Exact collection details are shared privately when needed.</p>
         ${data.rat ? `<p><strong>${esc(data.rat)} / 5</strong> from ${esc(data.rev || 0)} reviews</p>` : ""}
         <div class="actions">${whatsApp ? `<a class="btn" href="https://wa.me/${esc(whatsApp)}" rel="nofollow">Chat on WhatsApp</a>` : ""}<a class="btn alt" href="/">Open marketplace</a></div>
-        <div class="links"><a href="/browse/${esc(slugify(seller.region))}">More in ${esc(seller.region)}</a><a href="/categories/${esc(slugify(seller.category))}">More ${esc(categoryLabel(seller.category))}</a></div>
+        <div class="links"><a href="/durban/${esc(slugify(seller.region))}">More in ${esc(seller.region)}</a><a href="/cuisine/${esc(slugify(seller.category))}">More ${esc(categoryLabel(seller.category))}</a></div>
       </aside>
     </div>
   </main>`;
@@ -180,7 +219,11 @@ function sellerPage(seller) {
     }
   };
   if (whatsApp) localBusiness.telephone = `+${whatsApp}`;
-  if (data.rat && data.rev) {
+  const prices = items.map((item) => Number(item.p)).filter((price) => Number.isFinite(price));
+  if (prices.length) {
+    localBusiness.priceRange = `R${Math.min(...prices)}-R${Math.max(...prices)}`;
+  }
+  if (data.seoReviewsVerified === true && data.rat && data.rev) {
     localBusiness.aggregateRating = {
       "@type": "AggregateRating",
       ratingValue: Number(data.rat),
@@ -194,7 +237,17 @@ function sellerPage(seller) {
     canonical: url,
     image: imageUrl(seller),
     body,
-    structuredData: localBusiness
+    structuredData: {
+      "@context": "https://schema.org",
+      "@graph": [
+        localBusiness,
+        breadcrumbData([
+          { name: "Home", url: `${siteUrl}/` },
+          { name: "Browse sellers", url: `${siteUrl}/browse-sellers` },
+          { name: seller.name, url }
+        ])
+      ]
+    }
   });
 }
 
@@ -205,10 +258,10 @@ function writeHtml(relativePath, html) {
 }
 
 function clearGeneratedPages() {
-  for (const entry of ["seller", "browse", "categories"]) {
+  for (const entry of ["seller", "browse", "categories", "durban", "cuisine"]) {
     fs.rmSync(path.join(publicDir, entry), { recursive: true, force: true });
   }
-  for (const entry of ["browse-sellers.html", "markets-events.html"]) {
+  for (const entry of ["browse-sellers.html", "markets-events.html", "durban.html", "cuisine.html"]) {
     fs.rmSync(path.join(publicDir, entry), { force: true });
   }
 }
@@ -242,8 +295,8 @@ async function buildSeoPages() {
   const suburbs = [...new Set(sellers.map((seller) => seller.region).filter(Boolean))].sort();
   const categories = [...new Set(sellers.map((seller) => seller.category).filter(Boolean))].sort();
   const filters = [
-    ...suburbs.map((region) => ({ href: `/browse/${slugify(region)}`, label: region })),
-    ...categories.map((category) => ({ href: `/categories/${slugify(category)}`, label: categoryLabel(category) }))
+    ...suburbs.map((region) => ({ href: `/durban/${slugify(region)}`, label: region })),
+    ...categories.map((category) => ({ href: `/cuisine/${slugify(category)}`, label: categoryLabel(category) }))
   ];
 
   writeHtml("browse-sellers.html", collectionPage({
@@ -259,27 +312,49 @@ async function buildSeoPages() {
     writeHtml(path.join("seller", `${sellerSlug(seller)}.html`), sellerPage(seller));
   }
 
+  writeHtml("durban.html", collectionPage({
+    title: "Homemade Food Across Durban",
+    description: "Browse homemade food, local home chefs and community kitchens by Durban suburb and eThekwini area.",
+    canonical: `${siteUrl}/durban`,
+    sellers,
+    intro: "Explore Durban's independent home kitchens by neighbourhood. Exact collection details remain private and are shared only when needed.",
+    links: suburbs.map((region) => ({ href: `/durban/${slugify(region)}`, label: region })),
+    breadcrumbs: [{ name: "Durban areas", url: `${siteUrl}/durban` }]
+  }));
+
   for (const region of suburbs) {
     const regionSellers = sellers.filter((seller) => seller.region === region);
-    writeHtml(path.join("browse", `${slugify(region)}.html`), collectionPage({
+    writeHtml(path.join("durban", `${slugify(region)}.html`), collectionPage({
       title: `Home Chefs in ${region}`,
       description: `Browse homemade meals and local food sellers in ${region}, Durban.`,
-      canonical: `${siteUrl}/browse/${slugify(region)}`,
+      canonical: suburbUrl(region),
       sellers: regionSellers,
       intro: `Find independent home chefs and homemade food sellers serving ${region} and nearby Durban communities.`,
-      links: categories.map((category) => ({ href: `/categories/${slugify(category)}`, label: categoryLabel(category) }))
+      links: categories.map((category) => ({ href: `/cuisine/${slugify(category)}`, label: categoryLabel(category) })),
+      breadcrumbs: [{ name: region, url: suburbUrl(region) }]
     }));
   }
 
+  writeHtml("cuisine.html", collectionPage({
+    title: "Browse Homemade Food by Cuisine",
+    description: "Discover homemade meals in Durban by cuisine, from traditional African food and Indian curries to braai packs, seafood and street food.",
+    canonical: `${siteUrl}/cuisine`,
+    sellers,
+    intro: "Browse Durban home chefs by the kind of food you are craving, then visit a public kitchen profile or open the marketplace to order.",
+    links: categories.map((category) => ({ href: `/cuisine/${slugify(category)}`, label: categoryLabel(category) })),
+    breadcrumbs: [{ name: "Cuisines", url: `${siteUrl}/cuisine` }]
+  }));
+
   for (const category of categories) {
     const categorySellers = sellers.filter((seller) => seller.category === category);
-    writeHtml(path.join("categories", `${slugify(category)}.html`), collectionPage({
+    writeHtml(path.join("cuisine", `${slugify(category)}.html`), collectionPage({
       title: `${categoryLabel(category)} in Durban`,
       description: `Browse ${categoryLabel(category).toLowerCase()} from local home chefs across Durban and eThekwini.`,
-      canonical: `${siteUrl}/categories/${slugify(category)}`,
+      canonical: cuisineUrl(category),
       sellers: categorySellers,
       intro: `Discover local Durban sellers offering ${categoryLabel(category).toLowerCase()} through the Home-Made marketplace.`,
-      links: suburbs.map((region) => ({ href: `/browse/${slugify(region)}`, label: region }))
+      links: suburbs.map((region) => ({ href: `/durban/${slugify(region)}`, label: region })),
+      breadcrumbs: [{ name: categoryLabel(category), url: cuisineUrl(category) }]
     }));
   }
 
@@ -300,10 +375,12 @@ async function buildSeoPages() {
   const urls = [
     sitemapEntry(`${siteUrl}/`, updated, "1.0"),
     sitemapEntry(`${siteUrl}/browse-sellers`, updated, "0.9"),
+    sitemapEntry(`${siteUrl}/durban`, updated, "0.9"),
+    sitemapEntry(`${siteUrl}/cuisine`, updated, "0.9"),
     sitemapEntry(`${siteUrl}/markets-events`, updated, "0.7"),
     ...sellers.map((seller) => sitemapEntry(sellerUrl(seller), String(seller.updated_at || updated).slice(0, 10), "0.8")),
-    ...suburbs.map((region) => sitemapEntry(`${siteUrl}/browse/${slugify(region)}`, updated)),
-    ...categories.map((category) => sitemapEntry(`${siteUrl}/categories/${slugify(category)}`, updated))
+    ...suburbs.map((region) => sitemapEntry(suburbUrl(region), updated)),
+    ...categories.map((category) => sitemapEntry(cuisineUrl(category), updated))
   ];
   fs.writeFileSync(path.join(publicDir, "sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>\n`, "utf8");
   console.log(`Built ${sellers.length} seller SEO pages, ${suburbs.length} suburb pages and ${categories.length} category pages`);

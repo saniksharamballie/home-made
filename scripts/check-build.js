@@ -6,6 +6,8 @@ const htmlPath = path.join(root, "public", "index.html");
 const envPath = path.join(root, "public", "env.js");
 const sitemapPath = path.join(root, "public", "sitemap.xml");
 const sellerDir = path.join(root, "public", "seller");
+const durbanDir = path.join(root, "public", "durban");
+const cuisineDir = path.join(root, "public", "cuisine");
 const required = [
   "/env.js",
   "window.HM_CONFIG",
@@ -21,7 +23,7 @@ if (!fs.existsSync(htmlPath)) {
 if (!fs.existsSync(envPath)) {
   throw new Error("Missing public/env.js. Run npm run build first.");
 }
-if (!fs.existsSync(sitemapPath) || !fs.existsSync(sellerDir)) {
+if (!fs.existsSync(sitemapPath) || !fs.existsSync(sellerDir) || !fs.existsSync(durbanDir) || !fs.existsSync(cuisineDir)) {
   throw new Error("Missing generated SEO pages. Run npm run build first.");
 }
 
@@ -35,7 +37,11 @@ for (const needle of required) {
 }
 
 const sellerPages = fs.readdirSync(sellerDir).filter((file) => file.endsWith(".html"));
+const durbanPages = fs.readdirSync(durbanDir).filter((file) => file.endsWith(".html"));
+const cuisinePages = fs.readdirSync(cuisineDir).filter((file) => file.endsWith(".html"));
 if (!sellerPages.length) throw new Error("Build check failed. Missing public seller pages.");
+if (!durbanPages.length) throw new Error("Build check failed. Missing Durban suburb pages.");
+if (!cuisinePages.length) throw new Error("Build check failed. Missing cuisine pages.");
 for (const page of sellerPages) {
   const sellerHtml = fs.readFileSync(path.join(sellerDir, page), "utf8");
   for (const forbidden of ["latitude", "longitude", "\"geo\"", "streetAddress"]) {
@@ -43,9 +49,22 @@ for (const page of sellerPages) {
       throw new Error(`Build check failed. Public seller page leaks private location data: ${page}`);
     }
   }
+  if (!sellerHtml.includes('"@type":"BreadcrumbList"')) {
+    throw new Error(`Build check failed. Seller page missing breadcrumb schema: ${page}`);
+  }
+}
+const sitemap = fs.readFileSync(sitemapPath, "utf8");
+for (const needle of ["/durban</loc>", "/cuisine</loc>", "/durban/westville</loc>", "/cuisine/indian</loc>"]) {
+  if (!sitemap.includes(needle)) throw new Error(`Build check failed. Sitemap missing: ${needle}`);
+}
+for (const stale of ["/browse/westville</loc>", "/categories/indian</loc>"]) {
+  if (sitemap.includes(stale)) throw new Error(`Build check failed. Sitemap contains old canonical path: ${stale}`);
+}
+for (const needle of ["/browse-sellers", "/durban", "/cuisine", "/markets-events"]) {
+  if (!html.includes(`href="${needle}"`)) throw new Error(`Build check failed. Homepage missing crawlable link: ${needle}`);
 }
 if (html.includes("/rest/v1/sellers?select=*")) {
   throw new Error("Build check failed. Public seller API request exposes private seller fields.");
 }
 
-console.log(`Build check passed with ${sellerPages.length} privacy-safe seller pages.`);
+console.log(`Build check passed with ${sellerPages.length} privacy-safe seller pages, ${durbanPages.length} Durban pages and ${cuisinePages.length} cuisine pages.`);

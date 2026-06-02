@@ -173,6 +173,11 @@ body{background:var(--bg);color:var(--body);font-family:var(--font-body);-webkit
 /* Bottom nav mobile */
 #bnav{display:none;position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,.97);backdrop-filter:blur(16px);border-top:1px solid var(--border);z-index:55;padding:4px 0 calc(4px + env(safe-area-inset-bottom));transition:transform .3s ease}
 .profile-mobile-version{display:none}
+.seo-home-copy{margin:0 28px 28px;padding:24px;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;box-shadow:var(--shadow)}
+.seo-home-copy h2{font-family:var(--font-head);font-size:22px;color:var(--heading);margin-bottom:8px}
+.seo-home-copy p{font-size:13px;line-height:1.7;color:var(--muted);max-width:780px}
+.seo-home-links{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.seo-home-links a{padding:7px 10px;border:1px solid var(--border);border-radius:5px;background:var(--bg);color:var(--accent);font-size:12px;font-weight:700;text-decoration:none}
 .bi{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 4px 8px;font-size:10px;font-weight:700;cursor:pointer;color:var(--muted);border:none;background:transparent;transition:color .2s;font-family:var(--font-body);position:relative;border-radius:12px}
 .bi svg{display:block;transition:transform .2s}
 .bi.active{color:var(--accent)}
@@ -799,7 +804,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.22</strong><small>Production build</small>
+      <span>Version</span><strong>v4.23</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -826,7 +831,14 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
   </div>
   <div id="topbar-spacer"></div>
   <main id="main-content" tabindex="-1">
-    <div id="page-home"    class="page"></div>
+    <div id="page-home"    class="page">
+      <section class="seo-home-copy">
+        <h1 class="sr-only">Hyperlocal Homemade Food Marketplace in Durban</h1>
+        <h2>Discover homemade food across Durban</h2>
+        <p>Home-Made connects buyers with local home chefs and independent kitchens across eThekwini. Browse Durban sellers by neighbourhood or cuisine, then order directly through the marketplace.</p>
+        <div class="seo-home-links"><a href="/browse-sellers">Browse sellers</a><a href="/durban">Durban areas</a><a href="/durban/westville">Westville</a><a href="/durban/umhlanga">Umhlanga</a><a href="/durban/pinetown">Pinetown</a><a href="/cuisine">Cuisines</a><a href="/cuisine/indian">Indian cuisine</a><a href="/cuisine/african">Traditional African</a><a href="/markets-events">Markets &amp; events</a></div>
+      </section>
+    </div>
     <div id="page-browse"  class="page hidden"></div>
     <div id="page-map"     class="page hidden"></div>
     <div id="page-post"    class="page hidden"></div>
@@ -983,7 +995,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.22';
+const APP_VERSION='4.23';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -3861,6 +3873,13 @@ function buildHomeHeroGalleryControl(){
 }
 
 /* ══════════════ HOME ══════════════ */
+function homeSeoDirectory(){
+  return '<section class="seo-home-copy">'
+    +'<h2>Discover homemade food across Durban</h2>'
+    +'<p>Home-Made connects buyers with local home chefs and independent kitchens across eThekwini. Browse Durban sellers by neighbourhood or cuisine, then order directly through the marketplace.</p>'
+    +'<div class="seo-home-links"><a href="/browse-sellers">Browse sellers</a><a href="/durban">Durban areas</a><a href="/durban/westville">Westville</a><a href="/durban/umhlanga">Umhlanga</a><a href="/durban/pinetown">Pinetown</a><a href="/cuisine">Cuisines</a><a href="/cuisine/indian">Indian cuisine</a><a href="/cuisine/african">Traditional African</a><a href="/markets-events">Markets &amp; events</a></div>'
+  +'</section>';
+}
 function rHome(){
   loadHomeHeroGallery();
   var featured=applyDietLock(SELLERS).filter(function(s){return s.tier==='platinum';});
@@ -4245,6 +4264,7 @@ function rHome(){
       +'</div>'
     +'</div>'
 
+    +homeSeoDirectory()
     +trustHTML;
 
   requestAnimationFrame(function(){buildCarousel('feat');});
@@ -7335,7 +7355,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.22 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.23 · Production build</div>
   </div>`;
 }
 function swR(r){
