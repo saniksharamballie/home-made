@@ -198,6 +198,7 @@ body{background:var(--bg);color:var(--body);font-family:var(--font-body);-webkit
   .hm-home-hero-stage{min-height:382px}
   .hm-home-hero-media{top:22px;right:-130px;width:390px;height:390px}
   .hm-home-hero-copy{padding:36px 22px 22px;max-width:72%}
+  .hm-home-hero-copy p{max-width:145px!important}
 }
 
 /* ════ COMPONENTS ════ */
@@ -782,7 +783,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.17</strong><small>Production build</small>
+      <span>Version</span><strong>v4.18</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -966,7 +967,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.17';
+const APP_VERSION='4.18';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
