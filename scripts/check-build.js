@@ -8,6 +8,7 @@ const sitemapPath = path.join(root, "public", "sitemap.xml");
 const sellerDir = path.join(root, "public", "seller");
 const durbanDir = path.join(root, "public", "durban");
 const cuisineDir = path.join(root, "public", "cuisine");
+const legalPages = ["terms", "privacy", "legal"].map((slug) => path.join(root, "public", `${slug}.html`));
 const required = [
   "/env.js",
   "window.HM_CONFIG",
@@ -25,6 +26,9 @@ if (!fs.existsSync(envPath)) {
 }
 if (!fs.existsSync(sitemapPath) || !fs.existsSync(sellerDir) || !fs.existsSync(durbanDir) || !fs.existsSync(cuisineDir)) {
   throw new Error("Missing generated SEO pages. Run npm run build first.");
+}
+for (const page of legalPages) {
+  if (!fs.existsSync(page)) throw new Error(`Missing generated legal page: ${path.basename(page)}`);
 }
 
 const html = fs.readFileSync(htmlPath, "utf8");
@@ -54,7 +58,7 @@ for (const page of sellerPages) {
   }
 }
 const sitemap = fs.readFileSync(sitemapPath, "utf8");
-for (const needle of ["/durban</loc>", "/cuisine</loc>", "/durban/westville</loc>", "/cuisine/indian</loc>"]) {
+for (const needle of ["/durban</loc>", "/cuisine</loc>", "/durban/westville</loc>", "/cuisine/indian</loc>", "/terms</loc>", "/privacy</loc>", "/legal</loc>"]) {
   if (!sitemap.includes(needle)) throw new Error(`Build check failed. Sitemap missing: ${needle}`);
 }
 for (const stale of ["/browse/westville</loc>", "/categories/indian</loc>"]) {
@@ -62,6 +66,9 @@ for (const stale of ["/browse/westville</loc>", "/categories/indian</loc>"]) {
 }
 for (const needle of ["/browse-sellers", "/durban", "/cuisine", "/markets-events"]) {
   if (!html.includes(`href="${needle}"`)) throw new Error(`Build check failed. Homepage missing crawlable link: ${needle}`);
+}
+for (const needle of ['href="/terms"', 'href="/privacy"', 'href="/legal"', "&copy; 2026 Home-Made"]) {
+  if (!html.includes(needle)) throw new Error(`Build check failed. Homepage missing legal notice: ${needle}`);
 }
 if (html.includes("/rest/v1/sellers?select=*")) {
   throw new Error("Build check failed. Public seller API request exposes private seller fields.");

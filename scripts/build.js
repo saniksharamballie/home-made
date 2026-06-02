@@ -7,6 +7,7 @@ const outDir = path.join(root, "public");
 const out = path.join(outDir, "index.html");
 const envOut = path.join(outDir, "env.js");
 const { buildSeoPages } = require("./build-seo-pages");
+const { buildLegalPages } = require("./build-legal-pages");
 
 function jsString(value) {
   return JSON.stringify(value || "");
@@ -51,6 +52,7 @@ async function build() {
 
   fs.writeFileSync(out, html, "utf8");
   fs.writeFileSync(envOut, envJs, "utf8");
+  buildLegalPages();
   await buildSeoPages();
   console.log(`Built ${path.relative(root, out)}`);
 }

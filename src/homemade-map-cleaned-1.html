@@ -154,6 +154,9 @@ body{background:var(--bg);color:var(--body);font-family:var(--font-body);-webkit
 #main{flex:1;margin-left:240px;display:flex;flex-direction:column;min-height:100vh;min-width:0}
 #main-content{flex:1;width:100%;max-width:1280px;margin:0 auto}
 #content{flex:1;max-width:1240px;width:100%}
+#legal-footer{padding:14px 18px 18px;border-top:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:11px;line-height:1.6;text-align:center}
+#legal-footer a{color:var(--accent);font-weight:700;text-decoration:none;margin:0 4px}
+@media(max-width:720px){#legal-footer{padding-bottom:82px}}
 
 /* Topbar */
 #topbar{position:fixed;top:28px;left:240px;right:0;z-index:45;background:rgba(253,246,238,.98);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:12px 28px;display:flex;align-items:center;justify-content:space-between;gap:14px;transition:transform .3s ease}
@@ -802,7 +805,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.24</strong><small>Production build</small>
+      <span>Version</span><strong>v4.25</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -849,9 +852,10 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
     <div id="page-rate"    class="page hidden"></div>
     <div id="page-pricing"  class="page hidden"></div>
     <div id="page-messages" class="page hidden"></div>
-    <div id="page-safety"   class="page hidden"></div>
-    <div id="page-wantlist" class="page hidden"></div>
-  </div>
+  <div id="page-safety"   class="page hidden"></div>
+  <div id="page-wantlist" class="page hidden"></div>
+  </main>
+  <footer id="legal-footer"><span>&copy; 2026 Home-Made. All rights reserved.</span><br><a href="/terms">Terms</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/legal">Legal notices</a></footer>
 </div>
 
 <!-- DISCOVER PANEL -->
@@ -993,7 +997,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.24';
+const APP_VERSION='4.25';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -1915,6 +1919,9 @@ function showSafetyModal(onContinue){
       +'• Always meet in a <b>safe, public location</b> for collection.<br>'
       +'• Homemade does not process payments. All transactions are between you and the seller.<br>'
       +'• <b>Transact at your own risk.</b> If anything feels wrong, do not proceed.<br><br>'
+      +'<b>Important</b><br>'
+      +'WhatsApp enquiries and order codes are not proof of payment or guaranteed fulfilment.<br>'
+      +'Never share card details, banking passwords, or one-time PINs. <a href="/terms" target="_blank" rel="noopener">Read the Terms</a>.<br><br>'
       +'<b>For Sellers</b><br>'
       +'• Only share your delivery or pickup details once you are comfortable with the buyer.<br>'
       +'• Do not share your full home address publicly.<br>'
@@ -2537,7 +2544,7 @@ var hmAuth = (function(){
     ov.innerHTML='<div style="width:100%;max-width:390px;background:var(--surface);border:1.5px solid var(--border);border-radius:18px;padding:22px;box-shadow:0 16px 48px rgba(30,14,4,.2)">'
       +'<div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:14px"><div><div style="font-family:var(--font-head);font-size:22px;color:var(--heading)">'+(isSetup?'Create your account':'Reset your password')+'</div><div style="font-size:12px;color:var(--muted);margin-top:3px">'+(isSetup?'We will email you once to verify the new account.':'We will email you a secure password-reset link.')+'</div></div><button aria-label="Close" onclick="document.getElementById(\'hm-auth-action\').remove()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">✕</button></div>'
       +'<input id="hm-action-email" type="email" autocomplete="email" placeholder="you@example.com" class="inp" style="margin-bottom:10px">'
-      +(isSetup?'<input id="hm-action-pw" type="password" autocomplete="new-password" placeholder="Create a password (minimum 8 characters)" class="inp" style="margin-bottom:10px" oninput="hmAuth.passwordMatchHint(\'hm-action-pw\',\'hm-action-pw-confirm\',\'hm-action-match\')"><input id="hm-action-pw-confirm" type="password" autocomplete="new-password" placeholder="Confirm your password" class="inp" style="margin-bottom:6px" oninput="hmAuth.passwordMatchHint(\'hm-action-pw\',\'hm-action-pw-confirm\',\'hm-action-match\')"><div id="hm-action-match" role="status" style="min-height:18px;font-size:12px;font-weight:700;margin-bottom:4px"></div>':'')
+      +(isSetup?'<input id="hm-action-pw" type="password" autocomplete="new-password" placeholder="Create a password (minimum 8 characters)" class="inp" style="margin-bottom:10px" oninput="hmAuth.passwordMatchHint(\'hm-action-pw\',\'hm-action-pw-confirm\',\'hm-action-match\')"><input id="hm-action-pw-confirm" type="password" autocomplete="new-password" placeholder="Confirm your password" class="inp" style="margin-bottom:6px" oninput="hmAuth.passwordMatchHint(\'hm-action-pw\',\'hm-action-pw-confirm\',\'hm-action-match\')"><div id="hm-action-match" role="status" style="min-height:18px;font-size:12px;font-weight:700;margin-bottom:4px"></div><label style="display:flex;gap:8px;align-items:flex-start;font-size:11px;line-height:1.5;color:var(--muted);margin:2px 0 8px"><input id="hm-action-legal" type="checkbox" style="margin-top:2px"> <span>I am at least 18 and agree to the <a href="/terms" target="_blank">Terms</a> and <a href="/privacy" target="_blank">Privacy Notice</a>.</span></label>':'')
       +'<div id="hm-action-msg" role="alert" style="min-height:18px;font-size:12px;color:var(--red);font-weight:700;margin-bottom:8px"></div>'
       +'<button id="hm-action-btn" onclick="hmAuth.submitAuthAction(\''+mode+'\')" class="btn btn-a btn-fw">'+(isSetup?'Create Account':'Send Reset Link')+'</button></div>';
     document.body.appendChild(ov);
@@ -2548,10 +2555,12 @@ var hmAuth = (function(){
     var email=((document.getElementById('hm-action-email')||{}).value||'').trim().toLowerCase();
     var pw=((document.getElementById('hm-action-pw')||{}).value||'').trim();
     var pwConfirm=((document.getElementById('hm-action-pw-confirm')||{}).value||'').trim();
+    var legal=((document.getElementById('hm-action-legal')||{}).checked);
     var msg=document.getElementById('hm-action-msg'),btn=document.getElementById('hm-action-btn');
     if(!email||email.indexOf('@')<1){if(msg)msg.textContent='Please enter your email address.';return;}
     if(mode==='setup'&&pw.length<8){if(msg)msg.textContent='Use at least 8 characters for your password.';return;}
     if(mode==='setup'&&pw!==pwConfirm){if(msg)msg.textContent='Passwords do not match yet.';return;}
+    if(mode==='setup'&&!legal){if(msg)msg.textContent='Please accept the Terms and Privacy Notice to continue.';return;}
     if(btn){btn.disabled=true;btn.textContent=mode==='setup'?'Creating account...':'Sending link...';}
     var done=function(res){
       if(res.error){if(msg)msg.textContent=res.error;if(btn){btn.disabled=false;btn.textContent=mode==='setup'?'Create Account':'Send Reset Link';}return;}
@@ -3029,7 +3038,7 @@ let ST={page:'home',ctx:{},saved:[1,8],role:'buyer',notif:true,aiOpen:false,detL
   bf:{q:'',cat:'all',region:'',dietary:[],health:[],sort:'featured'},
   mf:'',mapTx:0,mapTy:0,_mapDragged:false,
   ps:1,pt:'standard',
-  pf:{name:'',desc:'',region:'',cat:'african',dietary:[],healthTags:[],del:false,fee:'',pu:true,minOrder:10,maxOrder:100,leadDays:3,pricingModel:'per_person',eventTypes:[],serviceTypes:[],cookingStyle:'pre-cooked',setupIncluded:false,equipmentProvided:[],depositPct:0,travelRadius:30,cancellationPolicy:'',img:'',imgPath:'',imgName:'',imgUploading:false,imgError:''},
+  pf:{name:'',desc:'',region:'',cat:'african',dietary:[],healthTags:[],del:false,fee:'',pu:true,minOrder:10,maxOrder:100,leadDays:3,pricingModel:'per_person',eventTypes:[],serviceTypes:[],cookingStyle:'pre-cooked',setupIncluded:false,equipmentProvided:[],depositPct:0,travelRadius:30,cancellationPolicy:'',img:'',imgPath:'',imgName:'',imgUploading:false,imgError:'',legalAccepted:false},
   pi:[{n:'',p:'',svs:'',hot:false}],
   pd:[{qty:2,pct:10}],
   pdone:false,dtab:'menu',homeView:'grid',scrollPos:{}};
@@ -5728,6 +5737,7 @@ function toggleSave(id){
 function goLiveListing(){
   var f=ST.pf, items=ST.pi, discs=ST.pd;
   if(!f.name||!f.region||!f.cat){showToast('Please complete all required fields.');return;}
+  if(!f.legalAccepted){showToast('Please confirm the seller terms before publishing.');return;}
   var catObj=CATS.find(function(c){return c.id===f.cat;})||CATS[1];
   var newId=Date.now(); // unique numeric id
   var newSeller={
@@ -5764,7 +5774,7 @@ function goLiveListing(){
   SELLER_OWN_ID=newId;
   ST.pdone=true;
   // Reset form for next time
-  ST.pf={name:'',desc:'',region:'',cat:'african',dietary:[],healthTags:[],del:false,fee:'',pu:true,minOrder:10,maxOrder:100,leadDays:3,pricingModel:'per_person',eventTypes:[],serviceTypes:[],cookingStyle:'pre-cooked',setupIncluded:false,equipmentProvided:[],depositPct:0,travelRadius:30,cancellationPolicy:'',img:'',imgPath:'',imgName:'',imgUploading:false,imgError:''};
+  ST.pf={name:'',desc:'',region:'',cat:'african',dietary:[],healthTags:[],del:false,fee:'',pu:true,minOrder:10,maxOrder:100,leadDays:3,pricingModel:'per_person',eventTypes:[],serviceTypes:[],cookingStyle:'pre-cooked',setupIncluded:false,equipmentProvided:[],depositPct:0,travelRadius:30,cancellationPolicy:'',img:'',imgPath:'',imgName:'',imgUploading:false,imgError:'',legalAccepted:false};
   ST.pi=[]; ST.pd=[];
   rPost();
   showToast('🎉 Your listing is now live!');
@@ -5869,6 +5879,7 @@ function rPS(){
                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none" onchange="uploadListingImg(this)"/>
              </label>`
         }
+        <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-top:7px">Only upload photos you own or are authorised to use. Uploading grants Home-Made a limited licence to display and market your listing. <a href="/legal" target="_blank">Read notices</a>.</div>
       </div>
       <div><div class="lsm" style="margin-bottom:7px">Durban Area</div><select class="inp" onchange="ST.pf.region=this.value"><option value="">Select area…</option>${REGIONS.slice(1).map(r=>`<option ${f.region===r?'selected':''}>${r}</option>`).join('')}</select></div>
       <div><div class="lsm" style="margin-bottom:7px">Food Category</div><select class="inp" onchange="ST.pf.cat=this.value;rPS()">${CATS.filter(c=>c.id!=='all').map(c=>`<option value="${c.id}" ${f.cat===c.id?'selected':''}>${c.e} ${c.l}</option>`).join('')}</select></div>
@@ -6086,6 +6097,10 @@ function rPS(){
       ${limitBanner}
       <div style="font-family:var(--font-head);font-size:20px;color:var(--heading);margin-bottom:16px">Choose Your Tier</div>
       ${tcards}
+      <label style="display:flex;gap:9px;align-items:flex-start;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:12px 13px;margin:14px 0;font-size:11px;line-height:1.55;color:var(--muted)">
+        <input type="checkbox" ${f.legalAccepted?'checked':''} onchange="ST.pf.legalAccepted=this.checked" style="margin-top:2px"/>
+        <span>I confirm that this listing is accurate, I will disclose ingredients and allergens, I am authorised to use the uploaded content, and I agree to the <a href="/terms" target="_blank">Seller Terms</a> and <a href="/legal" target="_blank">Legal Notices</a>.</span>
+      </label>
       <div style="display:flex;gap:10px;margin-top:4px">
         <button class="btn btn-ol" onclick="goPS(2)">← Back</button>
         <button class="btn btn-a" style="flex:1;justify-content:center" ${overLimit?'disabled style="opacity:.5;cursor:not-allowed"':''} onclick="${overLimit?'showUpgradeModal(\'post_extra_listings\',\'gold\')':'goLiveListing()'}">${ic('zap',14,'#fff')} ${overLimit?'Unlock to Go Live':'Go Live!'}</button>
@@ -7353,7 +7368,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.24 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.25 · Production build</div>
   </div>`;
 }
 function swR(r){

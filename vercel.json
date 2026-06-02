@@ -49,6 +49,9 @@
     { "source": "/cuisine", "destination": "/cuisine.html" },
     { "source": "/cuisine/:category", "destination": "/cuisine/:category.html" },
     { "source": "/markets-events", "destination": "/markets-events.html" },
+    { "source": "/terms", "destination": "/terms.html" },
+    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/legal", "destination": "/legal.html" },
     { "source": "/seller/:slug", "destination": "/seller/:slug.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]

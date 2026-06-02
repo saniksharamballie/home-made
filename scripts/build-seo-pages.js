@@ -113,7 +113,7 @@ function pageShell({ title, description, canonical, body, structuredData, image 
 <body>
   <header><nav class="nav" aria-label="Primary"><a class="brand" href="/"><img src="/icons/icon-96.png" alt="Home-Made logo"/>Home-Made</a><div class="navlinks"><a href="/browse-sellers">Browse sellers</a><a href="/durban">Durban areas</a><a href="/cuisine">Cuisines</a><a href="/markets-events">Markets &amp; events</a><a href="/">Open app</a></div></nav></header>
   ${body}
-  <footer>Home-Made Durban Marketplace &middot; Discover local food sellers across eThekwini</footer>
+  <footer>&copy; 2026 Home-Made. All rights reserved. &middot; <a href="/terms">Terms</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/legal">Legal notices</a></footer>
 </body>
 </html>`;
 }
@@ -197,6 +197,7 @@ function sellerPage(seller) {
         <div class="meta"><span class="tier">${esc(seller.tier)}</span> seller</div>
         <h2>${esc(categoryLabel(seller.category))}</h2>
         <p>Based in ${esc(seller.region)}, Durban. Exact collection details are shared privately when needed.</p>
+        <p class="meta">Independent seller listing. Confirm ingredients and allergens directly with the seller. <a href="/legal">Read notices</a>.</p>
         ${data.rat ? `<p><strong>${esc(data.rat)} / 5</strong> from ${esc(data.rev || 0)} reviews</p>` : ""}
         <div class="actions">${whatsApp ? `<a class="btn" href="https://wa.me/${esc(whatsApp)}" rel="nofollow">Chat on WhatsApp</a>` : ""}<a class="btn alt" href="/">Open marketplace</a></div>
         <div class="links"><a href="/durban/${esc(slugify(seller.region))}">More in ${esc(seller.region)}</a><a href="/cuisine/${esc(slugify(seller.category))}">More ${esc(categoryLabel(seller.category))}</a></div>
@@ -378,6 +379,9 @@ async function buildSeoPages() {
     sitemapEntry(`${siteUrl}/durban`, updated, "0.9"),
     sitemapEntry(`${siteUrl}/cuisine`, updated, "0.9"),
     sitemapEntry(`${siteUrl}/markets-events`, updated, "0.7"),
+    sitemapEntry(`${siteUrl}/terms`, updated, "0.3"),
+    sitemapEntry(`${siteUrl}/privacy`, updated, "0.3"),
+    sitemapEntry(`${siteUrl}/legal`, updated, "0.3"),
     ...sellers.map((seller) => sitemapEntry(sellerUrl(seller), String(seller.updated_at || updated).slice(0, 10), "0.8")),
     ...suburbs.map((region) => sitemapEntry(suburbUrl(region), updated)),
     ...categories.map((category) => sitemapEntry(cuisineUrl(category), updated))
