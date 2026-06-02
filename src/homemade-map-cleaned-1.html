@@ -783,7 +783,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.18</strong><small>Production build</small>
+      <span>Version</span><strong>v4.19</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -967,7 +967,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.18';
+const APP_VERSION='4.19';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -4243,6 +4243,37 @@ function doHS(){
 }
 
 /* ══════════════ BROWSE ══════════════ */
+var NO_RESULT_LOG_TIMER=0;
+var LAST_NO_RESULT_LOG='';
+function browseEmptyState(){
+  var messages=[
+    {title:"The plate's empty, but your next meal doesn't have to be ❤️",body:"No matches found for your search. Try another keyword or explore what's cooking in your area."},
+    {title:'The kitchen came up empty... for now 👨‍🍳',body:'No results found. Try broadening your search — there might be something delicious hiding nearby.'}
+  ];
+  var message=messages[Math.floor(Math.random()*messages.length)];
+  return '<div style="text-align:center;padding:34px 20px 52px;color:var(--muted);max-width:560px;margin:0 auto">'
+    +'<img src="/images/empty-plate.png" alt="Empty plate" style="display:block;width:min(260px,82vw);height:auto;margin:0 auto 18px;object-fit:contain;filter:drop-shadow(0 12px 14px rgba(60,30,10,.16))"/>'
+    +'<h3 style="font-family:var(--font-head);font-size:22px;line-height:1.25;color:var(--heading)">'+message.title+'</h3>'
+    +'<p style="margin:8px auto 0;max-width:430px;font-size:13px;line-height:1.65">'+message.body+'</p>'
+    +'</div>';
+}
+function recordUnfulfilledSearch(f,delay){
+  var query=String(f&&f.q||'').trim().replace(/\s+/g,' ').slice(0,160);
+  if(query.length<2||!hmAuth||!hmAuth.insert) return;
+  clearTimeout(NO_RESULT_LOG_TIMER);
+  NO_RESULT_LOG_TIMER=setTimeout(function(){
+    var key=[query.toLowerCase(),f.region||'Durban',f.cat||'all',(f.dietary||[]).join(','),(f.health||[]).join(',')].join('|');
+    if(key===LAST_NO_RESULT_LOG) return;
+    LAST_NO_RESULT_LOG=key;
+    hmAuth.insert('unfulfilled_searches',{
+      query:query,
+      region:f.region||'Durban',
+      category:f.cat||'all',
+      filters:{dietary:f.dietary||[],health:f.health||[]},
+      result_count:0
+    });
+  },delay||0);
+}
 function rBrowse(){
   const ctx=ST.ctx||{};if(ctx.cat)ST.bf.cat=ctx.cat;
   const f=ST.bf;
@@ -4269,7 +4300,8 @@ function rBrowse(){
     const o={platinum:0,gold:1,standard:2};return (o[a.tier]||2)-(o[b.tier]||2);
   });
   const cChips=CATS.map(c=>`<button class="chip ${f.cat===c.id?'on':''}" style="flex-shrink:0" onclick="bCat('${c.id}')">${c.e} ${c.l}</button>`).join('');
-  const grid=filtered.length===0?`<div style="text-align:center;padding:60px 20px;color:var(--muted)"><div style="font-size:44px;margin-bottom:12px">🔍</div><h3 style="font-family:var(--font-head);font-size:22px;color:var(--body)">No results found</h3><p style="margin-top:6px">Try adjusting your filters</p></div>`
+  if(filtered.length===0) recordUnfulfilledSearch(f,0);
+  const grid=filtered.length===0?browseEmptyState()
     :`<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">${filtered.map(s=>sCard(s)).join('')}</div>`;
   document.getElementById('page-browse').innerHTML=`
   <div style="padding:12px 16px;border-bottom:1px solid var(--border);background:rgba(253,246,238,.97);backdrop-filter:blur(12px);position:sticky;top:0;z-index:30">
@@ -4325,6 +4357,7 @@ function rBrowse(){
 }
 function bSrch(v){
   ST.bf.q=v;
+  clearTimeout(NO_RESULT_LOG_TIMER);
   // Partial update — only replace results and count, never the input itself.
   // This prevents the keyboard from dismissing on each keystroke.
   var f=ST.bf;
@@ -4350,10 +4383,11 @@ function bSrch(v){
   var countEl=document.getElementById('browse-count');
   var clearBtn=document.getElementById('bq-clear');
   if(gridEl) gridEl.innerHTML=filtered.length===0
-    ?'<div style="text-align:center;padding:60px 20px;color:var(--muted)"><div style="font-size:44px;margin-bottom:12px">🔍</div><h3 style="font-family:var(--font-head);font-size:22px;color:var(--body)">No results found</h3><p style="margin-top:6px">Try adjusting your filters</p></div>'
+    ?browseEmptyState()
     :'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">'+filtered.map(function(s){return sCard(s);}).join('')+'</div>';
   if(countEl) countEl.innerHTML='<b style="color:var(--heading)">'+filtered.length+'</b> seller'+(filtered.length===1?'':'s')+' found in '+(f.region||'Durban');
   if(clearBtn) clearBtn.style.display=v?'flex':'none';
+  if(filtered.length===0) recordUnfulfilledSearch(f,700);
 }
 function bClear(){
   ST.bf.q='';
@@ -8922,6 +8956,27 @@ function showToast(msg){
 
 /* ── Admin Analytics Render ── */
 var _admTab='overview';
+var ADMIN_SEARCH_GAPS_SYNCED=false;
+function loadAdminSearchGaps(){
+  if(ADMIN_SEARCH_GAPS_SYNCED||ST.role!=='admin'||!hmAuth||!hmAuth.select) return;
+  ADMIN_SEARCH_GAPS_SYNCED=true;
+  hmAuth.select('unfulfilled_searches',null,function(rows){
+    var grouped={};
+    (rows||[]).forEach(function(row){
+      var q=String(row.query||'').trim();
+      if(!q) return;
+      var region=row.region||'Durban';
+      var key=q.toLowerCase()+'|'+region+'|'+(row.category||'all');
+      if(!grouped[key]) grouped[key]={q:q,n:0,trend:0,cat:row.category||'all',regions:[region],live:true};
+      grouped[key].n++;
+    });
+    var demoRows=(ADM.noResultSearches||[]).filter(function(q){return !q.live;});
+    ADM.noResultSearches=Object.keys(grouped).map(function(key){return grouped[key];})
+      .sort(function(a,b){return b.n-a.n;})
+      .concat(demoRows);
+    if(ST.page==='admin') rAdmin();
+  });
+}
 function admSetTab(t){
   _admTab=t;
   window.scrollTo({top:0,behavior:'instant'});
@@ -8934,6 +8989,7 @@ function rAdmin(){
     document.getElementById('page-admin').innerHTML='<div style="padding:80px 28px;text-align:center"><div style="font-size:48px;margin-bottom:16px">🔒</div><div style="font-family:var(--font-head);font-size:24px;color:var(--heading);margin-bottom:8px">Admin Access Only</div><p style="color:var(--muted);font-size:14px">Switch your role to Admin in My Profile to access analytics.</p></div>';
     return;
   }
+  loadAdminSearchGaps();
   var d=ADM;
   var t=_admTab;
   d.funnel=d.funnel&&d.funnel.length?d.funnel:[
@@ -9620,16 +9676,18 @@ function rAdmin(){
       var trendColor=q.trend>10?'var(--red)':q.trend>0?'var(--amber)':'var(--lime)';
       var trendArrow=q.trend>0?'↑':'↓';
       var ce=CATS.find(function(x){return x.id===q.cat;})||{e:'🍽️'};
+      var displayQuery=hmText(q.q);
+      var actionQuery=String(q.q).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       return '<div class="adm-row">'
         +'<div style="width:36px;height:36px;border-radius:10px;background:var(--amber-l);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">'+ce.e+'</div>'
         +'<div style="flex:1;min-width:0">'
-          +'<div style="font-size:12px;font-weight:700;color:var(--heading)">"'+q.q+'"</div>'
-          +'<div style="font-size:10px;color:var(--muted)">'+q.regions.slice(0,2).join(', ')+'</div>'
+          +'<div style="font-size:12px;font-weight:700;color:var(--heading)">"'+displayQuery+'"</div>'
+          +'<div style="font-size:10px;color:var(--muted)">'+hmText(q.regions.slice(0,2).join(', '))+(q.live?' · Live search':'')+'</div>'
         +'</div>'
         +'<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'
           +'<span style="font-size:12px;font-weight:800;color:var(--heading)">'+q.n+'×</span>'
           +'<span style="font-size:11px;font-weight:700;color:'+trendColor+'">'+trendArrow+(Math.abs(q.trend))+'%</span>'
-          +'<button class="adm-msg-btn" style="font-size:10px;padding:4px 10px" onclick="admBroadcastSearch(\''+q.q+'\')">📢 Invite</button>'
+          +'<button class="adm-msg-btn" style="font-size:10px;padding:4px 10px" onclick="admBroadcastSearch(\''+actionQuery+'\')">📢 Invite</button>'
         +'</div>'
       +'</div>';
     }).join('');
@@ -9658,9 +9716,9 @@ function rAdmin(){
     tabContent=
       '<div class="g4" style="margin-bottom:20px">'
         +admKPI('🔍','Weekly Search Gaps',totalGap,'Searches with no matches','dn','Revenue lost to unfulfilled demand')
-        +admKPI('📈','Fastest Growing Gap','"'+fastestGrowingSearch.q+'"',fastestGrowingSearch.n+'× this week','dn','+'+fastestGrowingSearch.trend+'% trend — urgent seller gap')
+        +admKPI('📈','Fastest Growing Gap','"'+hmText(fastestGrowingSearch.q)+'"',fastestGrowingSearch.n+'× this week','dn','+'+fastestGrowingSearch.trend+'% trend — urgent seller gap')
         +admKPI('🧡','Want List Votes',wantTotal,d.wantListAgg.length+' unique item requests','up','Buyer demand intelligence')
-        +admKPI('🌍','Top Gap Region',d.noResultSearches[0].regions[0],d.noResultSearches[0].n+'× "'+d.noResultSearches[0].q+'"','nt','Highest unmet demand area')
+        +admKPI('🌍','Top Gap Region',hmText(d.noResultSearches[0].regions[0]),d.noResultSearches[0].n+'× "'+hmText(d.noResultSearches[0].q)+'"','nt','Highest unmet demand area')
       +'</div>'
       +'<div class="g2" style="margin-bottom:16px">'
         +'<div class="adm-sec" style="margin-bottom:0"><div class="adm-sec-hd"><div class="adm-sec-title">⚖️ Supply vs Demand Engine</div><span style="font-size:11px;color:var(--muted)">Category status</span></div>'
@@ -10189,7 +10247,7 @@ function rAdmin(){
         +'</div>'
         +'<div style="display:flex;gap:8px;align-items:center">'
           +'<span style="font-size:11px;color:var(--muted)">Updated: just now</span>'
-          +'<button class="btn btn-a btn-sm" onclick="rAdmin()">↻ Refresh</button>'
+          +'<button class="btn btn-a btn-sm" onclick="ADMIN_SEARCH_GAPS_SYNCED=false;rAdmin()">↻ Refresh</button>'
           +'<button class="btn btn-gh btn-sm" onclick="hmAuth.signOut();nav(\'home\')">Sign Out</button>'
         +'</div>'
       +'</div>'

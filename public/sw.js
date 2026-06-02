@@ -1,4 +1,4 @@
-const VERSION = "hm-prod-v15";
+const VERSION = "hm-prod-v16";
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 const SHELL_ASSETS = [
@@ -6,6 +6,7 @@ const SHELL_ASSETS = [
   "/index.html",
   "/env.js",
   "/manifest.json",
+  "/images/empty-plate.png",
   "/icons/home-made-logo-clean.png",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
