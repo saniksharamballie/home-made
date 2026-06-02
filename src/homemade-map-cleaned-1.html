@@ -184,6 +184,21 @@ body{background:var(--bg);color:var(--body);font-family:var(--font-body);-webkit
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.4)}}
 .hidden{display:none!important}
+.hm-home-hero{background:#F7F1E8;position:relative}
+.hm-home-hero-stage{position:relative;min-height:320px;overflow:hidden}
+.hm-home-hero-media{position:absolute;top:-42px;right:18px;width:420px;height:420px;z-index:1;pointer-events:none}
+.hm-home-hero-media img{display:block;width:100%;height:100%;object-fit:contain;object-position:center;filter:drop-shadow(0 16px 12px rgba(60,30,10,.18))}
+.hm-home-hero-copy{position:relative;z-index:3;padding:36px 24px 32px;max-width:58%}
+@media(max-width:900px){
+  .hm-home-hero-stage{min-height:390px}
+  .hm-home-hero-media{top:18px;right:-92px;width:350px;height:350px}
+  .hm-home-hero-copy{padding:42px 24px 24px;max-width:70%}
+}
+@media(max-width:480px){
+  .hm-home-hero-stage{min-height:382px}
+  .hm-home-hero-media{top:22px;right:-104px;width:328px;height:328px}
+  .hm-home-hero-copy{padding:36px 22px 22px;max-width:72%}
+}
 
 /* ════ COMPONENTS ════ */
 .card{background:var(--card);border:1.5px solid var(--border);border-radius:18px;overflow:hidden;transition:transform .2s,box-shadow .2s;cursor:pointer;box-shadow:var(--shadow)}
@@ -767,7 +782,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.14</strong><small>Production build</small>
+      <span>Version</span><strong>v4.15</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -787,7 +802,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
         <span class="ndot" id="ndot"></span>
       </button>
       <button aria-label="Discover" class="ib" onclick="toggleDiscover()" title="Discover picks for you" style="font-size:15px;line-height:1">&#10024;</button>
-      <button aria-label="My profile" id="tb-profile-btn" class="ib" onclick="ST.role==='guest'?hmAuth.requireLogin(function(){nav('profile');}):nav('profile')">
+      <button aria-label="My profile" id="tb-profile-btn" class="ib" onclick="ST.role==='guest'?hmAuth.requireLogin(function(){nav('profile');}):ST.role==='admin'?(window._admTab='settings',nav('admin')):nav('profile')">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       </button>
     </div>
@@ -951,7 +966,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.14';
+const APP_VERSION='4.15';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -4088,21 +4103,17 @@ function rHome(){
   document.getElementById('page-home').innerHTML=
 
     /* ── Hero section: two-column, food image top-right ── */
-    '<div style="background:#F7F1E8;position:relative">'
+    '<div class="hm-home-hero">'
+    +'<div class="hm-home-hero-stage">'
 
-    /* Food image — absolute top-right, bleeds off edge */
-    +'<div style="position:absolute;top:0;right:0;width:52%;height:100%;min-height:280px;z-index:1;pointer-events:none">'
-    +(homeHeroImage()?'<img src="'+hmText(homeHeroImage())+'" alt="" style="width:100%;height:100%;object-fit:cover"/>':'')
-    /* Gradient blend from cream bg into image */
-    +'<div style="position:absolute;inset:0;background:linear-gradient(90deg,#F7F1E8 0%,rgba(247,241,232,.72) 18%,rgba(247,241,232,0) 54%)"></div>'
-
-    /* Warm spice-scatter blobs */
-
+    /* Food image — contained inside the headline stage */
+    +'<div class="hm-home-hero-media">'
+    +(homeHeroImage()?'<img src="'+hmText(homeHeroImage())+'" alt="Featured homemade dish"/>':'')
 
     +'</div>'
 
     /* Left text column */
-    +'<div style="position:relative;z-index:3;padding:36px 24px 32px;max-width:62%">'
+    +'<div class="hm-home-hero-copy">'
     +'<h1 style="font-family:var(--font-head);font-size:clamp(28px,7vw,48px);font-weight:800;'
     +'color:#2E1C12;line-height:1.06;margin:0 0 14px">'
     +'Real Food.<br>Real Homes.<br>'
@@ -4111,6 +4122,7 @@ function rHome(){
     +'<p style="color:#6A584D;font-size:14px;line-height:1.65;margin:0;max-width:220px">'
     +'Discover incredible homemade food from talented home chefs across eThekwini.'
     +'</p>'
+    +'</div>'
     +'</div>'
 
     /* Search card */
@@ -10158,6 +10170,7 @@ function rAdmin(){
         +'<div style="display:flex;gap:8px;align-items:center">'
           +'<span style="font-size:11px;color:var(--muted)">Updated: just now</span>'
           +'<button class="btn btn-a btn-sm" onclick="rAdmin()">↻ Refresh</button>'
+          +'<button class="btn btn-gh btn-sm" onclick="hmAuth.signOut();nav(\'home\')">Sign Out</button>'
         +'</div>'
       +'</div>'
       +tabBar
