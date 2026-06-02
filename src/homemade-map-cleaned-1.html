@@ -184,19 +184,19 @@ body{background:var(--bg);color:var(--body);font-family:var(--font-body);-webkit
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.4)}}
 .hidden{display:none!important}
-.hm-home-hero{background:#F7F1E8;position:relative}
-.hm-home-hero-stage{position:relative;min-height:320px;overflow:hidden}
-.hm-home-hero-media{position:absolute;top:-42px;right:-140px;width:420px;height:420px;z-index:1;pointer-events:none}
+.hm-home-hero{background:#F7F1E8;position:relative;overflow:hidden}
+.hm-home-hero-stage{position:relative;min-height:320px}
+.hm-home-hero-media{position:absolute;top:-42px;right:-173px;width:520px;height:520px;z-index:1;pointer-events:none}
 .hm-home-hero-media img{display:block;width:100%;height:100%;object-fit:contain;object-position:center;filter:drop-shadow(0 16px 12px rgba(60,30,10,.18))}
 .hm-home-hero-copy{position:relative;z-index:3;padding:36px 24px 32px;max-width:58%}
 @media(max-width:900px){
   .hm-home-hero-stage{min-height:390px}
-  .hm-home-hero-media{top:18px;right:-117px;width:350px;height:350px}
+  .hm-home-hero-media{top:18px;right:-140px;width:420px;height:420px}
   .hm-home-hero-copy{padding:42px 24px 24px;max-width:70%}
 }
 @media(max-width:480px){
   .hm-home-hero-stage{min-height:382px}
-  .hm-home-hero-media{top:22px;right:-109px;width:328px;height:328px}
+  .hm-home-hero-media{top:22px;right:-130px;width:390px;height:390px}
   .hm-home-hero-copy{padding:36px 22px 22px;max-width:72%}
 }
 
@@ -782,7 +782,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.16</strong><small>Production build</small>
+      <span>Version</span><strong>v4.17</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -966,7 +966,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.16';
+const APP_VERSION='4.17';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
