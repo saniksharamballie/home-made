@@ -128,6 +128,7 @@ body{background:var(--bg);color:var(--body);font-family:var(--font-body);-webkit
 
 /* Sidebar */
 #sidebar{width:240px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:28px;left:0;height:calc(100vh - 28px);z-index:60;transform:translateX(0);transition:transform .25s cubic-bezier(.4,0,.2,1);box-shadow:2px 0 16px rgba(30,14,4,.06)}
+body.banner-hidden #sidebar{top:0;height:100vh}
 #sb-logo{padding:12px 14px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:center}
 .sb-logo-img{display:block;width:100px;height:100px;max-width:100%;object-fit:contain}
 .sb-version{margin-top:10px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:rgba(253,246,238,.72);display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center}
@@ -161,6 +162,8 @@ body{background:var(--bg);color:var(--body);font-family:var(--font-body);-webkit
 /* Topbar */
 #topbar{position:fixed;top:28px;left:240px;right:0;z-index:45;background:rgba(253,246,238,.98);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:12px 28px;display:flex;align-items:center;justify-content:space-between;gap:14px;transition:transform .3s ease}
 #topbar-spacer{height:96px;flex-shrink:0;transition:height .25s ease}
+body.banner-hidden #topbar{top:0}
+body.banner-hidden #topbar-spacer{height:68px}
 #topbar-spacer.hidden-spacer{height:28px}
 .tb-l{display:flex;align-items:center;gap:14px;flex:1;min-width:0}
 
@@ -805,7 +808,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.25</strong><small>Production build</small>
+      <span>Version</span><strong>v4.26</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -997,7 +1000,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.25';
+const APP_VERSION='4.26';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -3799,6 +3802,102 @@ var HOME_HERO_GALLERY=(function(){
 })();
 var HOME_HERO_SYNCED=false;
 var HOME_HERO_ACTIVE_URL='';
+var ANNOUNCEMENT_DEFAULT={visible:true,message:'Testing phase \u00b7 Home-Made is currently being prepared for launch',background:'#3a2800',foreground:'#fff8e8',expiresAt:''};
+var HOME_CONTENT_DEFAULT={heroHeadline:'Real Food.\nReal Homes.\nReal People.',heroSupportingText:'Discover incredible homemade food from talented home chefs across eThekwini.',searchPlaceholder:'Search cuisine, dish, seller\u2026',featuredCategories:['african','indian','baked','bbq','vegan'],promoEyebrow:'For Home Chefs & Cooks',promoHeadline:'Turn your passion\ninto income',promoBody:'Join 500+ home chefs already earning from their kitchen across eThekwini.'};
+function loadManagedLocal(key,fallback){
+  try{return Object.assign({},fallback,JSON.parse(localStorage.getItem('hm_'+key)||'{}'));}catch(e){return Object.assign({},fallback);}
+}
+var ANNOUNCEMENT=loadManagedLocal('announcement_banner',ANNOUNCEMENT_DEFAULT);
+var HOME_CONTENT=loadManagedLocal('home_content',HOME_CONTENT_DEFAULT);
+var MANAGED_SITE_SETTINGS_SYNCED=false;
+function managedLines(value,emphasiseLast){
+  var lines=String(value||'').split(/\r?\n/).filter(function(line){return line.trim();});
+  return lines.map(function(line,index){
+    var safe=hmText(line);
+    return emphasiseLast&&index===lines.length-1?'<em style="color:#D96A1D;font-style:italic">'+safe+'</em>':safe;
+  }).join('<br>');
+}
+function bannerIsActive(){
+  if(!ANNOUNCEMENT.visible) return false;
+  if(!ANNOUNCEMENT.expiresAt) return true;
+  var expiry=new Date(ANNOUNCEMENT.expiresAt);
+  return !isNaN(expiry.getTime())&&expiry.getTime()>Date.now();
+}
+function applyAnnouncementBanner(){
+  var banner=document.getElementById('testing-banner');
+  if(!banner) return;
+  var active=bannerIsActive();
+  banner.style.display=active?'flex':'none';
+  banner.textContent=ANNOUNCEMENT.message||ANNOUNCEMENT_DEFAULT.message;
+  banner.style.background=ANNOUNCEMENT.background||ANNOUNCEMENT_DEFAULT.background;
+  banner.style.color=ANNOUNCEMENT.foreground||ANNOUNCEMENT_DEFAULT.foreground;
+  document.body.classList.toggle('banner-hidden',!active);
+}
+function loadManagedSiteSettings(){
+  applyAnnouncementBanner();
+  if(MANAGED_SITE_SETTINGS_SYNCED||!hmAuth||!hmAuth.select) return;
+  MANAGED_SITE_SETTINGS_SYNCED=true;
+  hmAuth.select('app_settings',null,function(rows){
+    (rows||[]).forEach(function(row){
+      if(row.key==='announcement_banner') ANNOUNCEMENT=Object.assign({},ANNOUNCEMENT_DEFAULT,row.value||{});
+      if(row.key==='home_content') HOME_CONTENT=Object.assign({},HOME_CONTENT_DEFAULT,row.value||{});
+    });
+    try{localStorage.setItem('hm_announcement_banner',JSON.stringify(ANNOUNCEMENT));localStorage.setItem('hm_home_content',JSON.stringify(HOME_CONTENT));}catch(e){}
+    applyAnnouncementBanner();
+    if(ST.page==='home') rHome();
+    if(ST.page==='admin'&&_admTab==='controls') rAdmin();
+  });
+}
+function saveManagedSetting(key,value,done){
+  try{localStorage.setItem('hm_'+key,JSON.stringify(value));}catch(e){}
+  if(!hmAuth||!hmAuth.update){if(done)done({error:'Settings service unavailable.'});return;}
+  hmAuth.update('app_settings',{key:key},{value:value,updated_at:new Date().toISOString()},function(res){if(done)done(res||{});});
+}
+function saveAnnouncementSettings(){
+  ANNOUNCEMENT={
+    visible:!!((document.getElementById('adm-banner-visible')||{}).checked),
+    message:((document.getElementById('adm-banner-message')||{}).value||'').trim()||ANNOUNCEMENT_DEFAULT.message,
+    background:((document.getElementById('adm-banner-bg')||{}).value||ANNOUNCEMENT_DEFAULT.background),
+    foreground:((document.getElementById('adm-banner-fg')||{}).value||ANNOUNCEMENT_DEFAULT.foreground),
+    expiresAt:((document.getElementById('adm-banner-expiry')||{}).value||'')
+  };
+  applyAnnouncementBanner();
+  saveManagedSetting('announcement_banner',ANNOUNCEMENT,function(res){showToast(res&&res.error?'Banner saved locally. Apply the new Supabase migration to publish it.':'Announcement banner published.');});
+}
+function saveHomepageContent(){
+  var selected=Array.prototype.slice.call(document.querySelectorAll('input[name="adm-featured-cat"]:checked')).map(function(el){return el.value;});
+  HOME_CONTENT={
+    heroHeadline:((document.getElementById('adm-home-headline')||{}).value||'').trim()||HOME_CONTENT_DEFAULT.heroHeadline,
+    heroSupportingText:((document.getElementById('adm-home-support')||{}).value||'').trim()||HOME_CONTENT_DEFAULT.heroSupportingText,
+    searchPlaceholder:((document.getElementById('adm-home-placeholder')||{}).value||'').trim()||HOME_CONTENT_DEFAULT.searchPlaceholder,
+    featuredCategories:selected,
+    promoEyebrow:((document.getElementById('adm-home-promo-eyebrow')||{}).value||'').trim()||HOME_CONTENT_DEFAULT.promoEyebrow,
+    promoHeadline:((document.getElementById('adm-home-promo-headline')||{}).value||'').trim()||HOME_CONTENT_DEFAULT.promoHeadline,
+    promoBody:((document.getElementById('adm-home-promo-body')||{}).value||'').trim()||HOME_CONTENT_DEFAULT.promoBody
+  };
+  saveManagedSetting('home_content',HOME_CONTENT,function(res){showToast(res&&res.error?'Homepage saved locally. Apply the new Supabase migration to publish it.':'Homepage content published.');if(ST.page==='home')rHome();});
+}
+function buildManagedContentControls(){
+  var cats=CATS.filter(function(c){return c.id!=='all';}).map(function(c){
+    var checked=(HOME_CONTENT.featuredCategories||[]).includes(c.id)?' checked':'';
+    return '<label style="display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 9px;font-size:11px;color:var(--body)"><input type="checkbox" name="adm-featured-cat" value="'+c.id+'"'+checked+'/> '+c.e+' '+c.l+'</label>';
+  }).join('');
+  return '<div class="adm-sec" style="margin-bottom:16px">'
+    +'<div class="adm-sec-hd"><div><div class="adm-sec-title">Announcement Banner</div><div style="font-size:11px;color:var(--muted);margin-top:3px">Use for testing notices, promotions, or maintenance alerts.</div></div><button class="btn btn-a btn-sm" onclick="saveAnnouncementSettings()">Save banner</button></div>'
+    +'<label style="display:flex;gap:8px;align-items:center;font-size:12px;font-weight:700;color:var(--heading);margin-bottom:12px"><input id="adm-banner-visible" type="checkbox" '+(ANNOUNCEMENT.visible?'checked':'')+'> Show announcement banner</label>'
+    +'<div class="g2"><div><div class="lsm" style="margin-bottom:6px">Message</div><input id="adm-banner-message" class="inp" value="'+hmText(ANNOUNCEMENT.message)+'"/></div><div><div class="lsm" style="margin-bottom:6px">Optional expiry</div><input id="adm-banner-expiry" class="inp" type="datetime-local" value="'+hmText(ANNOUNCEMENT.expiresAt||'')+'"/></div></div>'
+    +'<div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap"><label style="font-size:11px;color:var(--muted)">Background <input id="adm-banner-bg" type="color" value="'+hmText(ANNOUNCEMENT.background||ANNOUNCEMENT_DEFAULT.background)+'" style="margin-left:5px;vertical-align:middle"/></label><label style="font-size:11px;color:var(--muted)">Text <input id="adm-banner-fg" type="color" value="'+hmText(ANNOUNCEMENT.foreground||ANNOUNCEMENT_DEFAULT.foreground)+'" style="margin-left:5px;vertical-align:middle"/></label></div>'
+  +'</div>'
+  +'<div class="adm-sec" style="margin-bottom:16px">'
+    +'<div class="adm-sec-hd"><div><div class="adm-sec-title">Homepage Content Manager</div><div style="font-size:11px;color:var(--muted);margin-top:3px">Update the storefront copy and featured category shortcuts without a redeploy.</div></div><button class="btn btn-a btn-sm" onclick="saveHomepageContent()">Save homepage</button></div>'
+    +'<div class="g2"><div><div class="lsm" style="margin-bottom:6px">Hero headline</div><textarea id="adm-home-headline" class="inp" rows="3">'+hmText(HOME_CONTENT.heroHeadline)+'</textarea></div><div><div class="lsm" style="margin-bottom:6px">Supporting text</div><textarea id="adm-home-support" class="inp" rows="3">'+hmText(HOME_CONTENT.heroSupportingText)+'</textarea></div></div>'
+    +'<div style="margin-top:12px"><div class="lsm" style="margin-bottom:6px">Search placeholder</div><input id="adm-home-placeholder" class="inp" value="'+hmText(HOME_CONTENT.searchPlaceholder)+'"/></div>'
+    +'<div style="margin-top:12px"><div class="lsm" style="margin-bottom:7px">Featured categories</div><div style="display:flex;gap:7px;flex-wrap:wrap">'+cats+'</div></div>'
+    +'<div class="g2" style="margin-top:12px"><div><div class="lsm" style="margin-bottom:6px">Promo label</div><input id="adm-home-promo-eyebrow" class="inp" value="'+hmText(HOME_CONTENT.promoEyebrow)+'"/></div><div><div class="lsm" style="margin-bottom:6px">Promo headline</div><textarea id="adm-home-promo-headline" class="inp" rows="2">'+hmText(HOME_CONTENT.promoHeadline)+'</textarea></div></div>'
+    +'<div style="margin-top:12px"><div class="lsm" style="margin-bottom:6px">Promo supporting text</div><textarea id="adm-home-promo-body" class="inp" rows="2">'+hmText(HOME_CONTENT.promoBody)+'</textarea></div>'
+  +'</div>';
+}
+applyAnnouncementBanner();
 
 function homeHeroImage(){
   if(!HOME_HERO_GALLERY.length) return '';
@@ -3889,11 +3988,12 @@ function homeSeoDirectory(){
 }
 function rHome(){
   loadHomeHeroGallery();
+  loadManagedSiteSettings();
   var featured=applyDietLock(SELLERS).filter(function(s){return s.tier==='platinum';});
   var trending=applyDietLock(SELLERS).filter(function(s){return s.rat>=4.7;}).slice(0,6);
   var featIds=featured.map(function(x){return x.id;});
   var trendIds=trending.map(function(x){return x.id;});
-  var catChips=CATS.filter(function(c){return c.id!=='all';}).map(function(c){
+  var catChips=(HOME_CONTENT.featuredCategories||[]).map(function(catId){return CATS.find(function(c){return c.id===catId;});}).filter(Boolean).map(function(c){
     return '<button style="flex-shrink:0;padding:0 16px;height:38px;border-radius:999px;background:#F3E8DA;border:1.5px solid #E8DDD1;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;color:var(--body);font-family:var(--font-body);transition:all .15s" onmouseover="this.style.background=\'#D96A1D\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'#F3E8DA\';this.style.color=\'var(--body)\'" onclick="nav(\'browse\',{cat:\''+c.id+'\'})">'+c.e+' '+c.l+'</button>';
   }).join('');
   var slides=featured.map(function(s){
@@ -4178,11 +4278,10 @@ function rHome(){
     +'<div class="hm-home-hero-copy">'
     +'<h1 style="font-family:var(--font-head);font-size:clamp(28px,7vw,48px);font-weight:800;'
     +'color:#2E1C12;line-height:1.06;margin:0 0 14px">'
-    +'Real Food.<br>Real Homes.<br>'
-    +'<em style="color:#D96A1D;font-style:italic">Real People.</em>'
+    +managedLines(HOME_CONTENT.heroHeadline,true)
     +'</h1>'
     +'<p style="color:#6A584D;font-size:14px;line-height:1.65;margin:0;max-width:220px">'
-    +'Discover incredible homemade food from talented home chefs across eThekwini.'
+    +hmText(HOME_CONTENT.heroSupportingText)
     +'</p>'
     +'</div>'
     +'</div>'
@@ -4197,7 +4296,7 @@ function rHome(){
     +'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9A8070" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>'
     +'<label for="hq" class="sr-only">Search</label>'
     +'<input id="hq" class="inp" aria-label="Search cuisine, dish, seller" '
-    +'placeholder="Search cuisine, dish, seller\u2026" '
+    +'placeholder="'+hmText(HOME_CONTENT.searchPlaceholder)+'" '
     +'style="border:none;background:transparent;flex:1;font-size:14px;color:var(--heading);outline:none" '
     +'onkeydown="if(event.key===\'Enter\')doHS()"/>'
     +'</div>'
@@ -4230,8 +4329,10 @@ function rHome(){
 
     +'</div>'  /* end cream section */
 
+    /* Managed category shortcuts */
+    +'<div style="padding:8px 18px 14px;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch">'+catChips+'</div>'
     /* Quick intent chips */
-    +'<div style="padding:8px 18px 14px;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch">'
+    +'<div style="padding:0 18px 14px;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch">'
     +'<button class="intent-chip" onclick="doIntent(\'dinner\')">&#127769; Today\'s Dinner</button>'
     +'<button class="intent-chip" onclick="doIntent(\'cake\')">&#127874; Celebration Cake</button>'
     +'<button class="intent-chip" onclick="doIntent(\'budget\')">&#129689; Under R100</button>'
@@ -4245,7 +4346,7 @@ function rHome(){
 
     +specialsHTML+gemsHTML+recentHTML+top3HTML
 
-    +'<div style="margin:28px 28px 8px;background:linear-gradient(135deg,#FFF0E0,#FFEBD4);border:1.5px solid var(--border);border-radius:22px;padding:28px;position:relative;overflow:hidden;box-shadow:var(--shadow)"><div style="position:absolute;top:-10px;right:-10px;font-size:100px;opacity:.08;transform:rotate(-12deg)">🍳</div><div style="position:relative;display:flex;flex-wrap:wrap;gap:24px;align-items:center"><div style="flex:1;min-width:220px"><div class="lsm" style="margin-bottom:8px">For Home Chefs &amp; Cooks</div><div style="font-family:var(--font-head);font-size:26px;font-weight:700;color:var(--heading);margin-bottom:10px;line-height:1.2">Turn your passion<br>into income</div><p style="font-size:13px;color:var(--muted);line-height:1.7">Join 500+ home chefs already earning from their kitchen across eThekwini.</p></div><div style="display:flex;flex-direction:column;gap:10px;flex-shrink:0"><button class="btn btn-a" onclick="nav(\'post\')">'+ic('plus',14,'#fff')+' Start Selling</button><button class="btn btn-ol btn-sm" onclick="nav(\'browse\')">Browse Listings</button></div></div></div>'
+    +'<div style="margin:28px 28px 8px;background:linear-gradient(135deg,#FFF0E0,#FFEBD4);border:1.5px solid var(--border);border-radius:22px;padding:28px;position:relative;overflow:hidden;box-shadow:var(--shadow)"><div style="position:absolute;top:-10px;right:-10px;font-size:100px;opacity:.08;transform:rotate(-12deg)">🍳</div><div style="position:relative;display:flex;flex-wrap:wrap;gap:24px;align-items:center"><div style="flex:1;min-width:220px"><div class="lsm" style="margin-bottom:8px">'+hmText(HOME_CONTENT.promoEyebrow)+'</div><div style="font-family:var(--font-head);font-size:26px;font-weight:700;color:var(--heading);margin-bottom:10px;line-height:1.2">'+managedLines(HOME_CONTENT.promoHeadline,false)+'</div><p style="font-size:13px;color:var(--muted);line-height:1.7">'+hmText(HOME_CONTENT.promoBody)+'</p></div><div style="display:flex;flex-direction:column;gap:10px;flex-shrink:0"><button class="btn btn-a" onclick="nav(\'post\')">'+ic('plus',14,'#fff')+' Start Selling</button><button class="btn btn-ol btn-sm" onclick="nav(\'browse\')">Browse Listings</button></div></div></div>'
 
     +'<div style="margin:0 28px 24px;background:linear-gradient(135deg,#1E0E04,#2E1A08);border-radius:22px;padding:26px 24px;box-shadow:var(--shadow-lg);overflow:hidden;position:relative">'
       +'<div style="position:absolute;top:-20px;right:-20px;font-size:120px;opacity:.05;pointer-events:none">🗺️</div>'
@@ -7368,7 +7469,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.25 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.26 · Production build</div>
   </div>`;
 }
 function swR(r){
@@ -9040,6 +9141,7 @@ function rAdmin(){
     return;
   }
   loadAdminSearchGaps();
+  loadManagedSiteSettings();
   var d=ADM;
   var t=_admTab;
   d.funnel=d.funnel&&d.funnel.length?d.funnel:[
@@ -10190,6 +10292,7 @@ function rAdmin(){
     tabContent='<div style="background:rgba(229,90,24,.06);border:1.5px solid rgba(229,90,24,.2);border-radius:14px;padding:14px 18px;margin-bottom:20px;font-size:12px;color:var(--body)">'
       +'⚠️ <b>Control Panel</b> — Changes made here affect live marketplace visibility. Actions are logged. Pausing a seller removes their listing from Browse and Search.'
     +'</div>'
+    +buildManagedContentControls()
     +buildHomeHeroGalleryControl()
     +'<div class="adm-sec" style="margin-bottom:16px">'
       +'<div class="adm-sec-hd"><div class="adm-sec-title">🌐 Platform-Wide Actions</div></div>'
