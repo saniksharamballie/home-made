@@ -186,17 +186,17 @@ body{background:var(--bg);color:var(--body);font-family:var(--font-body);-webkit
 .hidden{display:none!important}
 .hm-home-hero{background:#F7F1E8;position:relative}
 .hm-home-hero-stage{position:relative;min-height:320px;overflow:hidden}
-.hm-home-hero-media{position:absolute;top:-42px;right:18px;width:420px;height:420px;z-index:1;pointer-events:none}
+.hm-home-hero-media{position:absolute;top:-42px;right:-140px;width:420px;height:420px;z-index:1;pointer-events:none}
 .hm-home-hero-media img{display:block;width:100%;height:100%;object-fit:contain;object-position:center;filter:drop-shadow(0 16px 12px rgba(60,30,10,.18))}
 .hm-home-hero-copy{position:relative;z-index:3;padding:36px 24px 32px;max-width:58%}
 @media(max-width:900px){
   .hm-home-hero-stage{min-height:390px}
-  .hm-home-hero-media{top:18px;right:-92px;width:350px;height:350px}
+  .hm-home-hero-media{top:18px;right:-117px;width:350px;height:350px}
   .hm-home-hero-copy{padding:42px 24px 24px;max-width:70%}
 }
 @media(max-width:480px){
   .hm-home-hero-stage{min-height:382px}
-  .hm-home-hero-media{top:22px;right:-104px;width:328px;height:328px}
+  .hm-home-hero-media{top:22px;right:-109px;width:328px;height:328px}
   .hm-home-hero-copy{padding:36px 22px 22px;max-width:72%}
 }
 
@@ -782,7 +782,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.15</strong><small>Production build</small>
+      <span>Version</span><strong>v4.16</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -966,7 +966,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.15';
+const APP_VERSION='4.16';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -3762,9 +3762,17 @@ var HOME_HERO_GALLERY=(function(){
   try{return JSON.parse(localStorage.getItem('hm_home_hero_gallery')||'[]');}catch(e){return [];}
 })();
 var HOME_HERO_SYNCED=false;
+var HOME_HERO_ACTIVE_URL='';
 
 function homeHeroImage(){
-  return HOME_HERO_GALLERY.length?HOME_HERO_GALLERY[0]:'';
+  if(!HOME_HERO_GALLERY.length) return '';
+  if(HOME_HERO_GALLERY.includes(HOME_HERO_ACTIVE_URL)) return HOME_HERO_ACTIVE_URL;
+  var previous='';
+  try{previous=localStorage.getItem('hm_home_hero_last')||'';}catch(e){}
+  var choices=HOME_HERO_GALLERY.length>1?HOME_HERO_GALLERY.filter(function(url){return url!==previous;}):HOME_HERO_GALLERY;
+  HOME_HERO_ACTIVE_URL=choices[Math.floor(Math.random()*choices.length)]||HOME_HERO_GALLERY[0];
+  try{localStorage.setItem('hm_home_hero_last',HOME_HERO_ACTIVE_URL);}catch(e){}
+  return HOME_HERO_ACTIVE_URL;
 }
 function loadHomeHeroGallery(){
   if(HOME_HERO_SYNCED||!hmAuth||!hmAuth.select) return;
@@ -3785,22 +3793,34 @@ function saveHomeHeroGallery(){
     });
   }
 }
-function uploadHomeHeroImage(input){
-  var file=input&&input.files&&input.files[0];
-  if(!file) return;
-  if(!/^image\/(jpeg|png|webp|gif)$/.test(file.type)){showToast('Please upload a JPG, PNG, WebP or GIF image.');input.value='';return;}
+function uploadHomeHeroImages(input){
+  var files=Array.prototype.slice.call(input&&input.files||[]);
+  if(!files.length) return;
+  if(files.some(function(file){return !/^image\/(jpeg|png|webp|gif)$/.test(file.type);})){showToast('Please upload JPG, PNG, WebP or GIF images only.');input.value='';return;}
   if(!hmAuth||!hmAuth.uploadPublicImage){showToast('Image hosting is unavailable.');return;}
-  showToast('Uploading hero image...');
-  prepareListingImage(file,function(uploadFile){
-    hmAuth.uploadPublicImage(uploadFile,'hero-gallery',function(res){
+  showToast('Uploading '+files.length+' hero image'+(files.length===1?'':'s')+'...');
+  var uploaded=[];
+  var errors=[];
+  function uploadNext(index){
+    if(index>=files.length){
       input.value='';
-      if(!res||!res.url){showToast((res&&res.error)||'Could not upload hero image.');return;}
-      HOME_HERO_GALLERY.unshift(res.url);
-      saveHomeHeroGallery();
-      showToast('Hero image published.');
+      if(uploaded.length){
+        HOME_HERO_GALLERY=uploaded.concat(HOME_HERO_GALLERY);
+        saveHomeHeroGallery();
+      }
+      showToast(uploaded.length+' hero image'+(uploaded.length===1?'':'s')+' published.'+(errors.length?' '+errors.length+' could not be uploaded.':''));
       rAdmin();
+      return;
+    }
+    prepareListingImage(files[index],function(uploadFile){
+      hmAuth.uploadPublicImage(uploadFile,'hero-gallery',function(res){
+        if(res&&res.url) uploaded.push(res.url);
+        else errors.push((res&&res.error)||'Could not upload '+files[index].name+'.');
+        uploadNext(index+1);
+      });
     });
-  });
+  }
+  uploadNext(0);
 }
 function removeHomeHeroImage(index){
   HOME_HERO_GALLERY.splice(index,1);
@@ -3812,13 +3832,12 @@ function buildHomeHeroGalleryControl(){
   var gallery=HOME_HERO_GALLERY.map(function(url,index){
     return '<div style="position:relative;width:112px;height:76px;border-radius:10px;overflow:hidden;border:1.5px solid var(--border);background:var(--bg)">'
       +'<img src="'+hmText(url)+'" alt="Home hero graphic" style="width:100%;height:100%;object-fit:cover"/>'
-      +(index===0?'<span style="position:absolute;left:6px;bottom:6px;background:var(--accent);color:#fff;border-radius:100px;padding:2px 7px;font-size:9px;font-weight:800">LIVE</span>':'')
       +'<button aria-label="Remove hero image" onclick="removeHomeHeroImage('+index+')" style="position:absolute;top:5px;right:5px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(30,14,4,.72);color:#fff;cursor:pointer">×</button>'
     +'</div>';
   }).join('');
   return '<div class="adm-sec" style="margin-bottom:16px">'
-    +'<div class="adm-sec-hd"><div><div class="adm-sec-title">🖼️ Homepage Hero Gallery</div><div style="font-size:11px;color:var(--muted);margin-top:3px">The first image is shown in the homepage hero. Upload a new image to replace it.</div></div>'
-      +'<label class="btn btn-a btn-sm" style="cursor:pointer">Upload image<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onchange="uploadHomeHeroImage(this)" style="display:none"/></label>'
+    +'<div class="adm-sec-hd"><div><div class="adm-sec-title">🖼️ Homepage Hero Gallery</div><div style="font-size:11px;color:var(--muted);margin-top:3px">Hero images rotate randomly on each new page load or refresh.</div></div>'
+      +'<label class="btn btn-a btn-sm" style="cursor:pointer">Upload images<input type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" onchange="uploadHomeHeroImages(this)" style="display:none"/></label>'
     +'</div>'
     +'<div style="display:flex;gap:10px;flex-wrap:wrap">'+(gallery||'<div style="font-size:12px;color:var(--muted)">No hero image uploaded yet.</div>')+'</div>'
   +'</div>';
