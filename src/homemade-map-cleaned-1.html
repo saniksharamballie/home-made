@@ -127,7 +127,7 @@ body{background:var(--bg);color:var(--body);font-family:var(--font-body);-webkit
 #shell{display:flex;min-height:100vh}
 
 /* Sidebar */
-#sidebar{width:240px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:60;transform:translateX(0);transition:transform .25s cubic-bezier(.4,0,.2,1);box-shadow:2px 0 16px rgba(30,14,4,.06)}
+#sidebar{width:240px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:28px;left:0;height:calc(100vh - 28px);z-index:60;transform:translateX(0);transition:transform .25s cubic-bezier(.4,0,.2,1);box-shadow:2px 0 16px rgba(30,14,4,.06)}
 #sb-logo{padding:12px 14px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:center}
 .sb-logo-img{display:block;width:100px;height:100px;max-width:100%;object-fit:contain}
 .sb-version{margin-top:10px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:rgba(253,246,238,.72);display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center}
@@ -156,9 +156,9 @@ body{background:var(--bg);color:var(--body);font-family:var(--font-body);-webkit
 #content{flex:1;max-width:1240px;width:100%}
 
 /* Topbar */
-#topbar{position:fixed;top:0;left:240px;right:0;z-index:45;background:rgba(253,246,238,.98);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:12px 28px;display:flex;align-items:center;justify-content:space-between;gap:14px;transition:transform .3s ease}
-#topbar-spacer{height:68px;flex-shrink:0;transition:height .25s ease}
-#topbar-spacer.hidden-spacer{height:0}
+#topbar{position:fixed;top:28px;left:240px;right:0;z-index:45;background:rgba(253,246,238,.98);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:12px 28px;display:flex;align-items:center;justify-content:space-between;gap:14px;transition:transform .3s ease}
+#topbar-spacer{height:96px;flex-shrink:0;transition:height .25s ease}
+#topbar-spacer.hidden-spacer{height:28px}
 .tb-l{display:flex;align-items:center;gap:14px;flex:1;min-width:0}
 
 .tb-r{display:flex;align-items:center;gap:8px;flex-shrink:0}
@@ -702,6 +702,7 @@ textarea.inp{resize:vertical}
 }
 
 
+#testing-banner{position:fixed;top:0;left:0;right:0;z-index:80;height:28px;display:flex;align-items:center;justify-content:center;padding:0 12px;background:#3a2800;color:#fff8e8;border-bottom:1px solid rgba(255,255,255,.16);font-size:11px;font-weight:800;text-align:center}
 #offline-banner{display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#1a1a1a;color:#fff;text-align:center;padding:10px 16px;font-size:13px;font-weight:600;font-family:var(--font-body);gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}
 #offline-banner.visible{display:flex}
 #offline-banner.online{background:var(--accent)}
@@ -766,6 +767,8 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
   <button id="offline-retry" onclick="window.location.reload()" style="display:none">Retry</button>
 </div>
 
+<div id="testing-banner" role="status">Testing phase &middot; Home-Made is currently being prepared for launch</div>
+
 <div id="shell">
 
 <!-- ═══ SIDEBAR ═══ -->
@@ -796,7 +799,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.21</strong><small>Production build</small>
+      <span>Version</span><strong>v4.22</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -980,7 +983,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.21';
+const APP_VERSION='4.22';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -7332,7 +7335,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.21 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.22 · Production build</div>
   </div>`;
 }
 function swR(r){
