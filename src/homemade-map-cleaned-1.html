@@ -172,7 +172,7 @@ body{background:var(--bg);color:var(--body);font-family:var(--font-body);-webkit
 
 /* Bottom nav mobile */
 #bnav{display:none;position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,.97);backdrop-filter:blur(16px);border-top:1px solid var(--border);z-index:55;padding:4px 0 calc(4px + env(safe-area-inset-bottom));transition:transform .3s ease}
-#mobile-version{display:none}
+.profile-mobile-version{display:none}
 .bi{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 4px 8px;font-size:10px;font-weight:700;cursor:pointer;color:var(--muted);border:none;background:transparent;transition:color .2s;font-family:var(--font-body);position:relative;border-radius:12px}
 .bi svg{display:block;transition:transform .2s}
 .bi.active{color:var(--accent)}
@@ -327,7 +327,7 @@ textarea.inp{resize:vertical}
   #main{margin-left:0!important}
   #topbar{left:0}
   #bnav{display:flex}
-  #mobile-version{display:block;position:fixed;right:8px;bottom:calc(68px + env(safe-area-inset-bottom));z-index:54;padding:2px 6px;border-radius:6px;background:rgba(253,246,238,.92);border:1px solid var(--border);color:var(--muted);font-size:9px;font-weight:800;line-height:1}
+  .profile-mobile-version{display:block;margin:18px auto 0;color:var(--muted);font-size:10px;font-weight:800;text-align:center}
   .page:not(#page-detail){padding-bottom:82px}
   #page-detail{padding-bottom:82px}
   .g3{grid-template-columns:repeat(2,1fr)}
@@ -796,7 +796,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.20</strong><small>Production build</small>
+      <span>Version</span><strong>v4.21</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -872,7 +872,6 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
 </div>
 
 <!-- BOTTOM NAV mobile -->
-<div id="mobile-version" aria-label="App version">v4.20</div>
 <nav id="bnav">
   <button class="bi active" data-p="home"    onclick="nav('home')">   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>Home</button>
 
@@ -981,7 +980,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.20';
+const APP_VERSION='4.21';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -7333,6 +7332,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.21 · Production build</div>
   </div>`;
 }
 function swR(r){
