@@ -1,4 +1,4 @@
-const VERSION = "hm-prod-v23";
+const VERSION = "hm-prod-v24";
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 const SHELL_ASSETS = [
@@ -8,6 +8,7 @@ const SHELL_ASSETS = [
   "/manifest.json",
   "/images/empty-plate.png",
   "/icons/home-made-logo-clean.png",
+  "/icons/home-made-desktop-logo.jpeg",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
   "/icons/apple-touch-icon.png"

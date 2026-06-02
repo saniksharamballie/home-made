@@ -9,6 +9,7 @@ const sellerDir = path.join(root, "public", "seller");
 const durbanDir = path.join(root, "public", "durban");
 const cuisineDir = path.join(root, "public", "cuisine");
 const legalPages = ["terms", "privacy", "legal"].map((slug) => path.join(root, "public", `${slug}.html`));
+const publicBrandLogo = "/icons/home-made-desktop-logo.jpeg";
 const required = [
   "/env.js",
   "window.HM_CONFIG",
@@ -29,6 +30,9 @@ if (!fs.existsSync(sitemapPath) || !fs.existsSync(sellerDir) || !fs.existsSync(d
 }
 for (const page of legalPages) {
   if (!fs.existsSync(page)) throw new Error(`Missing generated legal page: ${path.basename(page)}`);
+  if (!fs.readFileSync(page, "utf8").includes(publicBrandLogo)) {
+    throw new Error(`Build check failed. Legal page missing rectangular brand logo: ${path.basename(page)}`);
+  }
 }
 
 const html = fs.readFileSync(htmlPath, "utf8");
@@ -37,6 +41,15 @@ const env = fs.readFileSync(envPath, "utf8");
 for (const needle of required) {
   if (!html.includes(needle) && !env.includes(needle)) {
     throw new Error(`Build check failed. Missing: ${needle}`);
+  }
+}
+if (!html.includes('src="/icons/icon-192.png"')) {
+  throw new Error("Build check failed. PWA install prompt missing square app icon.");
+}
+for (const page of ["browse-sellers.html", "markets-events.html"]) {
+  const publicPage = path.join(root, "public", page);
+  if (!fs.existsSync(publicPage) || !fs.readFileSync(publicPage, "utf8").includes(publicBrandLogo)) {
+    throw new Error(`Build check failed. Public page missing rectangular brand logo: ${page}`);
   }
 }
 

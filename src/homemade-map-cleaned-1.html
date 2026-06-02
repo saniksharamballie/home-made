@@ -808,7 +808,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.26</strong><small>Production build</small>
+      <span>Version</span><strong>v4.27</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -1000,7 +1000,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.26';
+const APP_VERSION='4.27';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -1134,6 +1134,7 @@ function mergeLiveSellers(rows){
       tier:row.tier||d.tier||'standard',
       region:row.region||d.region||'Durban CBD',
       wa:row.wa||d.wa||'27000000000',
+      _data:d,
       _supabase:true
     });
     SELLER_LL[id]=approxSellerLL(id,mapped.region);
@@ -7469,7 +7470,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.26 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.27 · Production build</div>
   </div>`;
 }
 function swR(r){
@@ -7564,15 +7565,37 @@ function uploadProfileImage(input, targetId, folder){
     });
   });
 }
+function uploadSellerAdvertImage(input, sid){
+  var file=input.files&&input.files[0];
+  var s=SELLERS.find(function(x){return x.id===sid;});
+  if(!file || !s) return;
+  if(!/^image\/(jpeg|png|webp|gif)$/.test(file.type)){ showToast('Please upload a JPG, PNG, WebP or GIF image.'); input.value=''; return; }
+  if(file.size > 5*1024*1024){ showToast('Image must be under 5 MB'); input.value=''; return; }
+  if(!hmAuth || !hmAuth.uploadPublicImage || !hmAuth.update){ showToast('Image hosting is unavailable.'); input.value=''; return; }
+  showToast('Uploading advert photo...');
+  prepareListingImage(file, function(uploadFile){
+    hmAuth.uploadPublicImage(uploadFile, 'listing-uploads', function(res){
+      input.value='';
+      if(!res || !res.url){ showToast((res&&res.error)||'Could not upload advert photo yet.'); return; }
+      var data=Object.assign({}, s._data||s.data||{}, {img:res.url,imgPath:res.path||''});
+      hmAuth.update('sellers',{id:s.id},{data:data},function(updateRes){
+        if(updateRes&&updateRes.error){ showToast('Photo uploaded, but the listing could not be updated: '+updateRes.error); return; }
+        Object.assign(s,{_data:data,data:data,img:res.url,imgPath:res.path||''});
+        showToast('Advert photo updated for '+s.name+'.');
+        rAdmin();
+      });
+    });
+  });
+}
 function saveSellerStorefront(){
   var p=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
   var s=hmOwnSeller();
   if(!p || !s || !s.id){ showToast('Seller profile is still loading.'); return; }
-  var data=Object.assign({}, s.data||{}, {storeName:hmField('seller_store_name'),contactName:hmField('seller_contact_name'),contactEmail:hmField('seller_contact_email'),phone:hmField('seller_phone'),address:hmField('seller_address'),paymentInfo:hmField('seller_payment'),bio:hmField('seller_bio'),storePic:hmField('seller_store_pic'),avatar:hmField('seller_avatar')});
+  var data=Object.assign({}, s._data||s.data||{}, {storeName:hmField('seller_store_name'),contactName:hmField('seller_contact_name'),contactEmail:hmField('seller_contact_email'),phone:hmField('seller_phone'),address:hmField('seller_address'),paymentInfo:hmField('seller_payment'),bio:hmField('seller_bio'),storePic:hmField('seller_store_pic'),avatar:hmField('seller_avatar')});
   var values={name:data.storeName || s.name,seller:data.contactName || s.seller,email:data.contactEmail || s.email || p.email,wa:data.phone || s.wa,data:data};
   hmAuth.update('sellers',{id:s.id},values,function(res){
     if(res&&res.error){ showToast('Could not save storefront: '+res.error); return; }
-    Object.assign(s, values, {img:data.storePic || s.img, desc:data.bio || s.desc});
+    Object.assign(s, values, {_data:data,img:data.storePic || s.img, desc:data.bio || s.desc});
     if(p){ p.displayName=values.name; p.raw=Object.assign({}, p.raw||{}, values); }
     ST.bp.displayName=values.name;
     showToast('Storefront saved.');
@@ -10266,6 +10289,7 @@ function rAdmin(){
           +'<button onclick="showToast(\'🚀 '+s.name.replace(/'/g,"\\'")+'  visibility boosted for 7 days!\')" style="flex:1;min-width:110px;padding:7px 10px;background:var(--lime-l);border:1.5px solid rgba(44,184,80,.3);border-radius:10px;color:var(--lime);font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-body)">🚀 Boost Visibility</button>'
           +'<button onclick="showToast(\'⭐ '+s.name.replace(/'/g,"\\'")+'  featured on homepage!\')" style="flex:1;min-width:110px;padding:7px 10px;background:var(--amber-l);border:1.5px solid rgba(212,138,0,.3);border-radius:10px;color:var(--amber);font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-body)">⭐ Feature on Home</button>'
           +'<button onclick="admMsgSeller('+s.id+')" style="flex:1;min-width:110px;padding:7px 10px;background:var(--accent-l);border:1.5px solid rgba(229,90,24,.3);border-radius:10px;color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-body)">📩 Message Seller</button>'
+          +'<label style="flex:1;min-width:110px;padding:7px 10px;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;color:var(--body);font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-body);text-align:center">📷 Advert Photo<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none" onchange="uploadSellerAdvertImage(this,'+s.id+')"/></label>'
           +(s.tier==='standard'?'<button onclick="showToast(\'✅ Gold upgrade offer sent to '+s.name.replace(/'/g,"\\'")+'!\')" style="flex:1;min-width:110px;padding:7px 10px;background:linear-gradient(135deg,rgba(212,138,0,.12),rgba(248,200,64,.1));border:1.5px solid rgba(212,138,0,.3);border-radius:10px;color:var(--amber);font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-body)">⬆️ Invite to Gold</button>':'')
           +(perf.score<50?'<button onclick="showToast(\'⏸ '+s.name.replace(/'/g,"\\'")+'  listing paused pending review\')" style="flex:1;min-width:110px;padding:7px 10px;background:#FFDEDE;border:1.5px solid rgba(204,48,48,.2);border-radius:10px;color:var(--red);font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-body)">⏸ Pause Listing</button>':'')
         +'</div>'
@@ -13011,7 +13035,7 @@ function renderPassport(){
     banner.id = 'pwa-install-banner';
     banner.innerHTML = [
       '<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">',
-        '<div style="width:44px;height:44px;border-radius:12px;background:#E55A18;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🍳</div>',
+        '<img src="/icons/icon-192.png" alt="" width="44" height="44" style="width:44px;height:44px;border-radius:12px;object-fit:cover;display:block;flex-shrink:0"/>',
         '<div>',
           '<div style="font-weight:700;font-size:14px;color:#1a1a1a">Install Home-Made</div>',
           '<div style="font-size:12px;color:#666;margin-top:1px">Add to your home screen for the best experience</div>',
