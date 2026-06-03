@@ -208,8 +208,8 @@ body.banner-hidden #topbar-spacer{height:68px}
 .home-income-photo::before{content:'';position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,#FFEBD4 0%,rgba(255,235,212,.38) 24%,rgba(255,235,212,0) 58%)}
 .home-income-photo img{width:100%;height:100%;object-fit:cover;object-position:center;display:block;filter:saturate(.98) contrast(.98)}
 .home-cities-card{margin:0 28px 24px;background:#1E0E04;border-radius:22px;padding:26px 36px 86px;box-shadow:var(--shadow-lg);overflow:hidden;position:relative;min-height:320px}
-.home-cities-card::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(30,14,4,.54),rgba(30,14,4,.24) 48%,rgba(30,14,4,.03));z-index:1}
-.home-cities-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 62%;opacity:.96}
+.home-cities-card::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(30,14,4,.38),rgba(30,14,4,.16) 48%,rgba(30,14,4,.01));z-index:1}
+.home-cities-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 28%;opacity:1}
 .home-cities-content{position:relative;z-index:2;text-shadow:0 2px 10px rgba(0,0,0,.34)}
 .home-city-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}
 .home-city-chip{background:rgba(30,14,4,.32);border:1.5px solid rgba(255,255,255,.42);border-radius:14px;padding:18px 24px;max-width:520px;width:100%;backdrop-filter:blur(2px);box-shadow:0 8px 24px rgba(0,0,0,.14)}
@@ -228,7 +228,7 @@ body.banner-hidden #topbar-spacer{height:68px}
   .home-income-photo::before{background:linear-gradient(0deg,#FFEBD4 0%,rgba(255,235,212,.25) 45%,rgba(255,235,212,0) 100%)}
   .home-cities-card{padding:22px;min-height:0}
   .home-cities-photo{opacity:.66;object-position:center}
-  .home-cities-card::after{background:linear-gradient(90deg,rgba(30,14,4,.66),rgba(30,14,4,.36))}
+  .home-cities-card::after{background:linear-gradient(90deg,rgba(30,14,4,.46),rgba(30,14,4,.22))}
   .home-city-row{grid-template-columns:1fr;gap:10px;margin:14px 0 14px}
   .home-city-chip,.home-city-chip:nth-child(2){justify-self:stretch;max-width:none;padding:13px 15px}
   .home-cities-cta{position:relative;left:auto;bottom:auto;transform:none;margin:4px auto 0;display:flex;justify-content:center;width:max-content}
@@ -835,7 +835,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.32</strong><small>Production build</small>
+      <span>Version</span><strong>v4.33</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -7559,7 +7559,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.32 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.33 · Production build</div>
   </div>`;
 }
 function swR(r){
