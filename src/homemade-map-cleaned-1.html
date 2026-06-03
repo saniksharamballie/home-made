@@ -201,15 +201,15 @@ body.banner-hidden #topbar-spacer{height:68px}
 .hm-home-hero-media{position:absolute;top:-42px;right:-173px;width:520px;height:520px;z-index:1;pointer-events:none}
 .hm-home-hero-media img{display:block;width:100%;height:100%;object-fit:contain;object-position:center;filter:drop-shadow(0 16px 12px rgba(60,30,10,.18))}
 .hm-home-hero-copy{position:relative;z-index:3;padding:36px 24px 32px;max-width:58%}
-.home-income-card{margin:28px 28px 8px;background:linear-gradient(135deg,#FFF0E0,#FFEBD4);border:1.5px solid var(--border);border-radius:22px;padding:0;position:relative;overflow:hidden;box-shadow:var(--shadow);display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,36%);align-items:stretch}
+.home-income-card{margin:28px 28px 8px;background:linear-gradient(135deg,#FFF0E0,#FFEBD4);border:1.5px solid var(--border);border-radius:22px;padding:0;position:relative;overflow:hidden;box-shadow:var(--shadow);display:grid;grid-template-columns:minmax(0,1fr) auto minmax(300px,34%);align-items:stretch;min-height:230px}
 .home-income-copy{position:relative;z-index:2;padding:28px;min-width:0}
-.home-income-actions{position:relative;z-index:2;padding:28px 28px 28px 0;display:flex;flex-direction:column;gap:10px;justify-content:center;align-items:flex-end}
-.home-income-photo{position:relative;min-height:210px;overflow:hidden}
-.home-income-photo::before{content:'';position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,#FFEBD4 0%,rgba(255,235,212,.55) 30%,rgba(255,235,212,0) 68%)}
+.home-income-actions{position:relative;z-index:3;padding:28px;display:flex;flex-direction:column;gap:10px;justify-content:center;align-items:flex-end}
+.home-income-photo{position:relative;min-height:100%;overflow:hidden}
+.home-income-photo::before{content:'';position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,#FFEBD4 0%,rgba(255,235,212,.38) 24%,rgba(255,235,212,0) 58%)}
 .home-income-photo img{width:100%;height:100%;object-fit:cover;object-position:center;display:block;filter:saturate(.98) contrast(.98)}
 .home-cities-card{margin:0 28px 24px;background:#1E0E04;border-radius:22px;padding:26px 24px;box-shadow:var(--shadow-lg);overflow:hidden;position:relative}
-.home-cities-card::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(30,14,4,.95),rgba(30,14,4,.75) 48%,rgba(30,14,4,.35));z-index:1}
-.home-cities-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;opacity:.55}
+.home-cities-card::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(30,14,4,.78),rgba(30,14,4,.42) 48%,rgba(30,14,4,.1));z-index:1}
+.home-cities-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;opacity:.9}
 .home-cities-content{position:relative;z-index:2;max-width:780px}
 .home-city-chip{background:rgba(255,255,255,.09);border:1.5px solid rgba(255,255,255,.18);border-radius:14px;padding:14px 16px}
 .det-key-hint{margin-left:8px;padding-left:10px;border-left:1px solid var(--border);font-size:10px;color:var(--muted)}
@@ -219,13 +219,13 @@ body.banner-hidden #topbar-spacer{height:68px}
   .hm-home-hero-stage{min-height:390px}
   .hm-home-hero-media{top:18px;right:-140px;width:420px;height:420px}
   .hm-home-hero-copy{padding:42px 24px 24px;max-width:70%}
-  .home-income-card{grid-template-columns:1fr}
+  .home-income-card{grid-template-columns:1fr;min-height:0}
   .home-income-actions{padding:0 24px 24px;align-items:flex-start}
   .home-income-photo{order:-1;min-height:190px}
   .home-income-photo::before{background:linear-gradient(0deg,#FFEBD4 0%,rgba(255,235,212,.25) 45%,rgba(255,235,212,0) 100%)}
   .home-cities-card{padding:22px}
-  .home-cities-photo{opacity:.38}
-  .home-cities-card::after{background:linear-gradient(90deg,rgba(30,14,4,.95),rgba(30,14,4,.72))}
+  .home-cities-photo{opacity:.52}
+  .home-cities-card::after{background:linear-gradient(90deg,rgba(30,14,4,.82),rgba(30,14,4,.58))}
   .det-key-hint{display:none}
 }
 @media(max-width:480px){
@@ -829,7 +829,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.30</strong><small>Production build</small>
+      <span>Version</span><strong>v4.31</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -4398,7 +4398,7 @@ function rHome(){
 
     +'<div class="home-income-card"><div class="home-income-copy"><div class="lsm" style="margin-bottom:8px">'+hmText(HOME_CONTENT.promoEyebrow)+'</div><div style="font-family:var(--font-head);font-size:26px;font-weight:700;color:var(--heading);margin-bottom:10px;line-height:1.2">'+managedLines(HOME_CONTENT.promoHeadline,false)+'</div><p style="font-size:13px;color:var(--muted);line-height:1.7;max-width:560px">'+hmText(HOME_CONTENT.promoBody)+'</p></div><div class="home-income-actions"><button class="btn btn-a" onclick="nav(\'post\')">'+ic('plus',14,'#fff')+' Start Selling</button><button class="btn btn-ol btn-sm" onclick="nav(\'browse\')">Browse Listings</button></div><div class="home-income-photo"><img src="/images/home-passion-income.jpeg" alt="Home chef handing over a food order"/></div></div>'
 
-    +'<div class="home-cities-card"><img class="home-cities-photo" src="/images/home-coming-soon-cities.jpeg" alt="Home-Made coming soon to Cape Town and Gauteng"/><div class="home-cities-content"><div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(229,90,24,.9);margin-bottom:10px">Expanding Across South Africa</div><div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:#fff;margin-bottom:6px">Home-Made is coming to more cities</div><p style="font-size:13px;color:rgba(255,255,255,.72);margin-bottom:20px;line-height:1.6">Real food from real homes - launching soon in Cape Town and Gauteng. Join the waitlist and be first to know.</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px"><div class="home-city-chip"><div style="font-family:var(--font-head);font-size:17px;font-weight:700;color:#fff;margin-bottom:4px">Cape Town</div><span style="background:rgba(229,90,24,.25);border:1px solid rgba(229,90,24,.4);color:var(--accent);font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;text-transform:uppercase;letter-spacing:.5px">Coming Soon</span></div><div class="home-city-chip"><div style="font-family:var(--font-head);font-size:17px;font-weight:700;color:#fff;margin-bottom:4px">Gauteng</div><span style="background:rgba(229,90,24,.25);border:1px solid rgba(229,90,24,.4);color:var(--accent);font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;text-transform:uppercase;letter-spacing:.5px">Coming Soon</span></div></div><button onclick="showToast(\'You are on the waitlist! We will notify you when we launch in your city.\')" style="background:var(--accent);color:#fff;border:none;border-radius:100px;padding:11px 26px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-body);box-shadow:0 4px 18px rgba(229,90,24,.4)">Join the Waitlist</button></div></div>'
+    +'<div class="home-cities-card"><img class="home-cities-photo" src="/images/home-coming-soon-cities.jpeg" alt="Home-Made coming soon to Cape Town and Gauteng"/><div class="home-cities-content"><div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(229,90,24,.9);margin-bottom:10px">Expanding Across South Africa</div><div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:#fff;margin-bottom:6px">Home-Made is coming to more cities</div><p style="font-size:13px;color:rgba(255,255,255,.72);margin-bottom:20px;line-height:1.6">Real food from real homes - launching soon in Cape Town and Gauteng. Join the waitlist and be first to know.</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px"><div class="home-city-chip"><div style="font-family:var(--font-head);font-size:17px;font-weight:700;color:#fff;margin-bottom:4px">Cape Town</div><span style="background:rgba(229,90,24,.25);border:1px solid rgba(229,90,24,.4);color:var(--accent);font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;text-transform:uppercase;letter-spacing:.5px">Coming Soon</span></div><div class="home-city-chip"><div style="font-family:var(--font-head);font-size:17px;font-weight:700;color:#fff;margin-bottom:4px">Gauteng</div><span style="background:rgba(229,90,24,.25);border:1px solid rgba(229,90,24,.4);color:var(--accent);font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;text-transform:uppercase;letter-spacing:.5px">Coming Soon</span></div></div><button onclick="openCityWaitlistModal()" style="background:var(--accent);color:#fff;border:none;border-radius:100px;padding:11px 26px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-body);box-shadow:0 4px 18px rgba(229,90,24,.4)">Join the Waitlist</button></div></div>'
 
     +homeSeoDirectory()
     +trustHTML;
@@ -4445,6 +4445,60 @@ function recordUnfulfilledSearch(f,delay){
       result_count:0
     });
   },delay||0);
+}
+function openCityWaitlistModal(){
+  var existing=document.getElementById('city-waitlist-modal');
+  if(existing) existing.remove();
+  var modal=document.createElement('div');
+  modal.id='city-waitlist-modal';
+  modal.className='adm-rating-modal';
+  modal.innerHTML='<div role="dialog" aria-modal="true" aria-labelledby="city-waitlist-title" class="adm-rating-sheet" style="max-width:460px">'
+    +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:16px">'
+      +'<div><div id="city-waitlist-title" style="font-family:var(--font-head);font-size:22px;font-weight:800;color:var(--heading)">Join the city waitlist</div><div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.55">Tell us where to reach you when Home-Made opens in more cities.</div></div>'
+      +'<button aria-label="Close" onclick="document.getElementById(\'city-waitlist-modal\').remove()" style="background:var(--bg);border:1.5px solid var(--border);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)">x</button>'
+    +'</div>'
+    +'<div class="g2" style="margin-bottom:12px"><div><div class="lsm" style="margin-bottom:6px">Preferred city</div><select id="city-waitlist-city" class="inp"><option value="Cape Town">Cape Town</option><option value="Gauteng">Gauteng</option><option value="Other">Other</option></select></div><div><div class="lsm" style="margin-bottom:6px">Contact method</div><select id="city-waitlist-method" class="inp" onchange="updateCityWaitlistMethod()"><option value="email">Email</option><option value="mobile">Mobile / WhatsApp</option></select></div></div>'
+    +'<div id="city-waitlist-email-wrap"><div class="lsm" style="margin-bottom:6px">Email address</div><input id="city-waitlist-email" class="inp" type="email" placeholder="you@example.com"/></div>'
+    +'<div id="city-waitlist-mobile-wrap" style="display:none"><div class="lsm" style="margin-bottom:6px">Mobile number</div><input id="city-waitlist-mobile" class="inp" inputmode="tel" placeholder="+27 82 123 4567"/></div>'
+    +'<div id="city-waitlist-error" style="display:none;margin-top:10px;font-size:12px;color:var(--red);font-weight:700"></div>'
+    +'<button class="btn btn-a btn-fw" style="margin-top:16px" onclick="submitCityWaitlistLead()">Join Waitlist</button>'
+    +'<div style="font-size:10px;color:var(--muted);line-height:1.45;margin-top:10px">We will only use this to contact you about Home-Made city launches and related marketplace updates.</div>'
+  +'</div>';
+  document.body.appendChild(modal);
+  setTimeout(function(){var el=document.getElementById('city-waitlist-email');if(el)el.focus();},60);
+}
+function updateCityWaitlistMethod(){
+  var method=(document.getElementById('city-waitlist-method')||{}).value||'email';
+  var ew=document.getElementById('city-waitlist-email-wrap');
+  var mw=document.getElementById('city-waitlist-mobile-wrap');
+  if(ew) ew.style.display=method==='email'?'':'none';
+  if(mw) mw.style.display=method==='mobile'?'':'none';
+  var target=document.getElementById(method==='email'?'city-waitlist-email':'city-waitlist-mobile');
+  if(target) target.focus();
+}
+function submitCityWaitlistLead(){
+  var method=(document.getElementById('city-waitlist-method')||{}).value||'email';
+  var city=(document.getElementById('city-waitlist-city')||{}).value||'Cape Town';
+  var email=((document.getElementById('city-waitlist-email')||{}).value||'').trim();
+  var mobile=((document.getElementById('city-waitlist-mobile')||{}).value||'').trim();
+  var err=document.getElementById('city-waitlist-error');
+  function fail(msg){if(err){err.textContent=msg;err.style.display='block';}else showToast(msg);}
+  if(method==='email'&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail('Please enter a valid email address.');
+  if(method==='mobile'&&mobile.replace(/\D/g,'').length<9) return fail('Please enter a valid mobile number.');
+  var lead={city:city,preferred_contact:method,email:method==='email'?email:'',mobile:method==='mobile'?mobile:'',source:'homepage-coming-soon',created_at:new Date().toISOString()};
+  try{
+    var leads=JSON.parse(localStorage.getItem('hm_city_waitlist_leads')||'[]');
+    leads.unshift(lead);
+    localStorage.setItem('hm_city_waitlist_leads',JSON.stringify(leads.slice(0,100)));
+  }catch(e){}
+  function done(res){
+    if(res&&res.error) showToast('Saved locally. Apply the waitlist Supabase migration to publish leads to admin.');
+    else showToast('Thanks - you are on the waitlist.');
+    var modal=document.getElementById('city-waitlist-modal');
+    if(modal) modal.remove();
+  }
+  if(hmAuth&&hmAuth.insert) hmAuth.insert('city_waitlist_leads',lead,done);
+  else done({error:'offline'});
 }
 function rBrowse(){
   const ctx=ST.ctx||{};if(ctx.cat)ST.bf.cat=ctx.cat;
@@ -7499,7 +7553,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.30 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.31 · Production build</div>
   </div>`;
 }
 function swR(r){
@@ -9212,6 +9266,7 @@ function showToast(msg){
 /* ── Admin Analytics Render ── */
 var _admTab='overview';
 var ADMIN_SEARCH_GAPS_SYNCED=false;
+var ADMIN_WAITLIST_SYNCED=false;
 function loadAdminSearchGaps(){
   if(ADMIN_SEARCH_GAPS_SYNCED||ST.role!=='admin'||!hmAuth||!hmAuth.select) return;
   ADMIN_SEARCH_GAPS_SYNCED=true;
@@ -9232,6 +9287,19 @@ function loadAdminSearchGaps(){
     if(ST.page==='admin') rAdmin();
   });
 }
+function loadAdminWaitlistLeads(){
+  if(ADMIN_WAITLIST_SYNCED||ST.role!=='admin') return;
+  ADMIN_WAITLIST_SYNCED=true;
+  var localLeads=[];
+  try{localLeads=JSON.parse(localStorage.getItem('hm_city_waitlist_leads')||'[]');}catch(e){}
+  ADM.cityWaitlistLeads=localLeads;
+  if(hmAuth&&hmAuth.select){
+    hmAuth.select('city_waitlist_leads',null,function(rows){
+      if(Array.isArray(rows)&&rows.length) ADM.cityWaitlistLeads=rows;
+      if(ST.page==='admin') rAdmin();
+    });
+  }
+}
 function admSetTab(t){
   _admTab=t;
   window.scrollTo({top:0,behavior:'instant'});
@@ -9245,6 +9313,7 @@ function rAdmin(){
     return;
   }
   loadAdminSearchGaps();
+  loadAdminWaitlistLeads();
   loadManagedSiteSettings();
   var d=ADM;
   var t=_admTab;
@@ -9267,6 +9336,7 @@ function rAdmin(){
     {item:'Low-salt family meals',votes:31,trend:15,cats:['african'],regions:['Durban North','Berea']},
     {item:'Birthday cake minis',votes:28,trend:12,cats:['desserts','baked'],regions:['Pinetown','Westville']}
   ];
+  d.cityWaitlistLeads=d.cityWaitlistLeads&&d.cityWaitlistLeads.length?d.cityWaitlistLeads:[];
   d.hourOrders=d.hourOrders&&d.hourOrders.length?d.hourOrders:[2,1,0,0,1,3,12,28,42,55,68,82,94,88,72,64,58,72,89,96,88,71,44,18];
   d.hourOrdersWkd=d.hourOrdersWkd&&d.hourOrdersWkd.length?d.hourOrdersWkd:[1,1,0,0,1,4,16,34,58,74,90,108,124,118,96,82,76,92,110,126,120,96,62,28];
   d.dowOrders=d.dowOrders&&d.dowOrders.length?d.dowOrders:[480,512,498,524,598,842,910];
@@ -9945,7 +10015,7 @@ function rAdmin(){
           +'<span style="font-size:11px;font-weight:700;color:'+trendColor+'">'+trendArrow+(Math.abs(q.trend))+'%</span>'
           +'<button class="adm-msg-btn" style="font-size:10px;padding:4px 10px" onclick="admBroadcastSearch(\''+actionQuery+'\')">📢 Invite</button>'
         +'</div>'
-      +'</div>';
+      +'</div>'
     }).join('');
 
     // Want list with trend
@@ -9968,6 +10038,19 @@ function rAdmin(){
 
     var totalGap=d.noResultSearches.reduce(function(a,x){return a+x.n;},0);
     var fastestGrowingSearch=d.noResultSearches.slice().sort(function(a,b){return b.trend-a.trend;})[0];
+    var waitlistLeads=(d.cityWaitlistLeads||[]).slice().sort(function(a,b){return new Date(b.created_at||0)-new Date(a.created_at||0);});
+    var waitlistHTML=waitlistLeads.length?waitlistLeads.slice(0,8).map(function(lead){
+      var method=lead.preferred_contact||lead.method||'email';
+      var contact=method==='mobile'?(lead.mobile||''):(lead.email||'');
+      return '<div class="adm-row">'
+        +'<div style="width:36px;height:36px;border-radius:10px;background:var(--accent-l);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">📍</div>'
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="font-size:12px;font-weight:700;color:var(--heading)">'+hmText(lead.city||'Future city')+'</div>'
+          +'<div style="font-size:10px;color:var(--muted)">'+hmText(method)+' · '+hmText(contact||'No contact captured')+'</div>'
+        +'</div>'
+        +'<div style="font-size:10px;color:var(--muted);flex-shrink:0">'+(lead.created_at?new Date(lead.created_at).toLocaleDateString('en-ZA',{day:'numeric',month:'short'}):'Local')+'</div>'
+      +'</div>';
+    }).join(''):'<div style="font-size:12px;color:var(--muted);line-height:1.6;padding:14px;background:var(--bg);border:1px dashed var(--border);border-radius:12px">No city launch leads yet. The homepage waitlist form will feed this panel once visitors submit email or mobile details.</div>';
 
     tabContent=
       '<div class="g4" style="margin-bottom:20px">'
@@ -10014,6 +10097,7 @@ function rAdmin(){
         +'<div class="adm-sec" style="margin-bottom:0"><div class="adm-sec-hd"><div class="adm-sec-title">🧡 Want List Intelligence</div><span style="font-size:11px;color:var(--muted)">Trend = 7-day growth</span></div>'+wantHTML2+'</div>'
         +'<div class="adm-sec" style="margin-bottom:0"><div class="adm-sec-hd"><div class="adm-sec-title">🔍 Unfulfilled Searches</div><span style="font-size:11px;color:var(--amber);font-weight:700">'+d.noResultSearches.length+' gap queries</span></div>'+noResHTML2+'</div>'
       +'</div>';
+    tabContent += '<div class="adm-sec" style="margin-bottom:16px"><div class="adm-sec-hd"><div><div class="adm-sec-title">City Launch Leads</div><div style="font-size:11px;color:var(--muted);margin-top:3px">Preferred contact details from the homepage waitlist.</div></div><span style="font-size:11px;color:var(--accent);font-weight:800">'+waitlistLeads.length+' lead'+(waitlistLeads.length===1?'':'s')+'</span></div>'+waitlistHTML+'</div>';
 
   /* ══════════════════════════════════════════
      TAB: RATINGS
