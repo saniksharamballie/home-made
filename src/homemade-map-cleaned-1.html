@@ -808,7 +808,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.27</strong><small>Production build</small>
+      <span>Version</span><strong>v4.28</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -1000,7 +1000,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.27';
+const APP_VERSION='4.28';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -1036,6 +1036,10 @@ function sellerImg(s){return FOOD_IMGS[s.id%FOOD_IMGS.length];}
 
 function sellerPhoto(s, fallbackIndex){
   return (s && s.img) || FOOD_IMGS[(fallbackIndex || (s && s.id) || 0) % FOOD_IMGS.length];
+}
+
+function sellerPhotoImg(s, alt, extraStyle){
+  return '<img src="'+hmText(sellerPhoto(s))+'" alt="'+hmText(alt||'')+'" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;'+(extraStyle||'')+'"/>';
 }
 
 /* ── Artisan oval badge generator — pure SVG, perfect oval, zero extra weight ── */
@@ -3620,7 +3624,7 @@ function sCard(s,listIds,listLabel){
   return `
   <div class="card ${tc}" role="button" tabindex="0" style="height:100%;display:flex;flex-direction:column" aria-label="${s.name}, ${s.region}. Rated ${s.rat} out of 5. From ${zar(minP(s))}." onclick="${_cf}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${_cf}}">
     <div style="height:120px;border-radius:16px 16px 0 0;position:relative;flex-shrink:0;overflow:hidden">
-      
+      ${sellerPhotoImg(s,s.name+' advert photo')}
       <div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(0,0,0,.45))"></div>
       
       ${s.badge?`<span class="tbadge tbp" style="position:absolute;top:8px;left:10px;font-size:9px">${s.badge}</span>`:''}
@@ -5388,7 +5392,7 @@ function initLeafMap(mf,tag){
       var pinHtml=
         '<div style="position:relative;width:88px;text-align:center;opacity:'+opacity+'">'+
         '<div class="plat-pulse" style="position:absolute;inset:-6px;border-radius:50%;border:2.5px solid rgba(217,106,29,.55);pointer-events:none"></div>'+
-        '<div style="width:52px;height:52px;border-radius:18px;margin:0 auto 4px;background:linear-gradient(135deg,#FFF6CC,#D48A00);border:3px solid #fff;box-shadow:0 7px 18px rgba(80,40,0,.28);display:flex;align-items:center;justify-content:center;font-size:25px;line-height:1">&#11088;</div>'+
+        '<div style="width:52px;height:52px;border-radius:18px;margin:0 auto 4px;background:linear-gradient(135deg,#FFF6CC,#D48A00);border:3px solid #fff;box-shadow:0 7px 18px rgba(80,40,0,.28);display:flex;align-items:center;justify-content:center;line-height:1;overflow:hidden">'+sellerPhotoImg(s,s.name+' advert photo')+'</div>'+
         '<div class="plat-label" data-full="'+s.name+'" data-short="'+short+'" style="display:inline-block;background:linear-gradient(135deg,#C89808,#F0D050);color:#2A1800;font-size:9px;font-weight:800;padding:2px 8px;border-radius:100px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88px;box-shadow:0 2px 6px rgba(184,146,10,.35)">&#11088; '+short+'</div>'+
         '</div>'
       icon=L.divIcon({className:'',html:pinHtml,iconSize:[88,116],iconAnchor:[44,110]});
@@ -5398,7 +5402,7 @@ function initLeafMap(mf,tag){
     }else if(s.tier==='gold'){
       var goldHtml=
         '<div style="opacity:'+opacity+';display:flex;align-items:center;justify-content:center">'+
-        '<div style="width:42px;height:42px;border-radius:15px;background:linear-gradient(135deg,#FFE1A8,#E55A18);border:3px solid #fff;box-shadow:0 5px 14px rgba(80,40,0,.24);display:flex;align-items:center;justify-content:center;font-size:21px;line-height:1">&#128293;</div>'+
+        '<div style="width:42px;height:42px;border-radius:15px;background:linear-gradient(135deg,#FFE1A8,#E55A18);border:3px solid #fff;box-shadow:0 5px 14px rgba(80,40,0,.24);display:flex;align-items:center;justify-content:center;line-height:1;overflow:hidden">'+sellerPhotoImg(s,s.name+' advert photo')+'</div>'+
         '</div>';
       icon=L.divIcon({className:'',html:goldHtml,iconSize:[48,58],iconAnchor:[24,58]});
       marker=L.marker(ll,{icon:icon,zIndexOffset:zOff}).addTo(map);
@@ -7470,7 +7474,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.27 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.28 · Production build</div>
   </div>`;
 }
 function swR(r){
