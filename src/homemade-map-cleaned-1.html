@@ -201,18 +201,39 @@ body.banner-hidden #topbar-spacer{height:68px}
 .hm-home-hero-media{position:absolute;top:-42px;right:-173px;width:520px;height:520px;z-index:1;pointer-events:none}
 .hm-home-hero-media img{display:block;width:100%;height:100%;object-fit:contain;object-position:center;filter:drop-shadow(0 16px 12px rgba(60,30,10,.18))}
 .hm-home-hero-copy{position:relative;z-index:3;padding:36px 24px 32px;max-width:58%}
+.home-income-card{margin:28px 28px 8px;background:linear-gradient(135deg,#FFF0E0,#FFEBD4);border:1.5px solid var(--border);border-radius:22px;padding:0;position:relative;overflow:hidden;box-shadow:var(--shadow);display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,36%);align-items:stretch}
+.home-income-copy{position:relative;z-index:2;padding:28px;min-width:0}
+.home-income-actions{position:relative;z-index:2;padding:28px 28px 28px 0;display:flex;flex-direction:column;gap:10px;justify-content:center;align-items:flex-end}
+.home-income-photo{position:relative;min-height:210px;overflow:hidden}
+.home-income-photo::before{content:'';position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,#FFEBD4 0%,rgba(255,235,212,.55) 30%,rgba(255,235,212,0) 68%)}
+.home-income-photo img{width:100%;height:100%;object-fit:cover;object-position:center;display:block;filter:saturate(.98) contrast(.98)}
+.home-cities-card{margin:0 28px 24px;background:#1E0E04;border-radius:22px;padding:26px 24px;box-shadow:var(--shadow-lg);overflow:hidden;position:relative}
+.home-cities-card::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(30,14,4,.95),rgba(30,14,4,.75) 48%,rgba(30,14,4,.35));z-index:1}
+.home-cities-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;opacity:.55}
+.home-cities-content{position:relative;z-index:2;max-width:780px}
+.home-city-chip{background:rgba(255,255,255,.09);border:1.5px solid rgba(255,255,255,.18);border-radius:14px;padding:14px 16px}
+.det-key-hint{margin-left:8px;padding-left:10px;border-left:1px solid var(--border);font-size:10px;color:var(--muted)}
 .browse-empty{max-width:560px;margin:0 auto;padding:10px 20px 30px;text-align:center;color:var(--muted)}
 .browse-empty-img{display:block;width:180px;height:auto;margin:0 auto 10px;object-fit:contain;filter:drop-shadow(0 10px 12px rgba(60,30,10,.14))}
 @media(max-width:900px){
   .hm-home-hero-stage{min-height:390px}
   .hm-home-hero-media{top:18px;right:-140px;width:420px;height:420px}
   .hm-home-hero-copy{padding:42px 24px 24px;max-width:70%}
+  .home-income-card{grid-template-columns:1fr}
+  .home-income-actions{padding:0 24px 24px;align-items:flex-start}
+  .home-income-photo{order:-1;min-height:190px}
+  .home-income-photo::before{background:linear-gradient(0deg,#FFEBD4 0%,rgba(255,235,212,.25) 45%,rgba(255,235,212,0) 100%)}
+  .home-cities-card{padding:22px}
+  .home-cities-photo{opacity:.38}
+  .home-cities-card::after{background:linear-gradient(90deg,rgba(30,14,4,.95),rgba(30,14,4,.72))}
+  .det-key-hint{display:none}
 }
 @media(max-width:480px){
   .hm-home-hero-stage{min-height:382px}
   .hm-home-hero-media{top:22px;right:-130px;width:390px;height:390px}
   .hm-home-hero-copy{padding:36px 22px 22px;max-width:72%}
   .hm-home-hero-copy p{max-width:145px!important}
+  .home-income-card,.home-cities-card{margin-left:18px;margin-right:18px}
 }
 
 /* ════ COMPONENTS ════ */
@@ -808,7 +829,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.29</strong><small>Production build</small>
+      <span>Version</span><strong>v4.30</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -4375,31 +4396,9 @@ function rHome(){
 
     +specialsHTML+gemsHTML+recentHTML+top3HTML
 
-    +'<div style="margin:28px 28px 8px;background:linear-gradient(135deg,#FFF0E0,#FFEBD4);border:1.5px solid var(--border);border-radius:22px;padding:28px;position:relative;overflow:hidden;box-shadow:var(--shadow)"><div style="position:absolute;top:-10px;right:-10px;font-size:100px;opacity:.08;transform:rotate(-12deg)">🍳</div><div style="position:relative;display:flex;flex-wrap:wrap;gap:24px;align-items:center"><div style="flex:1;min-width:220px"><div class="lsm" style="margin-bottom:8px">'+hmText(HOME_CONTENT.promoEyebrow)+'</div><div style="font-family:var(--font-head);font-size:26px;font-weight:700;color:var(--heading);margin-bottom:10px;line-height:1.2">'+managedLines(HOME_CONTENT.promoHeadline,false)+'</div><p style="font-size:13px;color:var(--muted);line-height:1.7">'+hmText(HOME_CONTENT.promoBody)+'</p></div><div style="display:flex;flex-direction:column;gap:10px;flex-shrink:0"><button class="btn btn-a" onclick="nav(\'post\')">'+ic('plus',14,'#fff')+' Start Selling</button><button class="btn btn-ol btn-sm" onclick="nav(\'browse\')">Browse Listings</button></div></div></div>'
+    +'<div class="home-income-card"><div class="home-income-copy"><div class="lsm" style="margin-bottom:8px">'+hmText(HOME_CONTENT.promoEyebrow)+'</div><div style="font-family:var(--font-head);font-size:26px;font-weight:700;color:var(--heading);margin-bottom:10px;line-height:1.2">'+managedLines(HOME_CONTENT.promoHeadline,false)+'</div><p style="font-size:13px;color:var(--muted);line-height:1.7;max-width:560px">'+hmText(HOME_CONTENT.promoBody)+'</p></div><div class="home-income-actions"><button class="btn btn-a" onclick="nav(\'post\')">'+ic('plus',14,'#fff')+' Start Selling</button><button class="btn btn-ol btn-sm" onclick="nav(\'browse\')">Browse Listings</button></div><div class="home-income-photo"><img src="/images/home-passion-income.jpeg" alt="Home chef handing over a food order"/></div></div>'
 
-    +'<div style="margin:0 28px 24px;background:linear-gradient(135deg,#1E0E04,#2E1A08);border-radius:22px;padding:26px 24px;box-shadow:var(--shadow-lg);overflow:hidden;position:relative">'
-      +'<div style="position:absolute;top:-20px;right:-20px;font-size:120px;opacity:.05;pointer-events:none">🗺️</div>'
-      +'<div style="position:relative">'
-        +'<div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(229,90,24,.7);margin-bottom:10px">🚀 Expanding Across South Africa</div>'
-        +'<div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:#fff;margin-bottom:6px">Home-Made is coming to more cities</div>'
-        +'<p style="font-size:13px;color:rgba(255,255,255,.55);margin-bottom:20px;line-height:1.6">Real food from real homes — launching soon in Cape Town and Gauteng. Join the waitlist and be first to know.</p>'
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">'
-          +'<div style="background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.14);border-radius:16px;padding:16px;position:relative;overflow:hidden">'
-            +'<div style="position:absolute;top:-10px;right:-10px;font-size:60px;opacity:.12;pointer-events:none">🏔️</div>'
-            +'<div style="font-size:20px;margin-bottom:6px">🌊</div>'
-            +'<div style="font-family:var(--font-head);font-size:17px;font-weight:700;color:#fff;margin-bottom:4px">Cape Town</div>'
-            +'<span style="background:rgba(229,90,24,.25);border:1px solid rgba(229,90,24,.4);color:var(--accent);font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;text-transform:uppercase;letter-spacing:.5px">Coming Soon</span>'
-          +'</div>'
-          +'<div style="background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.14);border-radius:16px;padding:16px;position:relative;overflow:hidden">'
-            +'<div style="position:absolute;top:-10px;right:-10px;font-size:60px;opacity:.12;pointer-events:none">🏙️</div>'
-            +'<div style="font-size:20px;margin-bottom:6px">🌆</div>'
-            +'<div style="font-family:var(--font-head);font-size:17px;font-weight:700;color:#fff;margin-bottom:4px">Gauteng</div>'
-            +'<span style="background:rgba(229,90,24,.25);border:1px solid rgba(229,90,24,.4);color:var(--accent);font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;text-transform:uppercase;letter-spacing:.5px">Coming Soon</span>'
-          +'</div>'
-        +'</div>'
-        +'<button onclick="showToast(\'✅ You\'re on the waitlist! We\'ll notify you when we launch in your city.\')" style="background:var(--accent);color:#fff;border:none;border-radius:100px;padding:11px 26px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-body);box-shadow:0 4px 18px rgba(229,90,24,.4)">🔔 Join the Waitlist</button>'
-      +'</div>'
-    +'</div>'
+    +'<div class="home-cities-card"><img class="home-cities-photo" src="/images/home-coming-soon-cities.jpeg" alt="Home-Made coming soon to Cape Town and Gauteng"/><div class="home-cities-content"><div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(229,90,24,.9);margin-bottom:10px">Expanding Across South Africa</div><div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:#fff;margin-bottom:6px">Home-Made is coming to more cities</div><p style="font-size:13px;color:rgba(255,255,255,.72);margin-bottom:20px;line-height:1.6">Real food from real homes - launching soon in Cape Town and Gauteng. Join the waitlist and be first to know.</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px"><div class="home-city-chip"><div style="font-family:var(--font-head);font-size:17px;font-weight:700;color:#fff;margin-bottom:4px">Cape Town</div><span style="background:rgba(229,90,24,.25);border:1px solid rgba(229,90,24,.4);color:var(--accent);font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;text-transform:uppercase;letter-spacing:.5px">Coming Soon</span></div><div class="home-city-chip"><div style="font-family:var(--font-head);font-size:17px;font-weight:700;color:#fff;margin-bottom:4px">Gauteng</div><span style="background:rgba(229,90,24,.25);border:1px solid rgba(229,90,24,.4);color:var(--accent);font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;text-transform:uppercase;letter-spacing:.5px">Coming Soon</span></div></div><button onclick="showToast(\'You are on the waitlist! We will notify you when we launch in your city.\')" style="background:var(--accent);color:#fff;border:none;border-radius:100px;padding:11px 26px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-body);box-shadow:0 4px 18px rgba(229,90,24,.4)">Join the Waitlist</button></div></div>'
 
     +homeSeoDirectory()
     +trustHTML;
@@ -5519,10 +5518,12 @@ function rDetFull(s){
     ? `<div id="det-swipe-hint" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:7px 0 2px;font-size:11px;color:var(--muted);animation:fadeIn .4s ease;user-select:none;pointer-events:none">
         <span style="font-size:14px">👈</span>
         <span>Swipe to browse ${swLabel}</span>
+        <span class="det-key-hint">Desktop: use left / right keys</span>
         <span style="font-size:14px">👉</span>
       </div>`
     : '';
   const backLabel=ST.ctx.from==='map'?'Return to Map':'Back';
+  const detailPhoto=sellerPhoto(s);
 
   const mHTML=s.items.map((i,idx)=>{
     const stk=getStock(s.id,idx);
@@ -5650,7 +5651,7 @@ function rDetFull(s){
   const _dp=document.getElementById('page-detail');
   _dp.innerHTML=`
   <div style="height:min(42vh,300px);position:relative;margin:0;width:100%;overflow:hidden">
-    
+    <img src="${hmText(detailPhoto)}" alt="${hmText(s.name+' advert photo')}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;display:block"/>
     <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.15) 0%,transparent 40%,rgba(46,28,18,.75) 100%)"></div>
     <!-- Artisan badge seal -->
     
@@ -7498,7 +7499,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.29 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.30 · Production build</div>
   </div>`;
 }
 function swR(r){
@@ -8760,6 +8761,13 @@ function detNext(){
 
 
 /* ══ INTENT CHIPS ══ */
+document.addEventListener('keydown',function(e){
+  if(!ST||ST.page!=='detail') return;
+  var tag=(e.target&&e.target.tagName||'').toLowerCase();
+  if(tag==='input'||tag==='textarea'||tag==='select'||(e.target&&e.target.isContentEditable)) return;
+  if(e.key==='ArrowLeft'){e.preventDefault();_hideSwipeHint();detPrev();}
+  if(e.key==='ArrowRight'){e.preventDefault();_hideSwipeHint();detNext();}
+});
 function doIntent(kw){
   var catMap={dinner:'african',cake:'baked',braai:'bbq',curry:'indian',seafood:'seafood',stew:'african',specials:'all'};
   var dietMap={vegan:'Vegan',halaal:'Halaal'};
