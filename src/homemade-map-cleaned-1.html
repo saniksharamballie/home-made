@@ -841,7 +841,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.38</strong><small>Production build</small>
+      <span>Version</span><strong>v4.39</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -7608,9 +7608,8 @@ function rProfile(){
       {id:'today',   label:'📊 Today'},
       {id:'bio',     label:'Bio'},
       {id:'orders',  label:'📦 Orders'},
-      {id:'taste',   label:'🍽️ Taste'},
+      {id:'taste',   label:'🍽️ Taste Identity'},
       {id:'markets', label:'🧳 Markets'},
-      {id:'myprefs', label:'🎛️ My Preferences'},
     ];
     var active=_pdt.buyer||'today';
     return '<div id="dash-tab-bar" role="tablist" aria-label="Dashboard sections" style="display:flex;gap:3px;background:var(--bg);border-radius:12px;padding:4px;border:1.5px solid var(--border);margin-bottom:16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none">'
@@ -7647,9 +7646,8 @@ function rProfile(){
     + (_buyTab==='today'  ? buildBuyerStatsPanel() + buildBuyerQuickPrefs() + buildBuyerSAPanel() + buildBuyerAddressPanel() : '')
     + (_buyTab==='bio'    ? buildBuyerBioPanel() : '')
     + (_buyTab==='orders' ? buildBuyerOrderHistory() : '')
-    + (_buyTab==='taste'  ? buildBuyerTastePanel() : '')
+    + (_buyTab==='taste'  ? buildBuyerTastePanel() + buildDietPanel() + buildBuyerPrefsPanel(saved) : '')
     + (_buyTab==='markets'? renderPassport() : '')
-    + (_buyTab==='myprefs'? buildDietPanel() + buildBuyerPrefsPanel(saved) : '')
     + '</div>'
   ) : '';
 
@@ -7716,7 +7714,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.38 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.39 · Production build</div>
   </div>`;
 }
 function swR(r){
@@ -7936,9 +7934,9 @@ function refreshDashContent(){
     html=(tab==='today'  ?buildBuyerStatsPanel()+buildBuyerQuickPrefs()+buildBuyerSAPanel()+buildBuyerAddressPanel()
          :tab==='bio'    ?buildBuyerBioPanel()
          :tab==='orders' ?buildBuyerOrderHistory()
-         :tab==='taste'  ?buildBuyerTastePanel()
+         :tab==='taste'  ?buildBuyerTastePanel()+buildDietPanel()+buildBuyerPrefsPanel(saved)
          :tab==='markets'?renderPassport()
-         :buildDietPanel()+buildBuyerPrefsPanel(saved));
+         :buildBuyerStatsPanel()+buildBuyerQuickPrefs()+buildBuyerSAPanel()+buildBuyerAddressPanel());
   }
   contentEl.innerHTML=html;
 }
