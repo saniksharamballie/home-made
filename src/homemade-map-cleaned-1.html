@@ -129,23 +129,23 @@ body{background:var(--bg);color:var(--body);font-family:var(--font-body);-webkit
 /* Sidebar */
 #sidebar{width:240px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:28px;left:0;height:calc(100vh - 28px);z-index:60;transform:translateX(0);transition:transform .25s cubic-bezier(.4,0,.2,1);box-shadow:2px 0 16px rgba(30,14,4,.06)}
 body.banner-hidden #sidebar{top:0;height:100vh}
-#sb-logo{padding:12px 14px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:center}
-.sb-logo-img{display:block;width:100px;height:100px;max-width:100%;object-fit:contain}
-.sb-version{margin-top:10px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:rgba(253,246,238,.72);display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center}
+#sb-logo{padding:7px 14px 6px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:center}
+.sb-logo-img{display:block;width:72px;height:72px;max-width:100%;object-fit:contain}
+.sb-version{margin-top:8px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:rgba(253,246,238,.72);display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center}
 .sb-version span{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:800}
 .sb-version strong{font-size:12px;color:var(--heading);font-weight:800}
 .sb-version small{grid-column:1 / -1;font-size:10px;color:var(--muted);line-height:1.25}
 .sb-icon{width:42px;height:42px;border-radius:14px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
 .sb-name{font-family:var(--font-head);font-size:19px;font-weight:700;color:var(--heading);line-height:1.1}
 .sb-sub{font-size:10px;color:var(--muted);margin-top:1px;font-weight:500}
-#sb-nav{flex:1;padding:10px 8px;display:flex;flex-direction:column;gap:2px;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none}
+#sb-nav{flex:1;padding:8px 8px;display:flex;flex-direction:column;gap:1px;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none}
 #sb-nav::-webkit-scrollbar{display:none}
-.si{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:12px;cursor:pointer;transition:all .15s;font-size:13px;font-weight:600;color:var(--muted);border:none;background:transparent;font-family:var(--font-body);width:100%;text-align:left}
+.si{display:flex;align-items:center;gap:12px;padding:9px 14px;border-radius:12px;cursor:pointer;transition:all .15s;font-size:13px;font-weight:600;color:var(--muted);border:none;background:transparent;font-family:var(--font-body);width:100%;text-align:left}
 .si:hover{background:var(--accent-l);color:var(--accent)}
 .si.active{background:var(--accent-l);color:var(--accent)}
 .si .ico{width:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
-#sb-foot{padding:12px 8px;border-top:1px solid var(--border)}
-.sb-role-box{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:12px;border:1px solid var(--border)}
+#sb-foot{padding:9px 8px;border-top:1px solid var(--border)}
+.sb-role-box{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg);border-radius:12px;border:1px solid var(--border)}
 .sb-emo{font-size:22px}
 .sb-rinfo{flex:1;min-width:0}
 .sb-rname{font-size:12px;font-weight:700;color:var(--heading);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -179,7 +179,7 @@ body.banner-hidden #topbar-spacer{height:68px}
 /* Bottom nav mobile */
 #bnav{display:none;position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,.97);backdrop-filter:blur(16px);border-top:1px solid var(--border);z-index:55;padding:4px 0 calc(4px + env(safe-area-inset-bottom));transition:transform .3s ease}
 .profile-mobile-version{display:none}
-.seo-home-copy{margin:12px 28px 28px;padding:15px 18px;background:rgba(255,253,249,.68);border:1px solid var(--border2);border-radius:8px;box-shadow:none}
+.seo-home-copy{display:none;margin:12px 28px 28px;padding:15px 18px;background:rgba(255,253,249,.68);border:1px solid var(--border2);border-radius:8px;box-shadow:none}
 .seo-home-copy h2{font-family:var(--font-head);font-size:16px;color:var(--heading);margin-bottom:5px}
 .seo-home-copy p{font-size:11px;line-height:1.55;color:var(--muted);max-width:900px}
 .seo-home-links{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
@@ -835,7 +835,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.34</strong><small>Production build</small>
+      <span>Version</span><strong>v4.35</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -2486,11 +2486,17 @@ var hmAuth = (function(){
         }
 
         var name = (profileRow && profileRow.display_name) || fallbackName;
-        _sb.from('buyers').upsert({auth_id:user.id, email:user.email, name:name}, {onConflict:'auth_id'})
-        .then(function(){
-          _sb.from('buyers').select('*').eq('auth_id', user.id).maybeSingle()
-          .then(function(buyerRes){
-            var buyer = buyerRes && buyerRes.data ? buyerRes.data : {};
+        _sb.from('buyers').select('*').eq('auth_id', user.id).maybeSingle()
+        .then(function(buyerRes){
+          if(buyerRes && buyerRes.data){
+            var buyer = buyerRes.data || {};
+            _profile = {role:'buyer', displayName:buyer.name || name, sellerId:null, authId:user.id, email:buyer.email || user.email, raw:buyer};
+            cb(_profile);
+            return;
+          }
+          _sb.from('buyers').insert({auth_id:user.id, email:user.email, name:name})
+          .then(function(insRes){
+            var buyer = (insRes && insRes.data && insRes.data[0]) || {auth_id:user.id, email:user.email, name:name, data:{}};
             _profile = {role:'buyer', displayName:buyer.name || name, sellerId:null, authId:user.id, email:buyer.email || user.email, raw:buyer};
             cb(_profile);
           });
@@ -2660,6 +2666,13 @@ var hmAuth = (function(){
     var q = _sb.from(table).update(values);
     Object.keys(match).forEach(function(k){ q=q.eq(k,match[k]); });
     q.then(function(res){ if(cb) cb(res.error?{error:res.error.message}:{ok:true}); });
+  }
+
+  /* Upsert a row */
+  function upsert(table, row, options, cb){
+    if(_demoMode){ if(typeof options==='function') options({ok:true}); else if(cb) cb({ok:true}); return; }
+    if(typeof options==='function'){ cb=options; options={}; }
+    _sb.from(table).upsert(row, options||{}).then(function(res){ if(cb) cb(res.error?{error:res.error.message}:{ok:true}); });
   }
 
   /* Select rows */
@@ -3052,7 +3065,7 @@ var hmAuth = (function(){
   return {boot:boot, signOut:signOut, signInWithPassword:signInWithPassword,
           createAccount:createAccount, sendPasswordReset:sendPasswordReset, updatePassword:updatePassword,
           showAuthAction:showAuthAction, submitAuthAction:submitAuthAction, passwordMatchHint:passwordMatchHint, submitNewPassword:submitNewPassword,
-          insert:insert, update:update, select:select, subscribe:subscribe,
+          insert:insert, update:update, upsert:upsert, select:select, subscribe:subscribe,
           uploadPublicImage:uploadPublicImage, listPublicImages:listPublicImages,
           getProfile:getProfile, isDemoMode:isDemoMode,
           submitLogin:submitLogin, _demoSkip:_demoSkip, showLogin:showLogin,
@@ -3489,7 +3502,8 @@ function nav(page,ctx){
 function updRole(){
   const r=ST.role;
   const e=r==='admin'?'👑':r==='seller'?'🍳':r==='guest'?'👤':'🍽️';
-  const nm=r==='admin'?'Admin User':r==='seller'?'Home Chef':r==='guest'?'Guest':'Food Lover';
+  const savedName=(ST.bp&&ST.bp.displayName)||'';
+  const nm=savedName || (r==='admin'?'Admin User':r==='seller'?'Home Chef':r==='guest'?'Guest':'Food Lover');
   const cls=r==='admin'?'bp':r==='seller'?'bgold':r==='guest'?'bstd':'bstd';
   var _emo=document.getElementById('sb-emo');   if(_emo)  _emo.textContent=e;
   var _rnm=document.getElementById('sb-rname'); if(_rnm)  _rnm.textContent=nm;
@@ -4406,7 +4420,6 @@ function rHome(){
 
     +'<div class="home-cities-card"><img class="home-cities-photo" src="/images/home-coming-soon-cities.jpeg" alt="Home-Made coming soon to Cape Town and Gauteng"/><div class="home-cities-content"><div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,210,160,.95);margin-bottom:10px">Expanding Across South Africa</div><div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:#fff;margin-bottom:6px">Home-Made is coming to more cities</div><p style="font-size:13px;color:rgba(255,255,255,.86);margin-bottom:0;line-height:1.6;max-width:860px">Real food from real homes - launching soon in Cape Town and Gauteng. Join the waitlist and be first to know.</p><div class="home-city-row"><div class="home-city-chip"><div style="font-family:var(--font-head);font-size:17px;font-weight:700;color:#fff;margin-bottom:4px">Cape Town</div><span style="background:rgba(229,90,24,.34);border:1px solid rgba(255,180,110,.58);color:#FFD2A1;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;text-transform:uppercase;letter-spacing:.5px">Coming Soon</span></div><div class="home-city-chip"><div style="font-family:var(--font-head);font-size:17px;font-weight:700;color:#fff;margin-bottom:4px">Gauteng</div><span style="background:rgba(229,90,24,.34);border:1px solid rgba(255,180,110,.58);color:#FFD2A1;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;text-transform:uppercase;letter-spacing:.5px">Coming Soon</span></div></div></div><button class="home-cities-cta" onclick="openCityWaitlistModal()">Join the Waitlist</button></div>'
 
-    +homeSeoDirectory()
     +trustHTML;
 
   requestAnimationFrame(function(){buildCarousel('feat');});
@@ -7609,7 +7622,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.34 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.35 · Production build</div>
   </div>`;
 }
 function swR(r){
@@ -7782,6 +7795,9 @@ function saveSellerStorefront(){
     Object.assign(s, values, {_data:data,img:data.storePic || s.img, desc:data.bio || s.desc});
     if(p){ p.displayName=values.name; p.raw=Object.assign({}, p.raw||{}, values); }
     ST.bp.displayName=values.name;
+    if(hmAuth.upsert && p && p.authId){
+      hmAuth.upsert('profiles',{id:p.authId,email:p.email||values.email,display_name:values.name,role:p.role||'seller'},{onConflict:'id'},function(){});
+    }
     showToast('Storefront saved.');
     rProfile();
   });
@@ -7792,10 +7808,13 @@ function saveBuyerBio(){
   var raw=(p.raw)||{};
   var data=Object.assign({}, raw.data||{}, {avatar:hmField('buyer_avatar'),address:hmField('buyer_address'),bio:hmField('buyer_bio'),phone:hmField('buyer_phone')});
   var values={auth_id:p.authId,name:hmField('buyer_name') || p.displayName || 'Buyer',email:hmField('buyer_email') || p.email,phone:hmField('buyer_phone'),data:data};
-  hmAuth.update('buyers',{auth_id:p.authId},values,function(res){
+  hmAuth.upsert('buyers',values,{onConflict:'auth_id'},function(res){
     if(res&&res.error){ showToast('Could not save bio: '+res.error); return; }
     p.displayName=values.name; p.email=values.email; p.raw=Object.assign({}, raw, values);
     ST.bp.displayName=values.name;
+    if(hmAuth.upsert){
+      hmAuth.upsert('profiles',{id:p.authId,email:values.email,display_name:values.name,role:p.role||'buyer'},{onConflict:'id'},function(){});
+    }
     showToast('Buyer bio saved.');
     rProfile();
   });
