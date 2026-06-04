@@ -146,7 +146,8 @@ body.banner-hidden #sidebar{top:0;height:100vh}
 .si .ico{width:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
 #sb-foot{padding:9px 8px;border-top:1px solid var(--border)}
 .sb-role-box{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg);border-radius:12px;border:1px solid var(--border)}
-.sb-emo{font-size:22px}
+.sb-emo{width:34px;height:34px;border-radius:10px;background:var(--accent-l);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;overflow:hidden;border:1px solid var(--border)}
+.sb-emo img{width:100%;height:100%;object-fit:cover;display:block}
 .sb-rinfo{flex:1;min-width:0}
 .sb-rname{font-size:12px;font-weight:700;color:var(--heading);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sb-rsub{font-size:10px;color:var(--muted)}
@@ -529,8 +530,12 @@ textarea.inp{resize:vertical}
 .sa-toggle{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border2)}
 .sa-toggle:last-child{border-bottom:none;padding-bottom:0}
 .sa-toggle:first-child{padding-top:0}
-.tog-track{width:46px;height:26px;border-radius:100px;cursor:pointer;transition:background .2s;position:relative;flex-shrink:0;border:none}
+.tog-track{width:46px;height:26px;border-radius:100px;cursor:pointer;transition:background .2s,border-color .2s;position:relative;flex-shrink:0;border:1.5px solid transparent}
+.tog-track.tog-off{background:#FDECEC;border-color:rgba(192,39,39,.28)}
+.tog-track.tog-on{background:#DFF6E6;border-color:rgba(44,184,80,.36)}
 .tog-thumb{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.tog-track.tog-off .tog-thumb{background:#D84A4A}
+.tog-track.tog-on .tog-thumb{background:#2CB850}
 .tnfy-card{flex:0 0 196px;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:all .2s;box-shadow:var(--shadow)}
 .tnfy-card:hover{transform:translateY(-4px);border-color:var(--accent);box-shadow:var(--shadow-lg)}
 .stat-bubble{background:var(--bg);border:1.5px solid var(--border);border-radius:14px;padding:12px 8px;text-align:center;flex:1;min-width:72px}
@@ -836,7 +841,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.37</strong><small>Production build</small>
+      <span>Version</span><strong>v4.38</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -3582,8 +3587,11 @@ function updRole(){
   const nm=savedName || (r==='admin'?'Admin User':r==='seller'?'Home Chef':r==='guest'?'Guest':'Food Lover');
   const prof=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
   const email=(prof&&(prof.loginEmail||prof.email))||'';
+  const raw=(prof&&prof.raw)||{};
+  const profileData=(raw&&raw.data)||{};
+  const avatarUrl=profileData.avatar || profileData.storePic || '';
   const cls=r==='admin'?'bp':r==='seller'?'bgold':r==='guest'?'bstd':'bstd';
-  var _emo=document.getElementById('sb-emo');   if(_emo)  _emo.textContent=e;
+  var _emo=document.getElementById('sb-emo');   if(_emo)  _emo.innerHTML=avatarUrl?'<img src="'+hmText(avatarUrl)+'" alt=""/>':e;
   var _rnm=document.getElementById('sb-rname'); if(_rnm)  _rnm.textContent=nm;
   var _rsb=document.getElementById('sb-rsub');  if(_rsb)  _rsb.textContent=email || ((r==='admin'?'Admin':r==='seller'?'Seller':'Buyer')+' account');
   ['sb-rbadge','tb-rbadge'].forEach(id=>{const el=document.getElementById(id);if(el){el.className=`rpill ${cls}${id==='tb-rbadge'?' donly':''}`;el.textContent=r;}});
@@ -7708,7 +7716,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.37 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.38 · Production build</div>
   </div>`;
 }
 function swR(r){
@@ -7885,6 +7893,7 @@ function saveSellerStorefront(){
       hmAuth.update('profiles',{id:p.authId},{email:p.email||values.email,display_name:values.name},function(){});
     }
     showToast('Storefront saved.');
+    updRole();
     rProfile();
   });
 }
@@ -7902,6 +7911,7 @@ function saveBuyerBio(){
       hmAuth.update('profiles',{id:p.authId},{email:values.email,display_name:values.name},function(){});
     }
     showToast('Buyer bio saved.');
+    updRole();
     rProfile();
   });
 }
@@ -8465,7 +8475,7 @@ function buildBuyerQuickPrefs(){
     var on=bp[field];
     return '<div class="sa-toggle">'
       +'<div style="display:flex;align-items:center;gap:10px"><span style="font-size:16px">'+icon+'</span><div><div style="font-size:13px;font-weight:600;color:var(--heading)">'+label+'</div></div></div>'
-      +'<button class="tog-track '+(on?'tog-on':'tog-off')+'" onclick="bpToggle(\''+field+'\',this)">'
+      +'<button class="tog-track '+(on?'tog-on':'tog-off')+'" aria-pressed="'+(on?'true':'false')+'" onclick="bpToggle(\''+field+'\',this)">'
         +'<div class="tog-thumb" style="left:'+(on?'23px':'3px')+'"></div>'
       +'</button>'
     +'</div>';
@@ -8495,7 +8505,7 @@ function buildBuyerSAPanel(){
         +'<div style="width:36px;height:36px;border-radius:10px;background:'+color+';display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">'+icon+'</div>'
         +'<div><div style="font-size:13px;font-weight:600;color:var(--heading)">'+label+'</div><div style="font-size:11px;color:var(--muted)">'+desc+'</div></div>'
       +'</div>'
-      +'<button class="tog-track '+(on?'tog-on':'tog-off')+'" onclick="bpToggle(\''+field+'\',this)">'
+      +'<button class="tog-track '+(on?'tog-on':'tog-off')+'" aria-pressed="'+(on?'true':'false')+'" onclick="bpToggle(\''+field+'\',this)">'
         +'<div class="tog-thumb" style="left:'+(on?'23px':'3px')+'"></div>'
       +'</button>'
     +'</div>';
@@ -8907,6 +8917,7 @@ function bpToggle(field,btn){
   ST.bp[field]=!ST.bp[field];
   var on=ST.bp[field];
   btn.className='tog-track '+(on?'tog-on':'tog-off');
+  btn.setAttribute('aria-pressed',on?'true':'false');
   btn.querySelector('.tog-thumb').style.left=on?'23px':'3px';
   persistUserPreferences();
   if(field==='loadshedding'||field==='paydayMode'){if(ST.page==='home')rHome();}
