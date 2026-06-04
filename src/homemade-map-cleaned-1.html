@@ -841,7 +841,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.40</strong><small>Production build</small>
+      <span>Version</span><strong>v4.41</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -7715,7 +7715,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.40 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.41 · Production build</div>
   </div>`;
 }
 function swR(r){
@@ -11633,6 +11633,13 @@ function sendMessage(from, fromLabel, to, toLabel, toId, subject, body, fromId){
     from_role:from, from_label:fromLabel, from_id:cleanFromId,
     to_role:to, to_label:toLabel, to_id:cleanToId,
     subject:subject, body:body, read:false, is_read:false, client_ts:msg.ts
+  },function(res){
+    if(res&&res.error){
+      console.warn('[Home-Made messages] Supabase insert failed:',res.error);
+      showToast('Message saved on this device, but cloud sync is blocked. Admin needs to run the messages SQL fix.');
+      return;
+    }
+    refreshMessagesFromCloud(null,true);
   });
 }
 
