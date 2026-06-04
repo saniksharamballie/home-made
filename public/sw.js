@@ -1,4 +1,4 @@
-const VERSION = "hm-prod-v33";
+const VERSION = "hm-prod-v34";
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 const SHELL_ASSETS = [

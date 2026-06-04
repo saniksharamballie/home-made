@@ -822,6 +822,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
     <button class="si" data-p="post"    onclick="nav('post')">  <span class="ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>Post an Ad</button>
     <button class="si si-seller-only" id="sb-trends-btn" data-p="trends" onclick="nav('trends')"><span class="ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23,6 13.5,15.5 8.5,10.5 1,18"/><polyline points="17,6 23,6 23,12"/></svg></span>🏆 Trending</button>
     <button class="si" data-p="wantlist" onclick="nav('wantlist')"><span class="ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></span>🧡 Want List</button>
+    <button class="si si-member-only" data-p="rate" onclick="nav('rate')"><span class="ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12,2 15,9 22,9 17,14 19,22 12,18 5,22 7,14 2,9 9,9"/></svg></span>Rate a Seller</button>
     <button class="si si-seller-only" id="sb-pricing-btn" data-p="pricing" onclick="nav('pricing')"><span class="ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></span>💰 Pricing</button>
     <button class="si si-member-only" data-p="messages" onclick="nav('messages')" id="sb-msg-btn"><span class="ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></span>💬 Messages <span id="sb-msg-badge" style="display:none;background:var(--red);color:#fff;font-size:9px;font-weight:800;padding:1px 6px;border-radius:100px;margin-left:2px">0</span></button>
     <button class="si" data-p="events" onclick="nav('events')"><span class="ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg></span>🗺️ Markets &amp; Events</button>
@@ -835,7 +836,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.36</strong><small>Production build</small>
+      <span>Version</span><strong>v4.37</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -2473,7 +2474,7 @@ var hmAuth = (function(){
       var effectiveEmail = ((user.email || (profileRow && profileRow.email) || '') + '').trim().toLowerCase();
       var metaRole = user.app_metadata && user.app_metadata.role;
       if((profileRow && profileRow.role === 'admin') || metaRole === 'admin' || _isAdminEmail(effectiveEmail)){
-        _profile = {role:'admin', displayName:(profileRow && profileRow.display_name) || 'Admin', sellerId:null, authId:user.id, email:effectiveEmail, raw:profileRow};
+        _profile = {role:'admin', displayName:(profileRow && profileRow.display_name) || 'Admin', sellerId:null, authId:user.id, email:effectiveEmail, loginEmail:user.email, raw:profileRow};
         cb(_profile); return;
       }
 
@@ -2481,7 +2482,7 @@ var hmAuth = (function(){
       .then(function(res){
         if(res.data || (profileRow && profileRow.role === 'seller')){
           var seller = res.data || {};
-          _profile = {role:'seller', displayName:seller.name || (profileRow && profileRow.display_name) || fallbackName, sellerId:seller.id || null, authId:user.id, email:user.email, raw:seller};
+          _profile = {role:'seller', displayName:seller.name || (profileRow && profileRow.display_name) || fallbackName, sellerId:seller.id || null, authId:user.id, email:user.email, loginEmail:user.email, raw:seller};
           cb(_profile); return;
         }
 
@@ -2490,14 +2491,14 @@ var hmAuth = (function(){
         .then(function(buyerRes){
           if(buyerRes && buyerRes.data){
             var buyer = buyerRes.data || {};
-            _profile = {role:'buyer', displayName:buyer.name || name, sellerId:null, authId:user.id, email:buyer.email || user.email, raw:buyer};
+            _profile = {role:'buyer', displayName:buyer.name || name, sellerId:null, authId:user.id, email:buyer.email || user.email, loginEmail:user.email, raw:buyer};
             cb(_profile);
             return;
           }
           _sb.from('buyers').insert({auth_id:user.id, email:user.email, name:name})
           .then(function(insRes){
             var buyer = (insRes && insRes.data && insRes.data[0]) || {auth_id:user.id, email:user.email, name:name, data:{}};
-            _profile = {role:'buyer', displayName:buyer.name || name, sellerId:null, authId:user.id, email:buyer.email || user.email, raw:buyer};
+            _profile = {role:'buyer', displayName:buyer.name || name, sellerId:null, authId:user.id, email:buyer.email || user.email, loginEmail:user.email, raw:buyer};
             cb(_profile);
           });
         });
@@ -2513,6 +2514,8 @@ var hmAuth = (function(){
   function _applyProfile(p){
     ST.role = p.role;
     ST.bp.displayName = p.displayName || p.role;
+    applyStoredPreferences(p);
+    ST.bp.displayName = p.displayName || ST.bp.displayName || p.role;
     if(p.role==='seller') SELLER_OWN_ID = p.sellerId || 1;
     /* Reset any stale state from previous session */
     ST.scrollPos = {};
@@ -3115,6 +3118,78 @@ let ST={page:'home',ctx:{},saved:[1,8],role:'buyer',notif:true,aiOpen:false,detL
   pd:[{qty:2,pct:10}],
   pdone:false,dtab:'menu',homeView:'grid',scrollPos:{}};
 
+var _prefSaveTimer=null;
+function buyerPrefSnapshot(){
+  return {
+    userDietary:(ST.userDietary||[]).slice(),
+    dietLock:!!ST.dietLock,
+    healthFilters:(ST.healthFilters||[]).slice(),
+    healthLock:!!ST.healthLock,
+    saved:(ST.saved||[]).slice(),
+    mealProfiles:(ST.mealProfiles||[]).map(function(p){
+      return {name:p.name,dietary:(p.dietary||[]).slice(),health:(p.health||[]).slice(),active:!!p.active};
+    }),
+    bp:{
+      cuisines:(ST.bp.cuisines||[]).slice(),
+      spice:ST.bp.spice,
+      sweetTooth:!!ST.bp.sweetTooth,
+      mealGoals:(ST.bp.mealGoals||[]).slice(),
+      budget:ST.bp.budget,
+      mood:ST.bp.mood||null,
+      defaultNote:ST.bp.defaultNote||'',
+      callOnArrival:!!ST.bp.callOnArrival,
+      cashReady:!!ST.bp.cashReady,
+      loadshedding:!!ST.bp.loadshedding,
+      paydayMode:!!ST.bp.paydayMode,
+      birthday:ST.bp.birthday||'',
+      upcomingEvent:ST.bp.upcomingEvent||'',
+      addresses:(ST.bp.addresses||[]).map(function(a){return {label:a.label||'',addr:a.addr||''};})
+    }
+  };
+}
+function applyStoredPreferences(profile){
+  var raw=(profile&&profile.raw)||{};
+  var data=(raw&&raw.data)||{};
+  var pref=data.preferences||{};
+  if(!pref || typeof pref!=='object') return;
+  if(Array.isArray(pref.userDietary)) ST.userDietary=pref.userDietary.slice();
+  if(typeof pref.dietLock==='boolean') ST.dietLock=pref.dietLock;
+  if(Array.isArray(pref.healthFilters)) ST.healthFilters=pref.healthFilters.slice();
+  if(typeof pref.healthLock==='boolean') ST.healthLock=pref.healthLock;
+  if(Array.isArray(pref.saved)) ST.saved=pref.saved.slice();
+  if(Array.isArray(pref.mealProfiles)) ST.mealProfiles=pref.mealProfiles.map(function(p){
+    return {name:p.name||'Meal profile',dietary:(p.dietary||[]).slice(),health:(p.health||[]).slice(),active:!!p.active};
+  });
+  if(pref.bp && typeof pref.bp==='object'){
+    ST.bp=Object.assign({},ST.bp,pref.bp);
+    ST.bp.cuisines=Array.isArray(ST.bp.cuisines)?ST.bp.cuisines:[];
+    ST.bp.mealGoals=Array.isArray(ST.bp.mealGoals)?ST.bp.mealGoals:[];
+    ST.bp.addresses=Array.isArray(ST.bp.addresses)?ST.bp.addresses:[];
+  }
+}
+function persistUserPreferences(immediate){
+  if(_prefSaveTimer) clearTimeout(_prefSaveTimer);
+  var run=function(){
+    var p=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
+    if(!p || !p.authId || !hmAuth || !hmAuth.update || (hmAuth.isDemoMode&&hmAuth.isDemoMode())) return;
+    var raw=p.raw||{};
+    var data=Object.assign({}, raw.data||{});
+    data.preferences=buyerPrefSnapshot();
+    p.raw=Object.assign({},raw,{data:data});
+    if(p.role==='buyer'){
+      hmAuth.update('buyers',{auth_id:p.authId},{data:data},function(){});
+    } else if(p.role==='seller'){
+      var s=hmOwnSeller&&hmOwnSeller();
+      if(s && s.id){
+        s.data=data; s._data=data;
+        hmAuth.update('sellers',{id:s.id},{data:data},function(){});
+      }
+    }
+  };
+  if(immediate) run();
+  else _prefSaveTimer=setTimeout(run,450);
+}
+
 function setHomeView(v){ST.homeView=v;rHome();}
 function setHomeSort(v){ST.homeSort=v;rHome();}
 function setHomeCat(v){ST.homeCat=v;rHome();}
@@ -3139,6 +3214,7 @@ function ic(n,sz=16,c='currentColor'){
     bell:`<svg ${a}><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>`,
     chk:`<svg ${a}><polyline points="20,6 9,17 4,12"/></svg>`,
     plus:`<svg ${a}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+    dl:`<svg ${a}><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
     x:`<svg ${a}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
     flm:`<svg ${a}><path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 3z"/></svg>`,
     eye:`<svg ${a}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`,
@@ -3504,10 +3580,12 @@ function updRole(){
   const e=r==='admin'?'👑':r==='seller'?'🍳':r==='guest'?'👤':'🍽️';
   const savedName=(ST.bp&&ST.bp.displayName)||'';
   const nm=savedName || (r==='admin'?'Admin User':r==='seller'?'Home Chef':r==='guest'?'Guest':'Food Lover');
+  const prof=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
+  const email=(prof&&(prof.loginEmail||prof.email))||'';
   const cls=r==='admin'?'bp':r==='seller'?'bgold':r==='guest'?'bstd':'bstd';
   var _emo=document.getElementById('sb-emo');   if(_emo)  _emo.textContent=e;
   var _rnm=document.getElementById('sb-rname'); if(_rnm)  _rnm.textContent=nm;
-  var _rsb=document.getElementById('sb-rsub');  if(_rsb)  _rsb.textContent=(r==='admin'?'Admin':r==='seller'?'Seller':'Buyer')+' account';
+  var _rsb=document.getElementById('sb-rsub');  if(_rsb)  _rsb.textContent=email || ((r==='admin'?'Admin':r==='seller'?'Seller':'Buyer')+' account');
   ['sb-rbadge','tb-rbadge'].forEach(id=>{const el=document.getElementById(id);if(el){el.className=`rpill ${cls}${id==='tb-rbadge'?' donly':''}`;el.textContent=r;}});
   var admBtn=document.getElementById('sb-admin-btn');
   if(admBtn) admBtn.style.display=(r==='admin')?'':'none';
@@ -5923,6 +6001,7 @@ function toggleSave(id){
   }
   var nowSaved=!ST.saved.includes(id);
   ST.saved=nowSaved?[...ST.saved,id]:ST.saved.filter(x=>x!==id);
+  persistUserPreferences();
   // Update all heart buttons for this seller in-place without full re-render
   document.querySelectorAll('[data-save-id="'+id+'"]').forEach(function(btn){
     btn.setAttribute('aria-pressed', nowSaved?'true':'false');
@@ -6084,12 +6163,13 @@ function uploadListingImg(input){
   input.value='';
 }
 
-function prepareListingImage(file, cb){
+function prepareListingImage(file, cb, opts){
   if(file.type === 'image/gif'){ cb(file); return; }
+  opts=opts||{};
   var img = new Image();
   var url = URL.createObjectURL(file);
   img.onload = function(){
-    var max = 1600;
+    var max = opts.max || 1600;
     var scale = Math.min(1, max / Math.max(img.width, img.height));
     var w = Math.max(1, Math.round(img.width * scale));
     var h = Math.max(1, Math.round(img.height * scale));
@@ -6101,7 +6181,7 @@ function prepareListingImage(file, cb){
       if(!blob){ cb(file); return; }
       var name = file.name.replace(/\.[^.]+$/, '') + '.webp';
       cb(new File([blob], name, {type:'image/webp'}));
-    }, 'image/webp', 0.78);
+    }, 'image/webp', opts.quality || 0.78);
   };
   img.onerror = function(){ URL.revokeObjectURL(url); cb(file); };
   img.src = url;
@@ -7466,9 +7546,14 @@ function sellerShareRatingWA(sid){
 function rProfile(){
   if(!ST.role || ST.role==='guest'){ hmAuth.requireLogin(function(){ nav('profile'); }); return; }
   if(ST.role==='admin'){ nav('admin'); return; }
+  const p=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
   const r=ST.role,saved=SELLERS.filter(s=>ST.saved.includes(s.id));
   const e=r==='admin'?'👑':r==='seller'?'🍳':'🍽️';
-  const nm=r==='admin'?'Admin User':r==='seller'?'Home Chef':ST.bp.displayName;
+  const nm=(p&&p.displayName)||ST.bp.displayName||(r==='admin'?'Admin User':r==='seller'?'Home Chef':'Food Lover');
+  const profileEmail=(p&&(p.loginEmail||p.email))||'';
+  const profileData=((p&&p.raw&&p.raw.data)||{});
+  const profileAvatar=profileData.avatar || profileData.storePic || '';
+  const installBtn='<button class="btn btn-gh btn-sm" onclick="installHomeMadeApp()" aria-label="Install Home-Made app">'+ic('dl',14,'var(--accent)')+' Install app</button>';
   const roles=hmAuth.isDemoMode()
     ?['buyer','seller','admin'].map(ro=>`<button onclick="swR('${ro}')" style="padding:12px 0;border-radius:12px;border:2px solid ${r===ro?'var(--accent)':'var(--border)'};background:${r===ro?'var(--accent-l)':'var(--surface)'};color:${r===ro?'var(--accent)':'var(--muted)'};font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;font-family:var(--font-body);text-transform:capitalize;box-shadow:var(--shadow)">${ro==='buyer'?'🛍️':ro==='seller'?'🍳':'👑'}<br/>${ro}</button>`).join('')+`<button onclick="hmAuth.signOut()" style="padding:12px 0;border-radius:12px;border:2px solid var(--border);background:var(--surface);color:#c0392b;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;font-family:var(--font-body);box-shadow:var(--shadow)">🚪<br/>Sign Out</button>`
     :`<button onclick="hmAuth.signOut()" style="width:100%;padding:12px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface);color:#c0392b;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-body)">🚪 Sign Out</button>`;
@@ -7563,13 +7648,14 @@ function rProfile(){
   document.getElementById('page-profile').innerHTML=`
   <div style="background:linear-gradient(155deg,#FFF0E0,var(--bg));padding:36px 28px 24px;border-bottom:1px solid var(--border)">
     <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
-      <div style="width:70px;height:70px;border-radius:22px;background:linear-gradient(135deg,#FFE0C8,#FFC8A0);display:flex;align-items:center;justify-content:center;font-size:32px;border:2px solid var(--border);flex-shrink:0;box-shadow:var(--shadow-lg)">${e}</div>
+      <div style="width:70px;height:70px;border-radius:22px;background:linear-gradient(135deg,#FFE0C8,#FFC8A0);display:flex;align-items:center;justify-content:center;font-size:32px;border:2px solid var(--border);flex-shrink:0;box-shadow:var(--shadow-lg);overflow:hidden">${profileAvatar?'<img src="'+hmText(profileAvatar)+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block">':e}</div>
       <div>
         <div style="font-family:var(--font-head);font-size:26px;font-weight:700;color:var(--heading)">${nm}</div>
-        <div style="font-size:13px;color:var(--muted);margin-top:2px">member@homemade.co.za</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:2px">${profileEmail||'Member account'}</div>
         <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
           <span class="rpill ${cls}">${r==='admin'?'⚙️ Admin':r==='seller'?'🍳 Seller':'🛍️ Buyer'}</span>
           ${r==='buyer'?`<span class="rpill ${lv.cls}">${lv.e} ${lv.l}</span>`:''}
+          ${installBtn}
         </div>
       </div>
     </div>
@@ -7622,7 +7708,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.36 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.37 · Production build</div>
   </div>`;
 }
 function swR(r){
@@ -7718,7 +7804,7 @@ function uploadProfileImage(input, targetId, folder){
       if(prev) prev.innerHTML=profileImagePreview(res.url,'👤',86);
       showToast('Image uploaded.');
     });
-  });
+  }, {max:512, quality:0.72});
 }
 function uploadSellerAdvertImage(input, sid){
   var file=input.files&&input.files[0];
@@ -7991,6 +8077,7 @@ function buildDietPanel(){
 }
 function toggleUserDiet(d){
   ST.userDietary=ST.userDietary.includes(d)?ST.userDietary.filter(x=>x!==d):[...ST.userDietary,d];
+  persistUserPreferences();
   rProfile();
   updDietLockPill();
   // Refresh current page so filter applies immediately if locked
@@ -7999,6 +8086,7 @@ function toggleUserDiet(d){
 function toggleDietLock(){
   if(!ST.userDietary.length&&!ST.dietLock){showToast('Select at least one dietary preference first.');return;}
   ST.dietLock=!ST.dietLock;
+  persistUserPreferences();
   rProfile();
   updDietLockPill();
   refreshCurrentPage();
@@ -8007,12 +8095,14 @@ function toggleDietLock(){
 }
 function toggleHealthFilter(h){
   ST.healthFilters=ST.healthFilters.includes(h)?ST.healthFilters.filter(function(x){return x!==h;}):[...ST.healthFilters,h];
+  persistUserPreferences();
   rProfile();
   if(ST.healthLock) refreshCurrentPage();
 }
 function toggleHealthLock(){
   if(!ST.healthFilters.length&&!ST.healthLock){showToast('Select at least one health preference first.');return;}
   ST.healthLock=!ST.healthLock;
+  persistUserPreferences();
   rProfile();
   refreshCurrentPage();
   if(ST.healthLock) showToast('💊 Health filter ON — showing '+ST.healthFilters.join(', ')+' options only');
@@ -8028,6 +8118,7 @@ function addMealProfile(){
     health:ST.healthFilters.slice(),
     active:false
   });
+  persistUserPreferences(true);
   showToast('✅ Profile "'+name.trim()+'" saved!');
   rProfile();
 }
@@ -8047,12 +8138,14 @@ function activateMealProfile(i){
     ST.dietLock=false; ST.healthLock=false;
     showToast('Profile deactivated');
   }
+  persistUserPreferences(true);
   rProfile();
   refreshCurrentPage();
 }
 function deleteMealProfile(i){
   if(!confirm('Delete this meal profile?')) return;
   ST.mealProfiles.splice(i,1);
+  persistUserPreferences(true);
   rProfile();
 }
 function updDietLockPill(){
@@ -8798,14 +8891,16 @@ function buildSellerPrefsPanel(saved){
 function bpToggleCuisine(id){
   var c=ST.bp.cuisines;
   ST.bp.cuisines=c.includes(id)?c.filter(function(x){return x!==id;}):[...c,id];
+  persistUserPreferences();
   rProfile(); if(ST.page==='home')rHome();
 }
-function bpSetSpice(v){ST.bp.spice=v;rProfile();}
-function bpSetBudget(v){ST.bp.budget=v;rProfile();if(ST.page==='home')rHome();}
-function bpSetMood(v){ST.bp.mood=(ST.bp.mood===v?null:v);rProfile();if(ST.page==='home')rHome();}
+function bpSetSpice(v){ST.bp.spice=v;persistUserPreferences();rProfile();}
+function bpSetBudget(v){ST.bp.budget=v;persistUserPreferences();rProfile();if(ST.page==='home')rHome();}
+function bpSetMood(v){ST.bp.mood=(ST.bp.mood===v?null:v);persistUserPreferences();rProfile();if(ST.page==='home')rHome();}
 function bpToggleGoal(v){
   var g=ST.bp.mealGoals;
   ST.bp.mealGoals=g.includes(v)?g.filter(function(x){return x!==v;}):[...g,v];
+  persistUserPreferences();
   rProfile();
 }
 function bpToggle(field,btn){
@@ -8813,12 +8908,14 @@ function bpToggle(field,btn){
   var on=ST.bp[field];
   btn.className='tog-track '+(on?'tog-on':'tog-off');
   btn.querySelector('.tog-thumb').style.left=on?'23px':'3px';
+  persistUserPreferences();
   if(field==='loadshedding'||field==='paydayMode'){if(ST.page==='home')rHome();}
   showToast(on?'✅ '+field.replace(/([A-Z])/g,' $1')+' on':'⭕ '+field.replace(/([A-Z])/g,' $1')+' off');
 }
 function bpSaveNote(){
   var v=(document.getElementById('bp-note-inp')||{}).value||'';
   ST.bp.defaultNote=v.trim();
+  persistUserPreferences(true);
   showToast('💾 Default note saved!');
 }
 function bpAddAddr(){
@@ -8829,11 +8926,13 @@ function bpAddAddr(){
   var lbl=label.trim();
   if(!/[\u{1F300}-\u{1FFFF}]/u.test(lbl))lbl=lbl+' 📌';
   ST.bp.addresses.push({label:lbl,addr:addr.trim()});
+  persistUserPreferences(true);
   rProfile();
   showToast('📍 Address saved!');
 }
 function bpRemoveAddr(i){
   ST.bp.addresses.splice(i,1);
+  persistUserPreferences(true);
   rProfile();
 }
 function reorderItem(sid){
@@ -13265,6 +13364,23 @@ function renderPassport(){
 
   /* ── 4. Install prompt banner ── */
   var deferredPrompt = null;
+  window.installHomeMadeApp = function(){
+    if(deferredPrompt){
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function(r){
+        if(r.outcome === 'accepted') console.log('[PWA] Installed');
+        deferredPrompt = null;
+        var b=document.getElementById('pwa-install-banner');
+        if(b) b.remove();
+      });
+      return;
+    }
+    var isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+    var msg=isIOS
+      ? 'On iPhone/iPad: tap Share, then Add to Home Screen.'
+      : 'Use your browser menu to install Home-Made or add it to your home screen.';
+    showToast(msg);
+  };
 
   window.addEventListener('beforeinstallprompt', function(e){
     e.preventDefault();
@@ -13306,14 +13422,7 @@ function renderPassport(){
 
     document.body.appendChild(banner);
 
-    document.getElementById('pwa-install-btn').addEventListener('click', function(){
-      deferredPrompt.prompt();
-      deferredPrompt.userChoice.then(function(r){
-        if(r.outcome === 'accepted') console.log('[PWA] Installed');
-        deferredPrompt = null;
-        banner.remove();
-      });
-    });
+    document.getElementById('pwa-install-btn').addEventListener('click', window.installHomeMadeApp);
 
     document.getElementById('pwa-dismiss-btn').addEventListener('click', function(){
       sessionStorage.setItem('pwa-dismissed','1');
