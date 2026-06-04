@@ -841,7 +841,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.39</strong><small>Production build</small>
+      <span>Version</span><strong>v4.40</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -2532,6 +2532,7 @@ var hmAuth = (function(){
     if(window._resetScrollBars) window._resetScrollBars(true);
     if(typeof updDietLockPill==='function') updDietLockPill();
     if(typeof updateMsgBadge==='function') updateMsgBadge();
+    if(typeof refreshMessagesFromCloud==='function') refreshMessagesFromCloud();
     /* Role-appropriate landing page. Load seller rows first so live-only pages do not render empty. */
     var landing = p.role==='admin' ? 'admin' : p.role==='seller' ? 'admin' : p.role==='buyer' ? 'profile' : 'home';
     var landed=false;
@@ -7714,7 +7715,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.39 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.40 · Production build</div>
   </div>`;
 }
 function swR(r){
@@ -11532,14 +11533,91 @@ function rPricing(){
 /* Persistent message store */
 var MESSAGES = JSON.parse(localStorage.getItem('hm_messages')||'[]');
 function saveMsgs(){localStorage.setItem('hm_messages',JSON.stringify(MESSAGES));}
+var _msgCloudLoading=false;
+var _msgLastCloudAt=0;
+
+function msgLooksUuid(v){
+  return typeof v==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+}
+
+function normalizeMessageRow(row){
+  if(!row) return null;
+  var created=row.created_at?Date.parse(row.created_at):0;
+  return {
+    id: row.app_id || row.id || ('m'+created),
+    dbId: row.id || null,
+    from: row.from_role || (row.sender_id?'buyer':'admin'),
+    fromLabel: row.from_label || 'Home-Made member',
+    fromId: row.from_id!==undefined && row.from_id!==null ? row.from_id : null,
+    fromAuthId: row.sender_id || null,
+    to: row.to_role || (row.recipient_id?'buyer':'admin'),
+    toLabel: row.to_label || 'Home-Made member',
+    toId: row.to_id!==undefined && row.to_id!==null ? row.to_id : null,
+    toAuthId: row.recipient_id || null,
+    subject: row.subject || '',
+    body: row.body || '',
+    ts: row.client_ts || created || Date.now(),
+    read: !!(row.read!==undefined ? row.read : row.is_read),
+    sent: false
+  };
+}
+
+function mergeCloudMessages(rows){
+  if(!Array.isArray(rows) || !rows.length) return false;
+  var p=hmAuth&&hmAuth.getProfile?hmAuth.getProfile():null;
+  var changed=false;
+  rows.forEach(function(row){
+    var msg=normalizeMessageRow(row);
+    if(!msg) return;
+    msg.sent=!!(p&&p.authId&&msg.fromAuthId===p.authId);
+    var idx=MESSAGES.findIndex(function(m){return m.id===msg.id || (msg.dbId&&m.dbId===msg.dbId);});
+    if(idx>=0){
+      MESSAGES[idx]=Object.assign({},MESSAGES[idx],msg,{read:MESSAGES[idx].read||msg.read});
+    }else{
+      MESSAGES.push(msg);
+    }
+    changed=true;
+  });
+  if(changed){
+    MESSAGES.sort(function(a,b){return (a.ts||0)-(b.ts||0);});
+    saveMsgs();
+    updateMsgBadge();
+  }
+  return changed;
+}
+
+function refreshMessagesFromCloud(done, force){
+  if(!hmAuth || !hmAuth.select || (hmAuth.isDemoMode&&hmAuth.isDemoMode())){ if(done) done(false); return; }
+  var p=hmAuth.getProfile&&hmAuth.getProfile();
+  if(!p || !p.authId || _msgCloudLoading){ if(done) done(false); return; }
+  if(!force && Date.now()-_msgLastCloudAt<15000){ if(done) done(false); return; }
+  _msgCloudLoading=true;
+  hmAuth.select('messages',null,function(rows){
+    _msgCloudLoading=false;
+    _msgLastCloudAt=Date.now();
+    var changed=mergeCloudMessages(rows);
+    if(done) done(changed);
+  });
+}
+
+function markMessageReadInCloud(m){
+  if(!m || !m.dbId || !hmAuth || !hmAuth.update || (hmAuth.isDemoMode&&hmAuth.isDemoMode())) return;
+  hmAuth.update('messages',{id:m.dbId},{read:true,is_read:true},function(){});
+}
 
 /* Demo messages seed removed */
 
 function sendMessage(from, fromLabel, to, toLabel, toId, subject, body, fromId){
+  var p=hmAuth&&hmAuth.getProfile?hmAuth.getProfile():null;
+  var recipientAuthId=msgLooksUuid(toId)?toId:null;
+  var cleanToId=toId!==undefined&&toId!==null?String(toId):null;
+  var cleanFromId=fromId!==undefined&&fromId!==null?String(fromId):null;
   var msg={
     id:'m'+(Date.now()+Math.random()),
-    from:from,fromLabel:fromLabel,fromId:fromId!==undefined?fromId:null,
-    to:to,toLabel:toLabel,toId:toId,
+    from:from,fromLabel:fromLabel,fromId:cleanFromId,
+    fromAuthId:p&&p.authId?p.authId:null,
+    to:to,toLabel:toLabel,toId:cleanToId,
+    toAuthId:recipientAuthId,
     subject:subject,body:body,
     ts:Date.now(),read:false,sent:true
   };
@@ -11548,9 +11626,13 @@ function sendMessage(from, fromLabel, to, toLabel, toId, subject, body, fromId){
   updateMsgBadge();
   /* Also persist to Supabase when live */
   hmAuth.insert('messages',{
-    from_role:from, from_label:fromLabel, from_id:fromId||null,
-    to_role:to, to_label:toLabel, to_id:toId||null,
-    subject:subject, body:body, read:false
+    app_id:msg.id,
+    sender_id:msg.fromAuthId,
+    recipient_id:recipientAuthId,
+    seller_id:from==='seller'?Number(cleanFromId)||null:(to==='seller'?Number(cleanToId)||null:null),
+    from_role:from, from_label:fromLabel, from_id:cleanFromId,
+    to_role:to, to_label:toLabel, to_id:cleanToId,
+    subject:subject, body:body, read:false, is_read:false, client_ts:msg.ts
   });
 }
 
@@ -11560,7 +11642,7 @@ function updateMsgBadge(){
     if(role==='admin') return !m.read&&m.to==='admin';
     if(role==='seller'){
       var ownS=SELLERS.find(function(x){return x.id===SELLER_OWN_ID;});
-      return !m.read&&(m.to==='seller')&&(m.toId===null||m.toId===(ownS&&ownS.id));
+      return !m.read&&(m.to==='seller')&&(m.toId===null||String(m.toId)===String(ownS&&ownS.id));
     }
     return !m.read&&m.to==='buyer';
   }).length;
@@ -11604,7 +11686,7 @@ function _rMsgReply(){
   if(!openMsg) return;
   var fromLabel=role==='admin'?'🛡️ Home-Made Admin':role==='seller'?'🍳 '+((SELLERS.find(function(x){return x.id===SELLER_OWN_ID;})||{name:'Seller'}).name):'🛍️ Buyer';
   var fromId=role==='seller'?SELLER_OWN_ID:null;
-  var toId=openMsg.fromId!==null&&openMsg.fromId!==undefined?openMsg.fromId:null;
+  var toId=openMsg.fromAuthId || (openMsg.fromId!==null&&openMsg.fromId!==undefined?openMsg.fromId:null);
   sendMessage(role,fromLabel,openMsg.from,openMsg.fromLabel,toId,'Re: '+openMsg.subject.replace(/^Re: /,''),b,fromId);
   showToast('Reply sent!');
   window._msgOpen=null;
@@ -11615,6 +11697,7 @@ function rMessages(){
   if(!ST.role || ST.role==='guest'){ hmAuth.requireLogin(function(){ nav('messages'); }); return; }
   var el=document.getElementById('page-messages');
   if(!el) return;
+  refreshMessagesFromCloud(function(changed){ if(changed && ST.page==='messages') rMessages(); });
   var role=ST.role;
   var tab=window._msgTab||'inbox';
   var composing=window._msgCompose||false;
@@ -11624,14 +11707,14 @@ function rMessages(){
     if(role==='admin') return m.to==='admin';
     if(role==='seller'){
       var ownS=SELLERS.find(function(x){return x.id===SELLER_OWN_ID;});
-      return m.to==='seller'&&(m.toId===null||m.toId===(ownS&&ownS.id));
+      return m.to==='seller'&&(m.toId===null||String(m.toId)===String(ownS&&ownS.id));
     }
     return m.to==='buyer';
   }
   function isMyOutbox(m){
     if(role==='seller'){
       var ownS2=SELLERS.find(function(x){return x.id===SELLER_OWN_ID;});
-      return m.from==='seller'&&(m.fromId===(ownS2&&ownS2.id)||m.fromId===null);
+      return m.from==='seller'&&(String(m.fromId)===String(ownS2&&ownS2.id)||m.fromId===null);
     }
     return m.from===role;
   }
@@ -11641,7 +11724,7 @@ function rMessages(){
   var unreadCount=inbox.filter(function(m){return !m.read;}).length;
 
   /* Mark all inbox as read when opening */
-  inbox.forEach(function(m){m.read=true;});
+  inbox.forEach(function(m){if(!m.read) markMessageReadInCloud(m); m.read=true;});
   saveMsgs();
   updateMsgBadge();
 
