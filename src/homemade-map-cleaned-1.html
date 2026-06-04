@@ -207,9 +207,9 @@ body.banner-hidden #topbar-spacer{height:68px}
 .home-income-photo{position:relative;min-height:100%;overflow:hidden}
 .home-income-photo::before{content:'';position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,#FFEBD4 0%,rgba(255,235,212,.38) 24%,rgba(255,235,212,0) 58%)}
 .home-income-photo img{width:100%;height:100%;object-fit:cover;object-position:center;display:block;filter:saturate(.98) contrast(.98)}
-.home-cities-card{margin:0 28px 24px;background:#1E0E04;border-radius:22px;padding:26px 36px 86px;box-shadow:var(--shadow-lg);overflow:hidden;position:relative;min-height:320px}
-.home-cities-card::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(30,14,4,.38),rgba(30,14,4,.16) 48%,rgba(30,14,4,.01));z-index:1}
-.home-cities-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 28%;opacity:1}
+.home-cities-card{margin:0 28px 24px;background:#1E0E04;border-radius:22px;padding:26px 36px 92px;box-shadow:var(--shadow-lg);overflow:hidden;position:relative;min-height:380px}
+.home-cities-card::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(30,14,4,.28),rgba(30,14,4,.1) 48%,rgba(30,14,4,.01));z-index:1}
+.home-cities-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top;opacity:1}
 .home-cities-content{position:relative;z-index:2;text-shadow:0 2px 10px rgba(0,0,0,.34)}
 .home-city-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}
 .home-city-chip{background:rgba(30,14,4,.32);border:1.5px solid rgba(255,255,255,.42);border-radius:14px;padding:18px 24px;max-width:520px;width:100%;backdrop-filter:blur(2px);box-shadow:0 8px 24px rgba(0,0,0,.14)}
@@ -835,7 +835,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.33</strong><small>Production build</small>
+      <span>Version</span><strong>v4.34</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -5971,12 +5971,62 @@ function goLiveListing(){
   showToast('🎉 Your listing is now live!');
 }
 
+function openSellerRequestModal(){
+  if(!ST.role || ST.role==='guest'){
+    hmAuth.requireLogin(function(){ openSellerRequestModal(); });
+    return;
+  }
+  var old=document.getElementById('seller-request-modal');
+  if(old) old.remove();
+  var modal=document.createElement('div');
+  modal.id='seller-request-modal';
+  modal.className='ov';
+  modal.innerHTML='<div role="dialog" aria-modal="true" aria-labelledby="seller-request-title" class="adm-rating-sheet" style="max-width:460px">'
+    +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px">'
+      +'<div><div id="seller-request-title" style="font-family:var(--font-head);font-size:22px;font-weight:800;color:var(--heading)">Request seller access</div><div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.55">Tell us what you want to sell. Your buyer profile will stay active while admin reviews the request.</div></div>'
+      +'<button aria-label="Close" onclick="document.getElementById(\'seller-request-modal\').remove()" style="background:var(--bg);border:1.5px solid var(--border);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)">x</button>'
+    +'</div>'
+    +'<div class="lsm" style="margin-bottom:6px">Store / kitchen name</div><input id="seller-request-name" class="inp" placeholder="e.g. Home Kitchen" style="margin-bottom:10px"/>'
+    +'<div class="lsm" style="margin-bottom:6px">What will you sell?</div><textarea id="seller-request-notes" class="inp" rows="4" placeholder="Meals, baked goods, catering, markets..." style="resize:vertical;margin-bottom:10px"></textarea>'
+    +'<div id="seller-request-error" style="display:none;margin-bottom:10px;font-size:12px;color:var(--red);font-weight:700"></div>'
+    +'<button class="btn btn-a btn-fw" onclick="submitSellerRequest()">Send request</button>'
+    +'<button class="btn btn-ol btn-fw" style="margin-top:8px" onclick="document.getElementById(\'seller-request-modal\').remove()">Cancel</button>'
+  +'</div>';
+  document.body.appendChild(modal);
+  setTimeout(function(){var el=document.getElementById('seller-request-name');if(el)el.focus();},60);
+}
+
+function submitSellerRequest(){
+  var name=((document.getElementById('seller-request-name')||{}).value||'').trim();
+  var notes=((document.getElementById('seller-request-notes')||{}).value||'').trim();
+  var err=document.getElementById('seller-request-error');
+  if(!name){
+    if(err){err.style.display='block';err.textContent='Please enter a store or kitchen name.';}
+    return;
+  }
+  var lead={name:name, notes:notes, role:ST.role||'buyer', display_name:(ST.bp&&ST.bp.displayName)||'', created_at:new Date().toISOString()};
+  try{
+    var leads=JSON.parse(localStorage.getItem('hm_seller_requests')||'[]');
+    leads.unshift(lead);
+    localStorage.setItem('hm_seller_requests',JSON.stringify(leads.slice(0,100)));
+  }catch(e){}
+  if(typeof sendMessage==='function'){
+    sendMessage(ST.role||'buyer',(ST.bp&&ST.bp.displayName)||'Buyer','admin','Home-Made Admin',null,'Seller access request','Store / kitchen: '+name+'\n\nDetails: '+(notes||'No extra details provided.')+'\n\nCurrent role remains: '+(ST.role||'buyer'),null);
+  }
+  if(hmAuth&&hmAuth.insert){
+    hmAuth.insert('seller_access_requests',lead,function(){});
+  }
+  var modal=document.getElementById('seller-request-modal');
+  if(modal) modal.remove();
+  showToast('Seller request sent. Your buyer profile is still active.');
+}
+
 function rPost(){
   if(!ST.role || ST.role==='guest'){
     hmAuth.requireLogin(function(){ nav('post'); });
     return;
   }
-  if(ST.role==='buyer'){document.getElementById('page-post').innerHTML=`<div style="padding:60px 28px;text-align:center;max-width:520px;margin:0 auto"><div style="font-size:64px;margin-bottom:18px">🍳</div><div style="font-family:var(--font-head);font-size:28px;color:var(--heading);margin-bottom:10px;line-height:1.3">Become a Home-Made Seller</div><p style="color:var(--muted);font-size:14px;margin-bottom:28px;line-height:1.75">Join 500+ home chefs already earning from their kitchen across eThekwini. Set up your seller profile in minutes — it's free to start.</p><div style="display:flex;flex-direction:column;gap:12px;max-width:320px;margin:0 auto 28px"><div style="display:flex;align-items:center;gap:12px;background:var(--bg);border:1.5px solid var(--border);border-radius:14px;padding:14px 16px;text-align:left"><span style="font-size:24px;flex-shrink:0">📸</span><div><div style="font-size:13px;font-weight:700;color:var(--heading)">List your dishes</div><div style="font-size:12px;color:var(--muted)">Add photos, prices and availability</div></div></div><div style="display:flex;align-items:center;gap:12px;background:var(--bg);border:1.5px solid var(--border);border-radius:14px;padding:14px 16px;text-align:left"><span style="font-size:24px;flex-shrink:0">💬</span><div><div style="font-size:13px;font-weight:700;color:var(--heading)">Receive orders via WhatsApp</div><div style="font-size:12px;color:var(--muted)">Buyers contact you directly — no middleman</div></div></div><div style="display:flex;align-items:center;gap:12px;background:var(--bg);border:1.5px solid var(--border);border-radius:14px;padding:14px 16px;text-align:left"><span style="font-size:24px;flex-shrink:0">🏆</span><div><div style="font-size:13px;font-weight:700;color:var(--heading)">Grow with Gold & Platinum</div><div style="font-size:12px;color:var(--muted)">Unlock featured placement and analytics</div></div></div></div><button class="btn btn-a" style="width:100%;max-width:320px;justify-content:center;font-size:15px;padding:14px 22px" onclick="ST.role='seller';updRole();rPost()">${ic('zap',15,'#fff')} Register as a Seller</button><p style="font-size:11px;color:var(--muted);margin-top:14px">Already have a seller account? <span style="color:var(--accent);cursor:pointer;font-weight:700" onclick="nav('profile')">Switch in your profile →</span></p></div>`;return;}
+  if(ST.role==='buyer'){document.getElementById('page-post').innerHTML=`<div style="padding:60px 28px;text-align:center;max-width:520px;margin:0 auto"><div style="font-size:64px;margin-bottom:18px">🍳</div><div style="font-family:var(--font-head);font-size:28px;color:var(--heading);margin-bottom:10px;line-height:1.3">Become a Home-Made Seller</div><p style="color:var(--muted);font-size:14px;margin-bottom:28px;line-height:1.75">Join 500+ home chefs already earning from their kitchen across eThekwini. Send a seller request and the Home-Made team will enable seller tools on your account.</p><div style="display:flex;flex-direction:column;gap:12px;max-width:320px;margin:0 auto 28px"><div style="display:flex;align-items:center;gap:12px;background:var(--bg);border:1.5px solid var(--border);border-radius:14px;padding:14px 16px;text-align:left"><span style="font-size:24px;flex-shrink:0">📸</span><div><div style="font-size:13px;font-weight:700;color:var(--heading)">List your dishes</div><div style="font-size:12px;color:var(--muted)">Add photos, prices and availability</div></div></div><div style="display:flex;align-items:center;gap:12px;background:var(--bg);border:1.5px solid var(--border);border-radius:14px;padding:14px 16px;text-align:left"><span style="font-size:24px;flex-shrink:0">💬</span><div><div style="font-size:13px;font-weight:700;color:var(--heading)">Receive orders via WhatsApp</div><div style="font-size:12px;color:var(--muted)">Buyers contact you directly — no middleman</div></div></div><div style="display:flex;align-items:center;gap:12px;background:var(--bg);border:1.5px solid var(--border);border-radius:14px;padding:14px 16px;text-align:left"><span style="font-size:24px;flex-shrink:0">🏆</span><div><div style="font-size:13px;font-weight:700;color:var(--heading)">Grow with Gold & Platinum</div><div style="font-size:12px;color:var(--muted)">Unlock featured placement and analytics</div></div></div></div><button class="btn btn-a" style="width:100%;max-width:320px;justify-content:center;font-size:15px;padding:14px 22px" onclick="openSellerRequestModal()">${ic('zap',15,'#fff')} Request Seller Access</button><p style="font-size:11px;color:var(--muted);margin-top:14px">This keeps your buyer profile active until seller access is approved.</p></div>`;return;}
   if(ST.pdone){document.getElementById('page-post').innerHTML=`<div style="padding:80px 28px;text-align:center;max-width:480px;margin:0 auto"><div style="width:84px;height:84px;border-radius:50%;background:var(--lime-l);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:36px;border:2px solid var(--lime)">✅</div><div style="font-family:var(--font-head);font-size:28px;color:var(--heading);margin-bottom:10px">You're Live!</div><p style="color:var(--muted);font-size:14px;margin-bottom:26px">Your listing is now visible to buyers across eThekwini.</p><button class="btn btn-a" onclick="ST.pdone=false;ST.ps=1;nav('browse')">${ic('eye',14,'#fff')} Browse Listings</button></div>`;return;}
   rPS();
 }
@@ -7559,7 +7609,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.33 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.34 · Production build</div>
   </div>`;
 }
 function swR(r){
@@ -12381,7 +12431,7 @@ function rEvents(){
     <button onclick="evtSetView('map')" style="padding:7px 14px;border-radius:7px;border:none;cursor:pointer;font-size:12px;font-weight:700;font-family:var(--font-body);transition:all .15s;background:${_evtView==='map'?'var(--accent)':'transparent'};color:${_evtView==='map'?'#fff':'var(--muted)'}">🗺️ Map</button>
   </div>`;
 
-  var sellerEventCTA=(ST.role==='buyer')?`<div style="margin-top:24px;background:linear-gradient(135deg,#FFF0E0,#FFEBD4);border:1.5px solid var(--border);border-radius:20px;padding:22px 24px;text-align:center"><div style="font-size:36px;margin-bottom:10px">🍽️</div><div style="font-family:var(--font-head);font-size:17px;color:var(--heading);margin-bottom:6px">Are you a home seller?</div><p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6">List your stall or food event and reach buyers in your neighbourhood.</p><button class="btn btn-a btn-sm" onclick="ST.role='seller';updRole();openMyEvents()">🗓️ List a Market or Event</button></div>`:'';
+  var sellerEventCTA=(ST.role==='buyer')?`<div style="margin-top:24px;background:linear-gradient(135deg,#FFF0E0,#FFEBD4);border:1.5px solid var(--border);border-radius:20px;padding:22px 24px;text-align:center"><div style="font-size:36px;margin-bottom:10px">🍽️</div><div style="font-family:var(--font-head);font-size:17px;color:var(--heading);margin-bottom:6px">Are you a home seller?</div><p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6">Request seller access to list stalls, food events and reach buyers in your neighbourhood.</p><button class="btn btn-a btn-sm" onclick="openSellerRequestModal()">🗓️ Request Seller Access</button></div>`:'';
   var listContent=`
     ${liveEvts.length?`<div style="margin-bottom:22px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
