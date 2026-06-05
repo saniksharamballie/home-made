@@ -80,6 +80,12 @@ for (const page of sellerPages) {
   if (!sellerHtml.includes('"@type":"BreadcrumbList"')) {
     throw new Error(`Build check failed. Seller page missing breadcrumb schema: ${path.basename(page)}`);
   }
+  if (!sellerHtml.includes('"@type":"FAQPage"')) {
+    throw new Error(`Build check failed. Seller page missing FAQ schema: ${path.basename(page)}`);
+  }
+  if (!sellerHtml.includes("100% of the food payment goes to the seller")) {
+    throw new Error(`Build check failed. Seller page missing seller payment wording: ${path.basename(page)}`);
+  }
   if (sellerHtml.includes('"@type":"AggregateRating"')) aggregateRatingPages += 1;
 }
 if (!aggregateRatingPages) {
@@ -92,6 +98,9 @@ if (!fs.existsSync(comboPage)) {
 const comboHtml = fs.readFileSync(comboPage, "utf8");
 if (!comboHtml.includes("Indian Cuisine Food Delivery in Chatsworth, Durban | Home-Made")) {
   throw new Error("Build check failed. Suburb-cuisine page missing tailored SEO title.");
+}
+for (const needle of ['"@type":"FAQPage"', "How ordering works", "100% of the food payment goes to the seller", "Exact collection or delivery details are shared privately"]) {
+  if (!comboHtml.includes(needle)) throw new Error(`Build check failed. Suburb-cuisine page missing GEO content: ${needle}`);
 }
 const sitemap = fs.readFileSync(sitemapPath, "utf8");
 for (const needle of ["/durban</loc>", "/cuisine</loc>", "/durban/westville</loc>", "/cuisine/indian</loc>", "/durban/chatsworth/indian</loc>", "/durban/westville/street</loc>", "/terms</loc>", "/privacy</loc>", "/legal</loc>"]) {
