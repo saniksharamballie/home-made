@@ -5,11 +5,21 @@ const root = path.resolve(__dirname, "..");
 const htmlPath = path.join(root, "public", "index.html");
 const envPath = path.join(root, "public", "env.js");
 const sitemapPath = path.join(root, "public", "sitemap.xml");
+const robotsPath = path.join(root, "public", "robots.txt");
 const sellerDir = path.join(root, "public", "seller");
 const durbanDir = path.join(root, "public", "durban");
 const cuisineDir = path.join(root, "public", "cuisine");
 const legalPages = ["terms", "privacy", "legal"].map((slug) => path.join(root, "public", `${slug}.html`));
 const publicBrandLogo = "/icons/home-made-desktop-logo.jpeg";
+
+function htmlFiles(dir) {
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return htmlFiles(full);
+    return entry.name.endsWith(".html") ? [full] : [];
+  });
+}
 const required = [
   "/env.js",
   "window.HM_CONFIG",
@@ -25,7 +35,7 @@ if (!fs.existsSync(htmlPath)) {
 if (!fs.existsSync(envPath)) {
   throw new Error("Missing public/env.js. Run npm run build first.");
 }
-if (!fs.existsSync(sitemapPath) || !fs.existsSync(sellerDir) || !fs.existsSync(durbanDir) || !fs.existsSync(cuisineDir)) {
+if (!fs.existsSync(sitemapPath) || !fs.existsSync(robotsPath) || !fs.existsSync(sellerDir) || !fs.existsSync(durbanDir) || !fs.existsSync(cuisineDir)) {
   throw new Error("Missing generated SEO pages. Run npm run build first.");
 }
 for (const page of legalPages) {
@@ -53,25 +63,38 @@ for (const page of ["browse-sellers.html", "markets-events.html"]) {
   }
 }
 
-const sellerPages = fs.readdirSync(sellerDir).filter((file) => file.endsWith(".html"));
-const durbanPages = fs.readdirSync(durbanDir).filter((file) => file.endsWith(".html"));
-const cuisinePages = fs.readdirSync(cuisineDir).filter((file) => file.endsWith(".html"));
+const sellerPages = htmlFiles(sellerDir);
+const durbanPages = htmlFiles(durbanDir);
+const cuisinePages = htmlFiles(cuisineDir);
 if (!sellerPages.length) throw new Error("Build check failed. Missing public seller pages.");
 if (!durbanPages.length) throw new Error("Build check failed. Missing Durban suburb pages.");
 if (!cuisinePages.length) throw new Error("Build check failed. Missing cuisine pages.");
+let aggregateRatingPages = 0;
 for (const page of sellerPages) {
-  const sellerHtml = fs.readFileSync(path.join(sellerDir, page), "utf8");
+  const sellerHtml = fs.readFileSync(page, "utf8");
   for (const forbidden of ["latitude", "longitude", "\"geo\"", "streetAddress"]) {
     if (sellerHtml.includes(forbidden)) {
-      throw new Error(`Build check failed. Public seller page leaks private location data: ${page}`);
+      throw new Error(`Build check failed. Public seller page leaks private location data: ${path.basename(page)}`);
     }
   }
   if (!sellerHtml.includes('"@type":"BreadcrumbList"')) {
-    throw new Error(`Build check failed. Seller page missing breadcrumb schema: ${page}`);
+    throw new Error(`Build check failed. Seller page missing breadcrumb schema: ${path.basename(page)}`);
   }
+  if (sellerHtml.includes('"@type":"AggregateRating"')) aggregateRatingPages += 1;
+}
+if (!aggregateRatingPages) {
+  throw new Error("Build check failed. No seller page includes aggregate rating schema.");
+}
+const comboPage = path.join(durbanDir, "chatsworth", "indian.html");
+if (!fs.existsSync(comboPage)) {
+  throw new Error("Build check failed. Missing generated suburb-cuisine page: /durban/chatsworth/indian");
+}
+const comboHtml = fs.readFileSync(comboPage, "utf8");
+if (!comboHtml.includes("Indian Cuisine Food Delivery in Chatsworth, Durban | Home-Made")) {
+  throw new Error("Build check failed. Suburb-cuisine page missing tailored SEO title.");
 }
 const sitemap = fs.readFileSync(sitemapPath, "utf8");
-for (const needle of ["/durban</loc>", "/cuisine</loc>", "/durban/westville</loc>", "/cuisine/indian</loc>", "/terms</loc>", "/privacy</loc>", "/legal</loc>"]) {
+for (const needle of ["/durban</loc>", "/cuisine</loc>", "/durban/westville</loc>", "/cuisine/indian</loc>", "/durban/chatsworth/indian</loc>", "/durban/westville/street</loc>", "/terms</loc>", "/privacy</loc>", "/legal</loc>"]) {
   if (!sitemap.includes(needle)) throw new Error(`Build check failed. Sitemap missing: ${needle}`);
 }
 for (const stale of ["/browse/westville</loc>", "/categories/indian</loc>"]) {
@@ -80,8 +103,19 @@ for (const stale of ["/browse/westville</loc>", "/categories/indian</loc>"]) {
 for (const needle of ["/browse-sellers", "/durban", "/cuisine", "/markets-events"]) {
   if (!html.includes(`href="${needle}"`)) throw new Error(`Build check failed. Homepage missing crawlable link: ${needle}`);
 }
+for (const needle of ["/durban/chatsworth/indian", "/durban/westville/street", "Popular local searches"]) {
+  if (!html.includes(needle)) throw new Error(`Build check failed. Homepage missing high-intent local SEO link: ${needle}`);
+}
 for (const needle of ['href="/terms"', 'href="/privacy"', 'href="/legal"', "&copy; 2026 Home-Made"]) {
   if (!html.includes(needle)) throw new Error(`Build check failed. Homepage missing legal notice: ${needle}`);
+}
+const robots = fs.readFileSync(robotsPath, "utf8");
+for (const needle of ["Disallow: /dashboard/", "Disallow: /auth/", "Disallow: /checkout/", "Sitemap: https://www.home-made.co.za/sitemap.xml"]) {
+  if (!robots.includes(needle)) throw new Error(`Build check failed. Robots.txt missing: ${needle}`);
+}
+const vercel = fs.readFileSync(path.join(root, "vercel.json"), "utf8");
+for (const needle of ["Strict-Transport-Security", "home-made.co.za", "/durban/:suburb/:category"]) {
+  if (!vercel.includes(needle)) throw new Error(`Build check failed. Vercel routing missing: ${needle}`);
 }
 if (html.includes("/rest/v1/sellers?select=*")) {
   throw new Error("Build check failed. Public seller API request exposes private seller fields.");

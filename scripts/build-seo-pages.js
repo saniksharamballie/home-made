@@ -61,6 +61,25 @@ function cuisineUrl(category) {
   return `${siteUrl}/cuisine/${slugify(category)}`;
 }
 
+function comboUrl(region, category) {
+  return `${siteUrl}/durban/${slugify(region)}/${slugify(category)}`;
+}
+
+function sellerImageAlt(seller) {
+  const data = dataOf(seller);
+  const items = Array.isArray(data.items) ? data.items : [];
+  const dish = items[0] && items[0].n ? items[0].n : categoryLabel(seller.category).toLowerCase();
+  return `Homemade ${dish} from ${seller.name} in ${seller.region}, Durban`;
+}
+
+function comboTitle(category, region) {
+  return `${categoryLabel(category)} Food Delivery in ${region}, Durban | Home-Made`;
+}
+
+function comboDescription(category, region) {
+  return `Order fresh, home-cooked ${categoryLabel(category).toLowerCase()} meals made by verified home chefs in ${region}. Chat directly on WhatsApp with no middleman fees.`;
+}
+
 function breadcrumbData(items) {
   return {
     "@type": "BreadcrumbList",
@@ -122,7 +141,7 @@ function sellerCard(seller) {
   const data = dataOf(seller);
   const tags = [...(data.dietary || []), ...(data.healthTags || [])].slice(0, 3);
   return `<article class="card">
-    <a href="/seller/${esc(sellerSlug(seller))}"><img src="${esc(data.img || "/icons/icon-512.png")}" alt="${esc(seller.name)} food preview"/></a>
+    <a href="/seller/${esc(sellerSlug(seller))}"><img src="${esc(data.img || "/icons/icon-512.png")}" alt="${esc(sellerImageAlt(seller))}" width="640" height="360" loading="lazy" decoding="async"/></a>
     <div class="card-body">
       <div class="meta"><span class="tier">${esc(seller.tier)}</span> &middot; ${esc(seller.region)}</div>
       <h3><a href="/seller/${esc(sellerSlug(seller))}">${esc(seller.name)}</a></h3>
@@ -186,7 +205,7 @@ function sellerPage(seller) {
     <div class="crumbs"><a href="/">Home</a> / <a href="/browse-sellers">Browse sellers</a> / ${esc(seller.name)}</div>
     <div class="profile">
       <section>
-        <img class="hero-img" src="${esc(data.img || "/icons/icon-512.png")}" alt="${esc(seller.name)} homemade food"/>
+        <img class="hero-img" src="${esc(data.img || "/icons/icon-512.png")}" alt="${esc(sellerImageAlt(seller))}" width="960" height="540" decoding="async"/>
         <h1>${esc(seller.name)}</h1>
         <p class="lead">${esc(description)}</p>
         <div class="tags">${tags.map((tag) => `<span class="tag">${esc(tag)}</span>`).join("")}</div>
@@ -224,7 +243,7 @@ function sellerPage(seller) {
   if (prices.length) {
     localBusiness.priceRange = `R${Math.min(...prices)}-R${Math.max(...prices)}`;
   }
-  if (data.seoReviewsVerified === true && data.rat && data.rev) {
+  if (data.rat && data.rev) {
     localBusiness.aggregateRating = {
       "@type": "AggregateRating",
       ratingValue: Number(data.rat),
@@ -295,9 +314,20 @@ async function buildSeoPages() {
   const updated = new Date().toISOString().slice(0, 10);
   const suburbs = [...new Set(sellers.map((seller) => seller.region).filter(Boolean))].sort();
   const categories = [...new Set(sellers.map((seller) => seller.category).filter(Boolean))].sort();
+  const combos = [];
+  for (const region of suburbs) {
+    for (const category of categories) {
+      const comboSellers = sellers.filter((seller) => seller.region === region && seller.category === category);
+      if (comboSellers.length) combos.push({ region, category, sellers: comboSellers });
+    }
+  }
+  const comboFilters = combos
+    .slice(0, 18)
+    .map((combo) => ({ href: `/durban/${slugify(combo.region)}/${slugify(combo.category)}`, label: `${categoryLabel(combo.category)} in ${combo.region}` }));
   const filters = [
     ...suburbs.map((region) => ({ href: `/durban/${slugify(region)}`, label: region })),
-    ...categories.map((category) => ({ href: `/cuisine/${slugify(category)}`, label: categoryLabel(category) }))
+    ...categories.map((category) => ({ href: `/cuisine/${slugify(category)}`, label: categoryLabel(category) })),
+    ...comboFilters
   ];
 
   writeHtml("browse-sellers.html", collectionPage({
@@ -331,7 +361,9 @@ async function buildSeoPages() {
       canonical: suburbUrl(region),
       sellers: regionSellers,
       intro: `Find independent home chefs and homemade food sellers serving ${region} and nearby Durban communities.`,
-      links: categories.map((category) => ({ href: `/cuisine/${slugify(category)}`, label: categoryLabel(category) })),
+      links: categories
+        .filter((category) => regionSellers.some((seller) => seller.category === category))
+        .map((category) => ({ href: `/durban/${slugify(region)}/${slugify(category)}`, label: `${categoryLabel(category)} in ${region}` })),
       breadcrumbs: [{ name: region, url: suburbUrl(region) }]
     }));
   }
@@ -354,8 +386,29 @@ async function buildSeoPages() {
       canonical: cuisineUrl(category),
       sellers: categorySellers,
       intro: `Discover local Durban sellers offering ${categoryLabel(category).toLowerCase()} through the Home-Made marketplace.`,
-      links: suburbs.map((region) => ({ href: `/durban/${slugify(region)}`, label: region })),
+      links: suburbs
+        .filter((region) => categorySellers.some((seller) => seller.region === region))
+        .map((region) => ({ href: `/durban/${slugify(region)}/${slugify(category)}`, label: `${categoryLabel(category)} in ${region}` })),
       breadcrumbs: [{ name: categoryLabel(category), url: cuisineUrl(category) }]
+    }));
+  }
+
+  for (const combo of combos) {
+    writeHtml(path.join("durban", slugify(combo.region), `${slugify(combo.category)}.html`), collectionPage({
+      title: comboTitle(combo.category, combo.region),
+      description: comboDescription(combo.category, combo.region),
+      canonical: comboUrl(combo.region, combo.category),
+      sellers: combo.sellers,
+      intro: `Find ${categoryLabel(combo.category).toLowerCase()} from Home-Made sellers serving ${combo.region}, Durban.`,
+      links: [
+        { href: `/durban/${slugify(combo.region)}`, label: `More in ${combo.region}` },
+        { href: `/cuisine/${slugify(combo.category)}`, label: `All ${categoryLabel(combo.category)}` },
+        ...comboFilters.filter((link) => link.href !== `/durban/${slugify(combo.region)}/${slugify(combo.category)}`).slice(0, 8)
+      ],
+      breadcrumbs: [
+        { name: combo.region, url: suburbUrl(combo.region) },
+        { name: categoryLabel(combo.category), url: comboUrl(combo.region, combo.category) }
+      ]
     }));
   }
 
@@ -384,10 +437,11 @@ async function buildSeoPages() {
     sitemapEntry(`${siteUrl}/legal`, updated, "0.3"),
     ...sellers.map((seller) => sitemapEntry(sellerUrl(seller), String(seller.updated_at || updated).slice(0, 10), "0.8")),
     ...suburbs.map((region) => sitemapEntry(suburbUrl(region), updated)),
-    ...categories.map((category) => sitemapEntry(cuisineUrl(category), updated))
+    ...categories.map((category) => sitemapEntry(cuisineUrl(category), updated)),
+    ...combos.map((combo) => sitemapEntry(comboUrl(combo.region, combo.category), updated, "0.72"))
   ];
   fs.writeFileSync(path.join(publicDir, "sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>\n`, "utf8");
-  console.log(`Built ${sellers.length} seller SEO pages, ${suburbs.length} suburb pages and ${categories.length} category pages`);
+  console.log(`Built ${sellers.length} seller SEO pages, ${suburbs.length} suburb pages, ${categories.length} category pages and ${combos.length} suburb-cuisine pages`);
 }
 
 module.exports = { buildSeoPages };

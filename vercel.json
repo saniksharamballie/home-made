@@ -10,7 +10,8 @@
       "headers": [
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "geolocation=(self), camera=(self)" }
+        { "key": "Permissions-Policy", "value": "geolocation=(self), camera=(self)" },
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" }
       ]
     },
     {
@@ -39,13 +40,21 @@
     }
   ],
   "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "home-made.co.za" }],
+      "destination": "https://www.home-made.co.za/:path*",
+      "permanent": true
+    },
     { "source": "/browse/:suburb", "destination": "/durban/:suburb", "permanent": true },
-    { "source": "/categories/:category", "destination": "/cuisine/:category", "permanent": true }
+    { "source": "/categories/:category", "destination": "/cuisine/:category", "permanent": true },
+    { "source": "/cuisine/:category/:suburb", "destination": "/durban/:suburb/:category", "permanent": true }
   ],
   "rewrites": [
     { "source": "/browse-sellers", "destination": "/browse-sellers.html" },
     { "source": "/durban", "destination": "/durban.html" },
     { "source": "/durban/:suburb", "destination": "/durban/:suburb.html" },
+    { "source": "/durban/:suburb/:category", "destination": "/durban/:suburb/:category.html" },
     { "source": "/cuisine", "destination": "/cuisine.html" },
     { "source": "/cuisine/:category", "destination": "/cuisine/:category.html" },
     { "source": "/markets-events", "destination": "/markets-events.html" },

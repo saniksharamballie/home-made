@@ -1,4 +1,13 @@
 User-agent: *
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /auth/
+Disallow: /checkout/
+Disallow: /profile/
+Disallow: /messages/
+Disallow: /post-an-ad/
+Disallow: /want-list/
+Disallow: /rate/
 Allow: /
 
 Sitemap: https://www.home-made.co.za/sitemap.xml

@@ -156,9 +156,13 @@ body.banner-hidden #sidebar{top:0;height:100vh}
 #main{flex:1;margin-left:240px;display:flex;flex-direction:column;min-height:100vh;min-width:0}
 #main-content{flex:1;width:100%;max-width:1280px;margin:0 auto}
 #content{flex:1;max-width:1240px;width:100%}
+#local-search-footer{padding:13px 18px;border-top:1px solid var(--border);background:rgba(255,253,249,.72);color:var(--muted);font-size:11px;line-height:1.5;text-align:center}
+#local-search-footer strong{display:block;color:var(--heading);font-size:12px;margin-bottom:8px}
+#local-search-footer .local-search-links{display:flex;gap:7px;flex-wrap:wrap;justify-content:center}
+#local-search-footer a{color:var(--accent);font-weight:700;text-decoration:none;border:1px solid var(--border);background:rgba(255,255,255,.62);border-radius:5px;padding:5px 8px}
 #legal-footer{padding:14px 18px 18px;border-top:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:11px;line-height:1.6;text-align:center}
 #legal-footer a{color:var(--accent);font-weight:700;text-decoration:none;margin:0 4px}
-@media(max-width:720px){#legal-footer{padding-bottom:82px}}
+@media(max-width:720px){#local-search-footer{display:none}#legal-footer{padding-bottom:82px}}
 
 /* Topbar */
 #topbar{position:fixed;top:28px;left:240px;right:0;z-index:45;background:rgba(253,246,238,.98);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:12px 28px;display:flex;align-items:center;justify-content:space-between;gap:14px;transition:transform .3s ease}
@@ -841,7 +845,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.41</strong><small>Production build</small>
+      <span>Version</span><strong>v4.42</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -891,6 +895,20 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
   <div id="page-safety"   class="page hidden"></div>
   <div id="page-wantlist" class="page hidden"></div>
   </main>
+  <section id="local-search-footer" aria-label="Popular local searches">
+    <strong>Popular local searches</strong>
+    <div class="local-search-links">
+      <a href="/browse-sellers">Browse Durban sellers</a>
+      <a href="/durban/westville">Homemade food in Westville</a>
+      <a href="/durban/umhlanga">Order home cooking in Umhlanga</a>
+      <a href="/durban/pinetown">Pinetown home chefs</a>
+      <a href="/durban/chatsworth/indian">Indian food in Chatsworth</a>
+      <a href="/durban/westville/street">Street food in Westville</a>
+      <a href="/cuisine/african">Traditional African food</a>
+      <a href="/cuisine/indian">Indian cuisine in Durban</a>
+      <a href="/markets-events">Durban markets and events</a>
+    </div>
+  </section>
   <footer id="legal-footer"><span>&copy; 2026 Home-Made. All rights reserved.</span><br><a href="/terms">Terms</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/legal">Legal notices</a></footer>
 </div>
 
@@ -1072,7 +1090,7 @@ function sellerPhoto(s, fallbackIndex){
 }
 
 function sellerPhotoImg(s, alt, extraStyle){
-  return '<img src="'+hmText(sellerPhoto(s))+'" alt="'+hmText(alt||'')+'" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;'+(extraStyle||'')+'"/>';
+  return '<img src="'+hmText(sellerPhoto(s))+'" alt="'+hmText(alt||'')+'" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;display:block;'+(extraStyle||'')+'"/>';
 }
 
 /* ── Artisan oval badge generator — pure SVG, perfect oval, zero extra weight ── */
@@ -5068,7 +5086,7 @@ function mapPin(id){
           (outOfStock?'opacity:.4;':'')+'">'+
           /* meal photo thumbnail */
           '<div style="width:54px;height:54px;border-radius:10px;overflow:hidden;flex-shrink:0;position:relative">'+
-            '<img src="'+_mimg+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block"/>'+
+            '<img src="'+_mimg+'" alt="'+hmText((it.n||'Homemade menu item')+' from '+s.name)+'" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;display:block"/>'+
             (outOfStock?'<div style="position:absolute;inset:0;background:rgba(255,255,255,.55);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--red)">SOLD OUT</div>':'')+
           '</div>'+
           '<div style="flex:1;min-width:0">'+
@@ -7715,7 +7733,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.41 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.42 · Production build</div>
   </div>`;
 }
 function swR(r){
