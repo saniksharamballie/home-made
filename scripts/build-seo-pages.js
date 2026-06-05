@@ -73,7 +73,9 @@ function sellerImageAlt(seller) {
 }
 
 function comboTitle(category, region) {
-  return `${categoryLabel(category)} Food Delivery in ${region}, Durban | Home-Made`;
+  const label = categoryLabel(category);
+  const foodPhrase = /\bfood$/i.test(label) ? label : `${label} Food`;
+  return `${foodPhrase} Delivery in ${region}, Durban | Home-Made`;
 }
 
 function comboDescription(category, region) {
