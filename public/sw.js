@@ -1,4 +1,4 @@
-const VERSION = "hm-prod-v41";
+const VERSION = "hm-prod-v42";
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 const SHELL_ASSETS = [
@@ -38,6 +38,7 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
+  if (url.protocol !== "http:" && url.protocol !== "https:") return;
   if (request.mode === "navigate") {
     event.respondWith(fetch(request).catch(() => caches.match("/index.html")));
     return;

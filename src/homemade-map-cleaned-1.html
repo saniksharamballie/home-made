@@ -845,7 +845,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.44</strong><small>Production build</small>
+      <span>Version</span><strong>v4.45</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -1051,7 +1051,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.44';
+const APP_VERSION='4.45';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -1329,9 +1329,16 @@ function registerOrderCode(code, sellerId, itemName, buyerName, total){
   });
   saveOrderCodes();
   /* Also persist to Supabase when live */
+  var profile = hmAuth && hmAuth.getProfile ? hmAuth.getProfile() : null;
   hmAuth.insert('orders',{
-    code:code, seller_id:sellerId, item_name:itemName||'',
-    buyer_name:buyerName||'Anonymous', total:total||0
+    order_code:code,
+    seller_id:sellerId,
+    buyer_id:(profile&&profile.authId)||null,
+    buyer_name:buyerName||'Anonymous',
+    items:[{name:itemName||'',qty:1,price:total||0}],
+    subtotal:total||0,
+    total:total||0,
+    status:'pending'
   });
 }
 
@@ -3223,6 +3230,7 @@ let ST={page:'home',ctx:{},saved:[1,8],role:'buyer',notif:true,aiOpen:false,detL
 var _prefSaveTimer=null;
 function buyerPrefSnapshot(){
   return {
+    _savedAt:new Date().toISOString(),
     userDietary:(ST.userDietary||[]).slice(),
     dietLock:!!ST.dietLock,
     healthFilters:(ST.healthFilters||[]).slice(),
@@ -3249,10 +3257,17 @@ function buyerPrefSnapshot(){
     }
   };
 }
+function prefStorageKey(authId){
+  return 'hm_preferences_' + (authId || 'guest');
+}
 function applyStoredPreferences(profile){
   var raw=(profile&&profile.raw)||{};
   var data=(raw&&raw.data)||{};
   var pref=data.preferences||{};
+  try{
+    var local=JSON.parse(localStorage.getItem(prefStorageKey(profile&&profile.authId))||'null');
+    if(local && (!pref || !pref._savedAt || new Date(local._savedAt) > new Date(pref._savedAt))) pref=local;
+  }catch(e){}
   if(!pref || typeof pref!=='object') return;
   if(Array.isArray(pref.userDietary)) ST.userDietary=pref.userDietary.slice();
   if(typeof pref.dietLock==='boolean') ST.dietLock=pref.dietLock;
@@ -3277,14 +3292,15 @@ function persistUserPreferences(immediate){
     var raw=p.raw||{};
     var data=Object.assign({}, raw.data||{});
     data.preferences=buyerPrefSnapshot();
+    try{ localStorage.setItem(prefStorageKey(p.authId),JSON.stringify(data.preferences)); }catch(e){}
     p.raw=Object.assign({},raw,{data:data});
     if(p.role==='buyer'){
-      hmAuth.update('buyers',{auth_id:p.authId},{data:data},function(){});
+      hmAuth.update('buyers',{auth_id:p.authId},{data:data},function(res){ if(res&&res.error) console.warn('[Home-Made preferences] buyer sync failed:',res.error); });
     } else if(p.role==='seller'){
       var s=hmOwnSeller&&hmOwnSeller();
       if(s && s.id){
         s.data=data; s._data=data;
-        hmAuth.update('sellers',{id:s.id},{data:data},function(){});
+        hmAuth.update('sellers',{id:s.id},{data:data},function(res){ if(res&&res.error) console.warn('[Home-Made preferences] seller sync failed:',res.error); });
       }
     }
   };
@@ -6202,7 +6218,8 @@ function submitSellerRequest(){
     if(err){err.style.display='block';err.textContent='Please enter a store or kitchen name.';}
     return;
   }
-  var lead={name:name, notes:notes, role:ST.role||'buyer', display_name:(ST.bp&&ST.bp.displayName)||'', created_at:new Date().toISOString()};
+  var profile=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
+  var lead={user_id:(profile&&profile.authId)||null, name:name, notes:notes, role:ST.role||'buyer', display_name:(ST.bp&&ST.bp.displayName)||'', status:'pending', created_at:new Date().toISOString()};
   try{
     var leads=JSON.parse(localStorage.getItem('hm_seller_requests')||'[]');
     leads.unshift(lead);
@@ -7812,7 +7829,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.44 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.45 · Production build</div>
   </div>`;
 }
 function swR(r){
@@ -13597,7 +13614,12 @@ function renderPassport(){
     } catch(e){ callback(null); }
   }
 
-  /* ── 2. Inject Web App Manifest as a Blob URL ── */
+  /* ── 2. Use the static Web App Manifest ── */
+  try {
+    var mEl = document.getElementById('pwa-manifest');
+    if(mEl){ mEl.rel='manifest'; mEl.href = '/manifest.json'; }
+  } catch(e) {}
+  if(false){
   makeIconPNG(512, function(icon512){
   makeIconPNG(192, function(icon192){
   var icons = [];
@@ -13628,6 +13650,7 @@ function renderPassport(){
   } catch(e) { console.warn('Manifest blob failed:', e); }
   }); // end icon192
   }); // end icon512
+  }
 
   /* ── 3. Register inline Service Worker via Blob ── */
   /* ── 3. Register Service Worker ──
