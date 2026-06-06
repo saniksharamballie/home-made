@@ -845,7 +845,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.42</strong><small>Production build</small>
+      <span>Version</span><strong>v4.43</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -1051,7 +1051,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.29';
+const APP_VERSION='4.43';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -2551,6 +2551,8 @@ var hmAuth = (function(){
     if(typeof updDietLockPill==='function') updDietLockPill();
     if(typeof updateMsgBadge==='function') updateMsgBadge();
     if(typeof refreshMessagesFromCloud==='function') refreshMessagesFromCloud();
+    if(typeof loadBackendWantList==='function') setTimeout(loadBackendWantList, 50);
+    if(window.ADM && typeof ADM.loadBackendRatings==='function') setTimeout(ADM.loadBackendRatings, 80);
     /* Role-appropriate landing page. Load seller rows first so live-only pages do not render empty. */
     var landing = p.role==='admin' ? 'admin' : p.role==='seller' ? 'admin' : p.role==='buyer' ? 'profile' : 'home';
     var landed=false;
@@ -2695,6 +2697,14 @@ var hmAuth = (function(){
     q.then(function(res){ if(cb) cb(res.error?{error:res.error.message}:{ok:true}); });
   }
 
+  /* Delete rows */
+  function remove(table, match, cb){
+    if(_demoMode){ if(cb) cb({ok:true}); return; }
+    var q = _sb.from(table).delete();
+    Object.keys(match).forEach(function(k){ q=q.eq(k,match[k]); });
+    q.then(function(res){ if(cb) cb(res.error?{error:res.error.message}:{ok:true}); });
+  }
+
   /* Upsert a row */
   function upsert(table, row, options, cb){
     if(_demoMode){ if(typeof options==='function') options({ok:true}); else if(cb) cb({ok:true}); return; }
@@ -2708,6 +2718,12 @@ var hmAuth = (function(){
     var q = _sb.from(table).select('*');
     if(match) Object.keys(match).forEach(function(k){ q=q.eq(k,match[k]); });
     q.then(function(res){ if(cb) cb(res.data||[]); });
+  }
+
+  /* Call a Supabase RPC */
+  function rpc(name, args, cb){
+    if(_demoMode){ if(cb) cb({error:'Unavailable in demo mode'}); return; }
+    _sb.rpc(name, args||{}).then(function(res){ if(cb) cb(res.error?{error:res.error.message,data:null}:{ok:true,data:res.data}); });
   }
 
   /* Real-time subscription on a table */
@@ -3092,7 +3108,7 @@ var hmAuth = (function(){
   return {boot:boot, signOut:signOut, signInWithPassword:signInWithPassword,
           createAccount:createAccount, sendPasswordReset:sendPasswordReset, updatePassword:updatePassword,
           showAuthAction:showAuthAction, submitAuthAction:submitAuthAction, passwordMatchHint:passwordMatchHint, submitNewPassword:submitNewPassword,
-          insert:insert, update:update, upsert:upsert, select:select, subscribe:subscribe,
+          insert:insert, update:update, remove:remove, upsert:upsert, select:select, rpc:rpc, subscribe:subscribe,
           uploadPublicImage:uploadPublicImage, listPublicImages:listPublicImages,
           getProfile:getProfile, isDemoMode:isDemoMode,
           submitLogin:submitLogin, _demoSkip:_demoSkip, showLogin:showLogin,
@@ -7733,7 +7749,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.42 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.43 · Production build</div>
   </div>`;
 }
 function swR(r){
@@ -9311,6 +9327,95 @@ var ADM = (function(){
   function saveTokens(){localStorage.setItem('hm_rating_tokens',JSON.stringify(ratingTokens));}
   function saveRatings(){localStorage.setItem('hm_submitted_ratings',JSON.stringify(submittedRatings));}
 
+  function mergeByKey(target, rows, key){
+    (rows||[]).forEach(function(row){
+      if(!target.find(function(x){return x[key]===row[key];})) target.push(row);
+    });
+  }
+
+  function persistRatingToken(rec){
+    var p=window.hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
+    if(!rec||!p||!p.authId||!hmAuth.upsert||(hmAuth.isDemoMode&&hmAuth.isDemoMode())) return;
+    hmAuth.upsert('rating_tokens',{
+      token:rec.token,
+      seller_id:rec.sellerId,
+      created_by:p.authId,
+      buyer_ref:rec.buyerRef||'Anonymous',
+      order_code:rec.orderCode||null,
+      order_code_verified:!!rec.orderCodeVerified,
+      gen_device_fingerprint:rec.genDfp||null,
+      expires_at:rec.expires,
+      used:!!rec.used,
+      used_at:rec.usedAt||null,
+      used_device_fingerprint:rec.usedDfp||null
+    },{onConflict:'token'},function(){});
+  }
+
+  function persistSubmittedRating(row){
+    var p=window.hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
+    if(!row||!hmAuth.insert||(hmAuth.isDemoMode&&hmAuth.isDemoMode())) return;
+    hmAuth.insert('seller_ratings',{
+      token:row.token,
+      seller_id:row.sellerId,
+      buyer_id:p&&p.authId?p.authId:null,
+      buyer_ref:row.buyerRef||'Anonymous',
+      order_code:row.orderCode||null,
+      stars:row.stars,
+      comment:row.comment||'',
+      trust_score:row.trustScore||0,
+      trust_flags:row.trustFlags||[],
+      dwell_ms:row.dwellMs||0,
+      device_fingerprint:row.deviceFingerprint||null,
+      suspicious:!!row.suspicious
+    },function(){});
+  }
+
+  function loadBackendRatings(){
+    var p=window.hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
+    if(!p||!p.authId||!hmAuth.select||(hmAuth.isDemoMode&&hmAuth.isDemoMode())) return;
+    hmAuth.select('rating_tokens',null,function(rows){
+      var mapped=(rows||[]).map(function(row){
+        return {
+          token:row.token,
+          sellerId:row.seller_id,
+          buyerRef:row.buyer_ref||'Anonymous',
+          orderCode:row.order_code||null,
+          orderCodeVerified:!!row.order_code_verified,
+          created:row.created_at,
+          expires:row.expires_at,
+          used:!!row.used,
+          usedAt:row.used_at||null,
+          usedDfp:row.used_device_fingerprint||null,
+          genDfp:row.gen_device_fingerprint||null
+        };
+      });
+      mergeByKey(ratingTokens,mapped,'token');
+      saveTokens();
+    });
+    hmAuth.select('seller_ratings',null,function(rows){
+      var mapped=(rows||[]).map(function(row){
+        return {
+          id:row.id,
+          token:row.token,
+          sellerId:row.seller_id,
+          buyerRef:row.buyer_ref||'Anonymous',
+          orderCode:row.order_code||null,
+          stars:row.stars,
+          comment:row.comment||'',
+          date:row.created_at,
+          deviceFingerprint:row.device_fingerprint||null,
+          trustScore:row.trust_score||0,
+          trustFlags:row.trust_flags||[],
+          dwellMs:row.dwell_ms||0,
+          suspicious:!!row.suspicious
+        };
+      });
+      mergeByKey(submittedRatings,mapped,'token');
+      saveRatings();
+      if(ST.page==='admin') rAdmin();
+    });
+  }
+
   /* ── Device fingerprint: lightweight but persistent per browser ── */
   function getDeviceFingerprint(){
     var stored = localStorage.getItem('hm_dfp');
@@ -9358,6 +9463,7 @@ var ADM = (function(){
       used:false, genDfp:getDeviceFingerprint()
     });
     saveTokens();
+    persistRatingToken(ratingTokens[ratingTokens.length-1]);
     return {token, codeVerified, warning: orderCode&&!codeVerified ? 'Order code not found or already used' : null};
   }
 
@@ -9408,16 +9514,19 @@ var ADM = (function(){
 
     rec.used=true; rec.usedAt=new Date().toISOString(); rec.usedDfp=dfp;
     saveTokens();
+    persistRatingToken(rec);
 
-    submittedRatings.push({
+    var ratingRow={
       token, sellerId:rec.sellerId, buyerRef:rec.buyerRef,
       orderCode: rec.orderCode||null,
       stars, comment:comment||'', date:new Date().toISOString(),
       deviceFingerprint:dfp, trustScore:trust.score, trustFlags:trust.flags,
       dwellMs:meta.dwellMs||0,
       suspicious: trust.score < 50
-    });
+    };
+    submittedRatings.push(ratingRow);
     saveRatings();
+    persistSubmittedRating(ratingRow);
     return {ok:true, trustScore:trust.score};
   }
 
@@ -9435,6 +9544,7 @@ var ADM = (function(){
     upgradeProspects,totalOrders,
     ratingTokens,submittedRatings,
     generateRatingToken,submitRating,getSellerRatings,
+    loadBackendRatings,
     getPendingTokens,getExpiredTokens,getSuspiciousRatings,getDeviceFingerprint,
     get orderCodes(){return ORDER_CODES;},
     adRevTotal:adRevWeekly.reduce(function(a,b){return a+b;},0)
@@ -9444,17 +9554,49 @@ var ADM = (function(){
 /* ── User Want List ── */
 var WANTLIST = JSON.parse(localStorage.getItem('hm_wantlist')||'[]');
 function saveWantList(){localStorage.setItem('hm_wantlist',JSON.stringify(WANTLIST));}
+function loadBackendWantList(){
+  var p=window.hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
+  if(!p||!p.authId||!hmAuth.select||(hmAuth.isDemoMode&&hmAuth.isDemoMode())) return;
+  hmAuth.select('want_list_items',{user_id:p.authId},function(rows){
+    if(!Array.isArray(rows)) return;
+    WANTLIST=rows.map(function(row){
+      return {id:row.id,item:row.item,date:row.created_at,source:row.source||'app'};
+    });
+    saveWantList();
+    if(ST.page==='wantlist') rWantList();
+  });
+}
+function persistWantListItem(row){
+  var p=window.hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
+  if(!row||!p||!p.authId||!hmAuth.upsert||(hmAuth.isDemoMode&&hmAuth.isDemoMode())) return;
+  hmAuth.upsert('want_list_items',{
+    user_id:p.authId,
+    item:row.item,
+    source:row.source||'app',
+    metadata:{client_date:row.date||new Date().toISOString()}
+  },{onConflict:'user_id,item'},function(res){
+    if(res&&res.error) return;
+    loadBackendWantList();
+  });
+}
 function addToWantList(item){
   if(!WANTLIST.find(function(x){return x.item===item;})){
-    WANTLIST.push({item:item,date:new Date().toISOString()});
+    var row={item:item,date:new Date().toISOString(),source:'app'};
+    WANTLIST.push(row);
     saveWantList();
+    persistWantListItem(row);
     rWantList();
     showToast('Added "'+item+'" to your want list!');
   }
 }
 function removeWant(item){
+  var removed=WANTLIST.filter(function(x){return x.item===item;});
   WANTLIST=WANTLIST.filter(function(x){return x.item!==item;});
   saveWantList();
+  var p=window.hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
+  if(removed.length&&p&&p.authId&&hmAuth.remove&&!(hmAuth.isDemoMode&&hmAuth.isDemoMode())){
+    hmAuth.remove('want_list_items',removed[0].id?{id:removed[0].id}:{user_id:p.authId,item:item},function(){});
+  }
   rWantList();
 }
 function showToast(msg){
