@@ -845,7 +845,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.46</strong><small>Production build</small>
+      <span>Version</span><strong>v4.47</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -1051,7 +1051,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.46';
+const APP_VERSION='4.47';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -7850,7 +7850,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.46 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.47 · Production build</div>
   </div>`;
 }
 function swR(r){
@@ -12797,11 +12797,66 @@ function evtStatusLabel(ev){
 
 /* ── EVENTS DISCOVERY PAGE ── */
 var _evtView='list'; // 'list', 'grid' or 'map'
-function evtSetView(v){ _evtView=v; rEvents(); }
+window._eventsLeafMap=null;
+function destroyEventsLeafMap(){
+  if(window._eventsLeafMap){
+    try{window._eventsLeafMap.remove();}catch(e){}
+    window._eventsLeafMap=null;
+  }
+}
+function evtSetView(v){ if(_evtView==='map'&&v!=='map')destroyEventsLeafMap(); _evtView=v; rEvents(); }
+
+function eventHasExactLL(ev){
+  var lat=parseFloat(ev&&ev.lat),lng=parseFloat(ev&&ev.lng);
+  return Number.isFinite(lat)&&Number.isFinite(lng)&&lat>=-35&&lat<=-22&&lng>=16&&lng<=34;
+}
+function eventMapLL(ev){
+  if(eventHasExactLL(ev)) return [parseFloat(ev.lat),parseFloat(ev.lng)];
+  var aliases={'Morningside':'Berea','Florida Road':'Berea','North Beach':'Durban CBD'};
+  var key=(ev&&ev.suburb)||'Durban CBD';
+  var center=(REGION_CENTERS[key]||REGION_CENTERS[aliases[key]]||REGION_CENTERS['Durban CBD']).ll;
+  var seed=String((ev&&ev.id)||key||'event').split('').reduce(function(n,ch){return n+ch.charCodeAt(0);},0);
+  return [
+    center[0]+(((seed*13)%17)-8)*0.00042,
+    center[1]+(((seed*23)%17)-8)*0.00042
+  ];
+}
+
+function initEventsLeafMap(){
+  var el=document.getElementById('events-leaf-map');
+  if(!el||typeof L==='undefined')return;
+  destroyEventsLeafMap();
+  var map=L.map('events-leaf-map',{center:[-29.858,31.010],zoom:12,zoomControl:true,attributionControl:true});
+  window._eventsLeafMap=map;
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://openstreetmap.org">OSM</a>'}).addTo(map);
+  var pts=[];
+  EVENTS.forEach(function(ev){
+    var ll=eventMapLL(ev);
+    pts.push(ll);
+    var status=evtStatusLabel(ev);
+    var color=status==='live'?'#1A9040':status==='upcoming'?'#0094C8':'#9E9E9E';
+    var statusLabel=status==='live'?'Live now':status==='upcoming'?'Upcoming':'Ended';
+    var locationNote=eventHasExactLL(ev)?'Exact event pin':'Approximate suburb pin';
+    var icon=L.divIcon({
+      className:'',
+      iconSize:[48,58],
+      iconAnchor:[24,54],
+      html:'<button type="button" aria-label="'+hmText(ev.name)+'" style="width:46px;height:46px;border-radius:16px;border:3px solid #fff;background:'+color+';box-shadow:0 6px 16px rgba(30,14,4,.25);display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;'+(status==='past'?'opacity:.5;filter:grayscale(1);':'')+'">'+(ev.e||'🍽️')+'</button>'
+    });
+    var marker=L.marker(ll,{icon:icon,zIndexOffset:status==='live'?30:status==='upcoming'?20:10}).addTo(map);
+    marker.bindTooltip('<b>'+hmText(ev.name)+'</b><br>'+hmText(ev.suburb||'Durban')+' · '+statusLabel+' · '+locationNote,{direction:'top',offset:[0,-42],opacity:.95});
+    marker.on('click',function(){openEvtDetail(ev.id);});
+  });
+  if(pts.length>1){
+    try{map.fitBounds(pts,{padding:[42,42],maxZoom:13});}catch(e){}
+  }
+  setTimeout(function(){try{map.invalidateSize();}catch(e){}},80);
+}
 
 function rEvents(){
   var el=document.getElementById('page-events');
   if(!el) return;
+  destroyEventsLeafMap();
   var stats=CHECKIN_STORE.stats();
   var myCheckins=CHECKIN_STORE.all();
   var liveEvts  = EVENTS.filter(function(e){ return evtStatusLabel(e)==='live'; });
@@ -12840,37 +12895,7 @@ function rEvents(){
     </div>`;
   }
 
-  /* ── MAP VIEW ── */
-  // Suburb coordinates (approximate positions on a 400×320 canvas)
-  var suburbPins={
-    'Berea':       {x:196,y:152},
-    'Umhlanga':    {x:238,y:68},
-    'Westville':   {x:110,y:168},
-    'Chatsworth':  {x:126,y:228},
-    'Musgrave':    {x:190,y:178},
-    'Durban North':{x:210,y:100},
-    'Morningside': {x:200,y:160},
-    'Pinetown':    {x:80, y:190},
-    'Durban CBD':  {x:204,y:200},
-  };
   function buildMapView(){
-    var pins=EVENTS.map(function(ev){
-      var pos=suburbPins[ev.suburb]||{x:180+Math.random()*40-20,y:160+Math.random()*40-20};
-      var status=evtStatusLabel(ev);
-      var isPastPin=status==='past';
-      var dotColor=status==='live'?'#1A9040':status==='upcoming'?'#0094C8':'#9E9E9E';
-      var dotGlow=status==='live'?'drop-shadow(0 0 6px #1A9040)':'none';
-      var pinOpacity=isPastPin?'0.35':'1';
-      return `<g onclick="openEvtDetail('${ev.id}')" style="cursor:pointer;opacity:${pinOpacity}">
-        <circle cx="${pos.x}" cy="${pos.y}" r="${status==='live'?16:13}" fill="${dotColor}" opacity="0.18"/>
-        <circle cx="${pos.x}" cy="${pos.y}" r="${status==='live'?10:8}" fill="${dotColor}" style="filter:${isPastPin?'grayscale(1)':dotGlow}"/>
-        <text x="${pos.x}" y="${pos.y+4}" text-anchor="middle" font-size="${status==='live'?12:10}" style="pointer-events:none;${isPastPin?'filter:grayscale(1)':''}}">${ev.e}</text>
-        <text x="${pos.x}" y="${pos.y+22}" text-anchor="middle" font-size="8" font-weight="700" fill="${isPastPin?'#9E9E9E':'#1E0E04'}" font-family="var(--font-body)" style="pointer-events:none">${isPastPin?'✓ Ended':''}${ev.suburb}</text>
-        ${status==='live'?`<circle cx="${pos.x}" cy="${pos.y}" r="16" fill="none" stroke="#1A9040" stroke-width="2" opacity="0.5"><animate attributeName="r" values="14;22;14" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.5;0;0.5" dur="2s" repeatCount="indefinite"/></circle>`:''}
-      </g>`;
-    }).join('');
-
-    // Legend
     var legend=`<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;justify-content:center">
       <div style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--body)"><span style="width:10px;height:10px;border-radius:50%;background:#1A9040;display:inline-block"></span>Live Now</div>
       <div style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--body)"><span style="width:10px;height:10px;border-radius:50%;background:#0094C8;display:inline-block"></span>Upcoming</div>
@@ -12878,24 +12903,10 @@ function rEvents(){
     </div>`;
 
     return `<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:18px;overflow:hidden;box-shadow:var(--shadow);margin-bottom:20px">
-      <svg viewBox="0 0 400 320" style="width:100%;background:linear-gradient(160deg,#E8F4F0 0%,#D4EAE0 50%,#C8E0F4 100%)">
-        <!-- Sea -->
-        <polygon points="300,0 400,0 400,320 260,320" fill="#A8D4F0" opacity="0.55"/>
-        <!-- Roads -->
-        <line x1="180" y1="0" x2="200" y2="320" stroke="rgba(255,255,255,.6)" stroke-width="3"/>
-        <line x1="0" y1="180" x2="400" y2="160" stroke="rgba(255,255,255,.6)" stroke-width="3"/>
-        <line x1="100" y1="0" x2="120" y2="320" stroke="rgba(255,255,255,.4)" stroke-width="2"/>
-        <!-- Labels -->
-        <text x="340" y="160" text-anchor="middle" font-size="10" font-style="italic" fill="rgba(0,80,160,.4)" font-family="Georgia,serif">Indian Ocean</text>
-        <text x="200" y="30" text-anchor="middle" font-size="9" font-weight="700" fill="rgba(30,14,4,.35)" font-family="sans-serif">DURBAN NORTH</text>
-        <text x="100" y="200" text-anchor="middle" font-size="9" font-weight="700" fill="rgba(30,14,4,.35)" font-family="sans-serif">PINETOWN</text>
-        <text x="195" y="215" text-anchor="middle" font-size="9" font-weight="700" fill="rgba(30,14,4,.35)" font-family="sans-serif">CBD</text>
-        <!-- Market pins -->
-        ${pins}
-      </svg>
+      <div id="events-leaf-map" style="height:360px;width:100%;background:#E8F4F0"></div>
       ${legend}
       <div style="padding:12px 16px;border-top:1px solid var(--border2)">
-        <div style="font-size:11px;color:var(--muted)">Tap a pin to view event details · ${EVENTS.length} markets mapped</div>
+        <div style="font-size:11px;color:var(--muted)">Tap a pin to view event details · ${EVENTS.length} markets mapped · exact event pins where provided</div>
       </div>
     </div>
     <!-- Card list below map -->
@@ -12960,6 +12971,7 @@ function rEvents(){
         ${[...liveEvts,...upcomingEvts,...pastEvts].map(evtCard).join('')}
       </div>` : listContent}
   </div>`;
+  if(_evtView==='map') requestAnimationFrame(initEventsLeafMap);
 }
 
 /* ── EVENT DETAIL SHEET ── */
@@ -13205,6 +13217,14 @@ function openMyEvents(){
           <div><div class="lsm" style="margin-bottom:5px">Suburb</div>
           <input class="inp" id="ne-suburb" placeholder="Area / suburb"/></div>
         </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:10px 12px">
+          <div class="lsm" style="margin-bottom:7px">Exact Map Pin <span style="font-weight:400;color:var(--muted);text-transform:none">(optional for markets)</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <input class="inp" id="ne-lat" type="number" step="0.000001" placeholder="Latitude e.g. -29.858680"/>
+            <input class="inp" id="ne-lng" type="number" step="0.000001" placeholder="Longitude e.g. 31.021840"/>
+          </div>
+          <div style="font-size:10px;color:var(--muted);line-height:1.5;margin-top:7px">Paste the coordinates from Google Maps for the market venue. If left blank, Home-Made uses the suburb only.</div>
+        </div>
         <div><div class="lsm" style="margin-bottom:5px">Date</div>
           <input class="inp" id="ne-date" type="date" min="${new Date().toISOString().split('T')[0]}"/></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -13237,6 +13257,8 @@ function createNewEvent(){
   var name=(document.getElementById('ne-name')||{}).value||'';
   var venue=(document.getElementById('ne-venue')||{}).value||'';
   var suburb=(document.getElementById('ne-suburb')||{}).value||'';
+  var latRaw=((document.getElementById('ne-lat')||{}).value||'').trim();
+  var lngRaw=((document.getElementById('ne-lng')||{}).value||'').trim();
   var date=(document.getElementById('ne-date')||{}).value||'';
   var startT=(document.getElementById('ne-start')||{}).value||'08:00';
   var endT=(document.getElementById('ne-end')||{}).value||'14:00';
@@ -13246,6 +13268,12 @@ function createNewEvent(){
   var pct=parseInt((document.getElementById('ne-pct')||{}).value||'10',10)||10;
   var draw=(document.getElementById('ne-draw')||{}).checked||false;
   if(!name||!venue||!date){ showToast('Please fill in event name, venue and date.'); return; }
+  var hasPin=latRaw||lngRaw;
+  var lat=hasPin?parseFloat(latRaw):null,lng=hasPin?parseFloat(lngRaw):null;
+  if(hasPin&&(!Number.isFinite(lat)||!Number.isFinite(lng)||lat<-35||lat>-22||lng<16||lng>34)){
+    showToast('Please enter valid South African latitude and longitude, or leave both blank.');
+    return;
+  }
   var newId='EVT-'+Math.random().toString(36).slice(2,6).toUpperCase();
   var _newSid=SELLER_OWN_ID||SELLERS[0].id;
   var newEvt={
@@ -13254,6 +13282,7 @@ function createNewEvent(){
     date:date, time:time||'TBC', desc:desc||'Come visit us at the market!',
     e:'🍽️', bg:'linear-gradient(135deg,#FDE8D0,#FAD0A8)',
     sellerPromo:promo||'MARKET10', promoPct:pct, luckyDraw:draw,
+    lat:hasPin?lat:null, lng:hasPin?lng:null,
     maxCheckIns:200, checkIns:0, status:'upcoming', timelineData:[]
   };
   EVENTS.unshift(newEvt);
