@@ -547,6 +547,28 @@ textarea.inp{resize:vertical}
 .foodie-level{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,var(--plat-a),var(--plat-b));color:#3A2800;padding:5px 16px;border-radius:100px;font-size:11px;font-weight:800;letter-spacing:.4px}
 .tnfy-home-card{flex:0 0 190px;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:all .2s;box-shadow:var(--shadow)}
 .tnfy-home-card:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:var(--shadow-lg)}
+.icon-choice-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:10px;margin-bottom:14px}
+.icon-choice-row{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 8px;margin-bottom:14px;scrollbar-width:none}
+.icon-choice-row::-webkit-scrollbar{display:none}
+.icon-choice{--icon-accent:var(--accent);position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:7px;min-height:112px;padding:10px 8px;border:1.5px solid var(--border);border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,.86),rgba(255,250,244,.72));box-shadow:0 2px 10px rgba(45,25,10,.04);cursor:pointer;font-family:var(--font-body);transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,background .16s ease,color .16s ease;min-width:92px;color:var(--muted);text-align:center}
+.icon-choice:hover{transform:translateY(-2px);border-color:var(--icon-accent);box-shadow:0 6px 16px rgba(45,25,10,.08)}
+.icon-choice.on{background:linear-gradient(180deg,#fff,rgba(255,246,235,.95));border-color:var(--icon-accent);box-shadow:0 8px 22px rgba(229,90,24,.14);color:var(--heading);transform:translateY(-2px)}
+.ic-ring{width:66px;height:66px;border-radius:50%;border:2px solid var(--icon-accent);background:rgba(255,255,255,.7);display:flex;align-items:center;justify-content:center;position:relative;opacity:.48;filter:saturate(.58);transition:opacity .16s ease,filter .16s ease,background .16s ease,box-shadow .16s ease,border-color .16s ease}
+.ic-ring::after{content:'';position:absolute;right:-5px;top:50%;width:4px;height:4px;border-radius:50%;background:var(--icon-accent);box-shadow:0 10px 0 var(--icon-accent);opacity:.6;transform:translateY(-8px)}
+.icon-choice.on .ic-ring{opacity:1;filter:saturate(1.15);background:rgba(255,255,255,.96);border-color:var(--icon-accent);box-shadow:0 8px 18px rgba(229,90,24,.16)}
+.ic-symbol{font-size:28px;line-height:1;filter:drop-shadow(0 2px 2px rgba(30,14,4,.12));transition:transform .16s ease}
+.icon-choice.on .ic-symbol{transform:scale(1.1)}
+.ic-label{font-size:12px;font-weight:800;line-height:1.18;color:inherit}
+.ic-sub{font-size:10px;line-height:1.25;color:var(--muted);max-width:120px}
+.ic-badge{position:absolute;top:8px;right:8px;min-width:19px;height:19px;padding:0 5px;border-radius:100px;background:var(--accent);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.icon-choice.compact{min-width:86px;min-height:92px;padding:8px 7px}
+.icon-choice.compact .ic-ring{width:52px;height:52px}
+.icon-choice.compact .ic-symbol{font-size:23px}
+.icon-choice.tab{min-width:104px}
+.icon-feature-card{background:var(--surface);border:1.5px solid var(--border);border-radius:20px;padding:22px;text-align:center;box-shadow:var(--shadow)}
+.icon-feature-card .icon-choice{margin:0 auto 10px;border-color:transparent;background:transparent;box-shadow:none;cursor:default}
+.icon-feature-card .icon-choice:hover{transform:none;box-shadow:none}
+@media(max-width:560px){.icon-choice-grid{grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:8px}.icon-choice{min-width:78px;min-height:98px;padding:8px 6px;border-radius:14px}.ic-ring{width:56px;height:56px}.ic-symbol{font-size:24px}.ic-label{font-size:11px}}
 .budget-btn{flex:1;padding:8px 4px;border-radius:10px;border:1.5px solid var(--border);cursor:pointer;font-size:11px;font-weight:700;transition:all .15s;font-family:var(--font-body);background:transparent;color:var(--muted);text-align:center}
 .budget-btn.on{border-color:var(--accent);background:var(--accent-l);color:var(--accent)}
 
@@ -845,7 +867,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.47</strong><small>Production build</small>
+      <span>Version</span><strong>v4.48</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -1051,7 +1073,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.47';
+const APP_VERSION='4.48';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -7850,7 +7872,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.47 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.48 · Production build</div>
   </div>`;
 }
 function swR(r){
@@ -8548,6 +8570,21 @@ function _reRenderOH(){
   var inp=document.getElementById('oh-search');
   if(inp&&_ohSearch){inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);}
 }
+function iconChoice(opts){
+  opts=opts||{};
+  var classes='icon-choice '+(opts.cls||'')+(opts.on?' on':'');
+  var style='--icon-accent:'+(opts.color||'var(--accent)');
+  var pressed=opts.on?'true':'false';
+  var click=opts.onclick?' onclick="'+opts.onclick+'"':'';
+  var badge=opts.badge?'<span class="ic-badge">'+opts.badge+'</span>':'';
+  var sub=opts.sub?'<span class="ic-sub">'+opts.sub+'</span>':'';
+  return '<button type="button" class="'+classes+'" aria-pressed="'+pressed+'" style="'+style+'"'+click+'>'
+    +badge
+    +'<span class="ic-ring"><span class="ic-symbol">'+(opts.icon||'')+'</span></span>'
+    +'<span class="ic-label">'+(opts.label||'')+'</span>'
+    +sub
+  +'</button>';
+}
 function buildBuyerTastePanel(){
   var bp=ST.bp;
   var cuisineOpts=[
@@ -8601,6 +8638,61 @@ function buildBuyerTastePanel(){
     +'<div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px">'+goalChips+'</div>'
     +'<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Tonight\'s Mood</div>'
     +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">'+moodBtns+'</div>'
+  +'</div>';
+}
+function buildBuyerTastePanel(){
+  var bp=ST.bp;
+  var cuisineOpts=[
+    {id:'african',e:'🥘',l:'African',c:'#EF8A17'},{id:'indian',e:'🍛',l:'Indian',c:'#E6A400'},{id:'baked',e:'🍞',l:'Baked',c:'#C8843A'},
+    {id:'bbq',e:'🥩',l:'BBQ',c:'#C94A1A'},{id:'vegan',e:'🌱',l:'Vegan',c:'#4CA83F'},{id:'italian',e:'🍝',l:'Italian',c:'#4CA83F'},
+    {id:'asian',e:'🍱',l:'Asian',c:'#F26B62'},{id:'desserts',e:'🍰',l:'Desserts',c:'#8A61B8'},{id:'seafood',e:'🦞',l:'Seafood',c:'#0EA5A5'},
+    {id:'street',e:'🌮',l:'Street',c:'#F59E0B'}
+  ];
+  var spiceLevels=[{v:0,e:'😊',l:'Mild',c:'#4CA83F'},{v:1,e:'🌶️',l:'Medium',c:'#F59E0B'},{v:2,e:'🔥',l:'Hot',c:'#E55A18'},{v:3,e:'💥',l:'Durban Hot',c:'#C62828'}];
+  var moodOpts=[
+    {v:'tired',e:'🌙',l:'Tired',c:'#2A83C6'},{v:'celebrating',e:'🎉',l:'Celebrating',c:'#F26B62'},
+    {v:'broke',e:'💵',l:'Budget',c:'#4CA83F'},{v:'gym',e:'🏋️',l:'Gym Mode',c:'#0EA5A5'},
+    {v:'datenight',e:'🥂',l:'Date Night',c:'#8A61B8'},{v:'hangover',e:'🥣',l:'Comfort',c:'#F59E0B'}
+  ];
+  var budgetOpts=[{v:80,e:'💸',l:'Under R80',c:'#4CA83F'},{v:120,e:'👛',l:'R80-R120',c:'#0EA5A5'},{v:200,e:'💳',l:'R120-R200',c:'#F59E0B'},{v:999,e:'⭐',l:'Splurge',c:'#C9A800'}];
+  var goalOpts=[
+    {v:'comfort',e:'🥣',l:'Comfort Food',c:'#F59E0B'},{v:'gym',e:'🏋️',l:'Gym Meals',c:'#0EA5A5'},
+    {v:'family',e:'👨‍👩‍👧',l:'Family Dinners',c:'#F26B62'},{v:'date',e:'🥂',l:'Date Night',c:'#8A61B8'},
+    {v:'health',e:'💚',l:'Health Goals',c:'#4CA83F'},{v:'weightloss',e:'⚖️',l:'Weight Loss',c:'#2A83C6'},
+    {v:'senior',e:'👴',l:'Senior Friendly',c:'#F59E0B'},{v:'lunchbox',e:'🎒',l:'Lunchbox Meals',c:'#F26B62'}
+  ];
+  var cuisineChips=cuisineOpts.map(function(c){
+    var on=(bp.cuisines||[]).includes(c.id);
+    return iconChoice({icon:c.e,label:c.l,color:c.c,on:on,onclick:"bpToggleCuisine('"+c.id+"')"});
+  }).join('');
+  var spiceBtns=spiceLevels.map(function(s){
+    return iconChoice({icon:s.e,label:s.l,color:s.c,on:bp.spice===s.v,onclick:'bpSetSpice('+s.v+')',cls:'compact'});
+  }).join('');
+  var moodBtns=moodOpts.map(function(m){
+    return iconChoice({icon:m.e,label:m.l,color:m.c,on:bp.mood===m.v,onclick:"bpSetMood('"+m.v+"')"});
+  }).join('');
+  var budgetBtns=budgetOpts.map(function(b){
+    return iconChoice({icon:b.e,label:b.l,color:b.c,on:bp.budget===b.v,onclick:'bpSetBudget('+b.v+')',cls:'compact'});
+  }).join('');
+  var goalChips=goalOpts.map(function(g){
+    var on=(bp.mealGoals||[]).includes(g.v);
+    return iconChoice({icon:g.e,label:g.l,color:g.c,on:on,onclick:"bpToggleGoal('"+g.v+"')"});
+  }).join('');
+  return '<div class="bp-section">'
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">'
+      +'<div style="width:38px;height:38px;border-radius:12px;background:var(--accent-l);display:flex;align-items:center;justify-content:center;font-size:18px">🍽️</div>'
+      +'<div><div style="font-size:15px;font-weight:700;color:var(--heading)">Taste Identity</div><div style="font-size:11px;color:var(--muted)">Personalise your Home-Made experience</div></div>'
+    +'</div>'
+    +'<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Favourite Cuisines</div>'
+    +'<div class="icon-choice-grid">'+cuisineChips+'</div>'
+    +'<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Spice Tolerance</div>'
+    +'<div class="icon-choice-row">'+spiceBtns+'</div>'
+    +'<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Budget Per Meal</div>'
+    +'<div class="icon-choice-row">'+budgetBtns+'</div>'
+    +'<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Meal Goals</div>'
+    +'<div class="icon-choice-grid">'+goalChips+'</div>'
+    +'<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Tonight\'s Mood</div>'
+    +'<div class="icon-choice-grid">'+moodBtns+'</div>'
   +'</div>';
 }
 function buildBuyerQuickPrefs(){
@@ -12118,6 +12210,9 @@ function rMessages(){
   var outboxHtml=outbox.length
     ?outbox.map(function(m){return msgCard(m,false);}).join('')
     :'<div style="padding:32px;text-align:center;color:var(--muted);font-size:13px;border:1.5px dashed var(--border);border-radius:14px">No sent messages yet.</div>';
+  var msgTabs=iconChoice({icon:'📩',label:'Inbox',badge:unreadCount||'',color:'#0EA5A5',on:tab==='inbox'&&!composing,onclick:"window._msgTab='inbox';window._msgCompose=false;rMessages()",cls:'compact tab'})
+    +iconChoice({icon:'📤',label:'Sent',color:'#4CA83F',on:tab==='outbox'&&!composing,onclick:"window._msgTab='outbox';window._msgCompose=false;rMessages()",cls:'compact tab'})
+    +iconChoice({icon:'✏️',label:'Compose',color:'#F59E0B',on:composing,onclick:"window._msgCompose=true;rMessages()",cls:'compact tab'});
 
   el.innerHTML=
     '<div style="background:linear-gradient(155deg,#1E0E04,#3A1A08);padding:28px 20px 22px">'
@@ -12125,7 +12220,7 @@ function rMessages(){
       +'<div style="font-family:var(--font-head);font-size:24px;font-weight:700;color:#fff;margin-bottom:4px">Your Inbox</div>'
       +'<div style="font-size:12px;color:rgba(255,255,255,.55)">Messages between buyers, sellers and admin. No peer-to-peer within the same role.</div>'
     +'</div>'
-    +'<div style="padding:16px 20px 0;display:flex;align-items:center;justify-content:space-between;gap:10px">'
+    +'<div style="padding:16px 20px 0"><div class="icon-choice-row">'+msgTabs+'</div></div><div style="display:none">'
       +'<div style="display:flex;background:var(--bg);border-radius:12px;padding:4px;gap:4px;border:1.5px solid var(--border)">'
         +'<button onclick="window._msgTab=\'inbox\';window._msgCompose=false;rMessages()" style="padding:8px 18px;border-radius:9px;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font-body);transition:all .15s;display:flex;align-items:center;gap:6px;'+(tab==='inbox'?'background:var(--surface);color:var(--heading);box-shadow:var(--shadow)':'background:transparent;color:var(--muted)')+'">📩 Inbox'+(unreadCount?'<span style="background:var(--accent);color:#fff;font-size:9px;font-weight:800;padding:1px 6px;border-radius:100px">'+unreadCount+'</span>':'')+'</button>'
         +'<button onclick="window._msgTab=\'outbox\';window._msgCompose=false;rMessages()" style="padding:8px 18px;border-radius:9px;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font-body);transition:all .15s;'+(tab==='outbox'?'background:var(--surface);color:var(--heading);box-shadow:var(--shadow)':'background:transparent;color:var(--muted)')+'">📤 Sent</button>'
@@ -12921,6 +13016,11 @@ function rEvents(){
   </div>`;
 
   var sellerEventCTA=(ST.role==='buyer')?`<div style="margin-top:24px;background:linear-gradient(135deg,#FFF0E0,#FFEBD4);border:1.5px solid var(--border);border-radius:20px;padding:22px 24px;text-align:center"><div style="font-size:36px;margin-bottom:10px">🍽️</div><div style="font-family:var(--font-head);font-size:17px;color:var(--heading);margin-bottom:6px">Are you a home seller?</div><p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6">Request seller access to list stalls, food events and reach buyers in your neighbourhood.</p><button class="btn btn-a btn-sm" onclick="openSellerRequestModal()">🗓️ Request Seller Access</button></div>`:'';
+  viewToggle='<div class="icon-choice-row" style="margin-bottom:0">'
+    +iconChoice({icon:'☰',label:'List',color:'#0EA5A5',on:_evtView==='list',onclick:"evtSetView('list')",cls:'compact tab'})
+    +iconChoice({icon:'▦',label:'Grid',color:'#2A83C6',on:_evtView==='grid',onclick:"evtSetView('grid')",cls:'compact tab'})
+    +iconChoice({icon:'🗺️',label:'Map',color:'#4CA83F',on:_evtView==='map',onclick:"evtSetView('map')",cls:'compact tab'})
+  +'</div>';
   var listContent=`
     ${liveEvts.length?`<div style="margin-bottom:22px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
