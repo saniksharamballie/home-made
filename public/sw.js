@@ -1,4 +1,4 @@
-const VERSION = "hm-prod-v48";
+const VERSION = "hm-prod-v50";
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 const SHELL_ASSETS = [
@@ -11,6 +11,10 @@ const SHELL_ASSETS = [
   "/images/home-passion-income.jpeg",
   "/icons/home-made-logo-clean.png",
   "/icons/home-made-desktop-logo.jpeg",
+  "/icons/seller-flow/become-seller.png",
+  "/icons/seller-flow/list-dishes.png",
+  "/icons/seller-flow/receive-orders-whatsapp.png",
+  "/icons/seller-flow/grow-gold-platinum.png",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
   "/icons/apple-touch-icon.png"

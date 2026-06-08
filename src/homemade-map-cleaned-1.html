@@ -527,6 +527,16 @@ textarea.inp{resize:vertical}
 .spice-btn.on{border-color:var(--accent);background:var(--accent-l);color:var(--accent)}
 .mood-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;border-radius:12px;border:1.5px solid var(--border);cursor:pointer;font-size:10px;font-weight:700;transition:all .15s;font-family:var(--font-body);background:transparent;color:var(--muted);min-width:0}
 .mood-btn.on{border-color:var(--accent);background:var(--accent-l);color:var(--accent)}
+.seller-flow{padding:40px 20px 44px;text-align:center;max-width:980px;margin:0 auto}
+.seller-flow-hero{width:184px;height:184px;object-fit:contain;display:block;margin:0 auto 18px}
+.seller-flow-title{font-family:var(--font-head);font-size:clamp(28px,5vw,42px);font-weight:800;color:var(--heading);line-height:1.12;margin-bottom:12px}
+.seller-flow-copy{color:var(--body);font-size:15px;line-height:1.7;max-width:470px;margin:0 auto 28px}
+.seller-flow-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:0 auto 28px}
+.seller-flow-card{background:var(--surface);border:1.5px solid var(--border);border-radius:18px;padding:18px 14px 20px;box-shadow:var(--shadow);text-align:center}
+.seller-flow-card img{width:138px;height:138px;object-fit:contain;display:block;margin:0 auto 10px}
+.seller-flow-card h3{font-family:var(--font-head);font-size:18px;line-height:1.18;color:var(--heading);margin:0 0 8px}
+.seller-flow-card p{font-size:12px;line-height:1.55;color:var(--muted);margin:0}
+@media(max-width:720px){.seller-flow{padding:30px 20px 36px}.seller-flow-hero{width:156px;height:156px}.seller-flow-grid{grid-template-columns:1fr;max-width:340px}.seller-flow-card{display:grid;grid-template-columns:92px 1fr;gap:12px;align-items:center;text-align:left;padding:13px 14px}.seller-flow-card img{width:92px;height:92px;margin:0}.seller-flow-card h3{font-size:16px}.seller-flow-copy{font-size:14px}}
 .badge-pill{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:100px;font-size:11px;font-weight:700;border:1.5px solid var(--border);background:var(--bg);color:var(--muted);margin:3px}
 .badge-earned{background:linear-gradient(135deg,var(--plat-a),var(--plat-b));border-color:var(--plat-a);color:#3A2800}
 .badge-lime{background:var(--lime-l);border-color:rgba(44,184,80,.3);color:var(--lime)}
@@ -866,7 +876,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.51</strong><small>Production build</small>
+      <span>Version</span><strong>v4.52</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -1072,7 +1082,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.51';
+const APP_VERSION='4.52';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -6278,12 +6288,36 @@ function submitSellerRequest(){
   showToast('Seller request sent. Your buyer profile is still active.');
 }
 
+function buildSellerAccessIntro(){
+  var base='/icons/seller-flow/';
+  var steps=[
+    {img:'list-dishes.png',title:'List your dishes',copy:'Add photos, prices and availability'},
+    {img:'receive-orders-whatsapp.png',title:'Receive orders via WhatsApp',copy:'Buyers contact you directly - no middleman'},
+    {img:'grow-gold-platinum.png',title:'Grow with Gold & Platinum',copy:'Unlock featured placement and analytics'}
+  ];
+  return '<div class="seller-flow">'
+    +'<img class="seller-flow-hero" src="'+base+'become-seller.png" alt="Become a Home-Made Seller icon">'
+    +'<div class="seller-flow-title">Become a<br>Home-Made Seller</div>'
+    +'<p class="seller-flow-copy">Join 500+ home chefs already earning from their kitchen across eThekwini. Send a seller request and the Home-Made team will enable seller tools on your account.</p>'
+    +'<div class="seller-flow-grid">'
+      +steps.map(function(step){
+        return '<div class="seller-flow-card">'
+          +'<img src="'+base+step.img+'" alt="'+step.title+' icon">'
+          +'<div><h3>'+step.title+'</h3><p>'+step.copy+'</p></div>'
+        +'</div>';
+      }).join('')
+    +'</div>'
+    +'<button class="btn btn-a" style="width:100%;max-width:320px;justify-content:center;font-size:15px;padding:14px 22px" onclick="openSellerRequestModal()">'+ic('zap',15,'#fff')+' Request Seller Access</button>'
+    +'<p style="font-size:11px;color:var(--muted);margin-top:14px">This keeps your buyer profile active until seller access is approved.</p>'
+  +'</div>';
+}
+
 function rPost(){
   if(!ST.role || ST.role==='guest'){
     hmAuth.requireLogin(function(){ nav('post'); });
     return;
   }
-  if(ST.role==='buyer'){document.getElementById('page-post').innerHTML=`<div style="padding:60px 28px;text-align:center;max-width:520px;margin:0 auto"><div style="font-size:64px;margin-bottom:18px">🍳</div><div style="font-family:var(--font-head);font-size:28px;color:var(--heading);margin-bottom:10px;line-height:1.3">Become a Home-Made Seller</div><p style="color:var(--muted);font-size:14px;margin-bottom:28px;line-height:1.75">Join 500+ home chefs already earning from their kitchen across eThekwini. Send a seller request and the Home-Made team will enable seller tools on your account.</p><div style="display:flex;flex-direction:column;gap:12px;max-width:320px;margin:0 auto 28px"><div style="display:flex;align-items:center;gap:12px;background:var(--bg);border:1.5px solid var(--border);border-radius:14px;padding:14px 16px;text-align:left"><span style="font-size:24px;flex-shrink:0">📸</span><div><div style="font-size:13px;font-weight:700;color:var(--heading)">List your dishes</div><div style="font-size:12px;color:var(--muted)">Add photos, prices and availability</div></div></div><div style="display:flex;align-items:center;gap:12px;background:var(--bg);border:1.5px solid var(--border);border-radius:14px;padding:14px 16px;text-align:left"><span style="font-size:24px;flex-shrink:0">💬</span><div><div style="font-size:13px;font-weight:700;color:var(--heading)">Receive orders via WhatsApp</div><div style="font-size:12px;color:var(--muted)">Buyers contact you directly — no middleman</div></div></div><div style="display:flex;align-items:center;gap:12px;background:var(--bg);border:1.5px solid var(--border);border-radius:14px;padding:14px 16px;text-align:left"><span style="font-size:24px;flex-shrink:0">🏆</span><div><div style="font-size:13px;font-weight:700;color:var(--heading)">Grow with Gold & Platinum</div><div style="font-size:12px;color:var(--muted)">Unlock featured placement and analytics</div></div></div></div><button class="btn btn-a" style="width:100%;max-width:320px;justify-content:center;font-size:15px;padding:14px 22px" onclick="openSellerRequestModal()">${ic('zap',15,'#fff')} Request Seller Access</button><p style="font-size:11px;color:var(--muted);margin-top:14px">This keeps your buyer profile active until seller access is approved.</p></div>`;return;}
+  if(ST.role==='buyer'){document.getElementById('page-post').innerHTML=buildSellerAccessIntro();return;}
   if(ST.pdone){document.getElementById('page-post').innerHTML=`<div style="padding:80px 28px;text-align:center;max-width:480px;margin:0 auto"><div style="width:84px;height:84px;border-radius:50%;background:var(--lime-l);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:36px;border:2px solid var(--lime)">✅</div><div style="font-family:var(--font-head);font-size:28px;color:var(--heading);margin-bottom:10px">You're Live!</div><p style="color:var(--muted);font-size:14px;margin-bottom:26px">Your listing is now visible to buyers across eThekwini.</p><button class="btn btn-a" onclick="ST.pdone=false;ST.ps=1;nav('browse')">${ic('eye',14,'#fff')} Browse Listings</button></div>`;return;}
   rPS();
 }
@@ -7871,7 +7905,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.51 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.52 · Production build</div>
   </div>`;
 }
 function swR(r){
