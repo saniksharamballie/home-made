@@ -117,8 +117,9 @@
   --font-body:'DM Sans',sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--body);font-family:var(--font-body);-webkit-tap-highlight-color:transparent;min-height:100vh}
+html{scroll-behavior:smooth;overflow-x:hidden}
+body{background:var(--bg);color:var(--body);font-family:var(--font-body);-webkit-tap-highlight-color:transparent;min-height:100vh;overflow-x:hidden}
+#main,#main-content{max-width:100%;overflow-x:hidden}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:var(--border2)}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
@@ -206,6 +207,8 @@ body.banner-hidden #topbar-spacer{height:68px}
 .hm-home-hero-media{position:absolute;top:-42px;right:-173px;width:520px;height:520px;z-index:1;pointer-events:none}
 .hm-home-hero-media img{display:block;width:100%;height:100%;object-fit:contain;object-position:center;filter:drop-shadow(0 16px 12px rgba(60,30,10,.18))}
 .hm-home-hero-copy{position:relative;z-index:3;padding:36px 24px 32px;max-width:58%}
+.hm-home-search-card{position:relative;z-index:4;margin:0 20px 0;background:#FFFDF9;border-radius:22px;padding:16px;border:1.5px solid #E8DDD1;box-shadow:0 8px 28px rgba(60,30,10,.08)}
+.hm-home-search-row{display:flex;gap:10px}
 .home-income-card{margin:28px 28px 8px;background:linear-gradient(135deg,#FFF0E0,#FFEBD4);border:1.5px solid var(--border);border-radius:22px;padding:0;position:relative;overflow:hidden;box-shadow:var(--shadow);display:grid;grid-template-columns:minmax(0,1fr) auto minmax(300px,34%);align-items:stretch;min-height:230px}
 .home-income-copy{position:relative;z-index:2;padding:28px;min-width:0}
 .home-income-actions{position:relative;z-index:3;padding:28px;display:flex;flex-direction:column;gap:10px;justify-content:center;align-items:flex-end}
@@ -240,11 +243,18 @@ body.banner-hidden #topbar-spacer{height:68px}
   .det-key-hint{display:none}
 }
 @media(max-width:480px){
-  .hm-home-hero-stage{min-height:382px}
-  .hm-home-hero-media{top:22px;right:-130px;width:390px;height:390px}
-  .hm-home-hero-copy{padding:36px 22px 22px;max-width:72%}
-  .hm-home-hero-copy p{max-width:145px!important}
+  .hm-home-hero-stage{min-height:360px}
+  .hm-home-hero-media{top:44px;right:-86px;width:320px;height:320px}
+  .hm-home-hero-copy{padding:34px 18px 20px;max-width:60%}
+  .hm-home-hero-copy p{max-width:136px!important}
   .home-income-card,.home-cities-card{margin-left:18px;margin-right:18px}
+  .hm-home-search-card{margin:0 12px;padding:13px;border-radius:18px}
+  .hm-home-search-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+  .hm-home-search-row .btn{padding-left:16px!important;padding-right:16px!important}
+}
+@media(max-width:390px){
+  .hm-home-hero-media{right:-96px;width:306px;height:306px}
+  .hm-home-hero-copy{max-width:58%}
 }
 
 /* ════ COMPONENTS ════ */
@@ -804,6 +814,14 @@ textarea.inp{resize:vertical}
 body.map-fs #topbar,body.map-fs #topbar-spacer,body.map-fs #bnav{display:none!important}
 body.map-fs #main-content{overflow:hidden!important;padding:0!important;height:100vh!important}
 body.map-fs #page-map{display:none!important}
+body.events-map-fs #topbar,body.events-map-fs #topbar-spacer,body.events-map-fs #bnav{display:none!important}
+body.events-map-fs #main-content{overflow:hidden!important;padding:0!important;height:100vh!important}
+.events-map-full{position:fixed;inset:0;z-index:9998;background:#E8F4F0;display:flex;flex-direction:column;overflow:hidden}
+.events-map-top{position:absolute;top:calc(12px + env(safe-area-inset-top));left:12px;right:12px;z-index:500;display:flex;align-items:center;justify-content:space-between;gap:10px;pointer-events:none}
+.events-map-top>*{pointer-events:auto}
+.events-map-back{height:38px;border:1.5px solid var(--border);border-radius:12px;background:rgba(255,253,249,.94);box-shadow:var(--shadow);padding:0 13px;font-size:13px;font-weight:800;color:var(--heading);font-family:var(--font-body);display:flex;align-items:center;gap:7px;cursor:pointer}
+.events-map-title{background:rgba(255,253,249,.94);border:1.5px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:9px 12px;font-size:12px;font-weight:800;color:var(--heading);max-width:58vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.events-map-full #events-leaf-map{height:100vh!important;width:100%!important;flex:1}
 #map-overlay{position:fixed;inset:0;z-index:9999;overflow:hidden;background:#1a1a2e}
 /* Bottom sheet */
 #map-sheet{position:absolute;bottom:0;left:0;right:0;z-index:30;
@@ -1079,14 +1097,12 @@ const HEALTH_FILTERS=[
   {id:'Keto',           e:'🥑', group:'Health'},
   {id:'High Calorie',   e:'🔋', group:'Health'},
   {id:'Pregnancy-Friendly',e:'🤰',group:'Health'},
-  {id:'Senior-Friendly',e:'👴', group:'Health'},
-  {id:'Lunchbox-Friendly',e:'🎒',group:'Health'},
   {id:'Low Purine',     e:'💧', group:'Health'},
 ];
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.53';
+const APP_VERSION='4.54';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -3558,7 +3574,7 @@ function rSafety(){
   el.innerHTML = '<div style="padding:0 0 80px">'
     // Header
     +'<div style="background:linear-gradient(135deg,#1E0E04,#3A1A08);padding:36px 24px 28px">'
-      +'<div style="font-size:36px;margin-bottom:12px">🛡️</div>'
+      +'<div style="margin-bottom:12px">'+hmIconImage('safety centre','safety-mini-icon')+'</div>'
       +'<div style="font-family:var(--font-head);font-size:26px;font-weight:700;color:#fff;margin-bottom:8px">Safety Centre</div>'
       +'<div style="font-size:13px;color:rgba(255,255,255,.65);line-height:1.7">Home-Made is a community marketplace. These guidelines keep everyone safe — please read before your first transaction.</div>'
     +'</div>'
@@ -3576,7 +3592,7 @@ function rSafety(){
     +'</div>'
     // For Buyers section
     +'<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:var(--shadow)">'
-      +'<div style="font-size:15px;font-weight:800;color:var(--heading);margin-bottom:14px;display:flex;align-items:center;gap:8px;font-family:var(--font-head)">🛍️ For Buyers</div>'
+      +'<div style="font-size:15px;font-weight:800;color:var(--heading);margin-bottom:14px;display:flex;align-items:center;gap:8px;font-family:var(--font-head)">'+hmIconImage('for buyers','safety-mini-icon')+'<span>For Buyers</span></div>'
       +[
         {icon:'✅',title:'Check ratings first',body:'Always order from verified sellers with 4.5+ ratings and repeat buyers before trying someone new.'},
         {icon:'📍',title:'Area shown, address shared privately',body:'Sellers only list their suburb publicly. Exact pickup location is shared via WhatsApp after your order is confirmed.'},
@@ -3590,7 +3606,7 @@ function rSafety(){
     +'</div>'
     // For Sellers section
     +'<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:var(--shadow)">'
-      +'<div style="font-size:15px;font-weight:800;color:var(--heading);margin-bottom:14px;display:flex;align-items:center;gap:8px;font-family:var(--font-head)">🍳 For Sellers</div>'
+      +'<div style="font-size:15px;font-weight:800;color:var(--heading);margin-bottom:14px;display:flex;align-items:center;gap:8px;font-family:var(--font-head)">'+hmIconImage('for sellers','safety-mini-icon')+'<span>For Sellers</span></div>'
       +[
         {icon:'🚪',title:'Use gate or driveway handoff',body:'Do not invite buyers inside your home. Hand over at the gate, driveway, or lobby. This is the single most important safety step.'},
         {icon:'📍',title:'Share area only — address after confirmation',body:'List your suburb only. Share your exact address via WhatsApp only once you are comfortable with the buyer.'},
@@ -3604,7 +3620,7 @@ function rSafety(){
     +'</div>'
     // Scam red flags
     +'<div style="background:#FFF8E1;border:1.5px solid #FFD54F;border-radius:16px;padding:18px;margin-bottom:14px">'
-      +'<div style="font-size:15px;font-weight:800;color:#7C5700;margin-bottom:12px;font-family:var(--font-head)">🚨 Scam Red Flags</div>'
+      +'<div style="font-size:15px;font-weight:800;color:#7C5700;margin-bottom:12px;font-family:var(--font-head);display:flex;align-items:center;gap:8px">'+hmIconImage('scam red flags','safety-mini-icon')+'<span>Scam Red Flags</span></div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
         +['Someone asks you to "send OTP"','Payment into unrelated account','"I already paid — release order"','Requests to move to private WhatsApp too soon','Driver asking for "change"','Asking for your full address before confirming'].map(function(f){
           return '<div style="display:flex;align-items:flex-start;gap:6px;font-size:11px;color:#7C5700"><span style="color:#D32F2F;font-size:14px;flex-shrink:0;margin-top:-1px">✗</span>'+f+'</div>';
@@ -3673,6 +3689,7 @@ function srAnnounce(msg){
 function nav(page,ctx){
   // Clean up fullscreen map overlay when leaving map
   if(page!=='map'){var _mo=document.getElementById('map-overlay');if(_mo)_mo.remove();document.body.classList.remove('map-fs');}
+  if(page!=='events'){destroyEventsLeafMap();document.body.classList.remove('events-map-fs');}
   // Reset any scroll locks from modals/panels on navigation
   document.body.style.overflow='';
   ST.aiOpen=false;
@@ -4613,9 +4630,7 @@ function rHome(){
     +'</div>'
 
     /* Search card */
-    +'<div style="position:relative;z-index:4;margin:0 20px 0;background:#FFFDF9;'
-    +'border-radius:22px;padding:16px;border:1.5px solid #E8DDD1;'
-    +'box-shadow:0 8px 28px rgba(60,30,10,.08)">'
+    +'<div class="hm-home-search-card">'
     /* Search input */
     +'<div style="display:flex;align-items:center;gap:10px;background:#F7F1E8;'
     +'border-radius:13px;padding:11px 14px;margin-bottom:11px">'
@@ -4627,7 +4642,7 @@ function rHome(){
     +'onkeydown="if(event.key===\'Enter\')doHS()"/>'
     +'</div>'
     /* Area + button */
-    +'<div style="display:flex;gap:10px">'
+    +'<div class="hm-home-search-row">'
     +'<label for="hreg" class="sr-only">Select area</label>'
     +'<select id="hreg" aria-label="Select area" class="inp" '
     +'style="flex:1;height:48px;border-radius:14px;border:1.5px solid #E8DDD1;background:#F7F1E8;'
@@ -8664,8 +8679,8 @@ var HM_ICON_ASSETS={
   'under r80':'tonights-mood-icons-update-budget.png',
   'r80 r120':'filter-price-low-high.png',
   'r120 r200':'filter-price-high-low.png',
-  'splurge':'filter-featured.png',
-  'splurge star':'filter-featured.png',
+  'splurge':'foodie-badges-icon-updates-super-supporter.png',
+  'splurge star':'foodie-badges-icon-updates-super-supporter.png',
   'trending now':'home-trending-now.png',
   'this week s top 3 sellers':'home-top-3-sellers.png',
   'top 3 sellers':'home-top-3-sellers.png',
@@ -8691,10 +8706,10 @@ var HM_ICON_ASSETS={
   'start your market passport':'markets-and-events-icon-updates-start-your-market-passport.png',
   'seller access':'markets-and-events-icon-updates-are-you-a-home-seller-change-to-do-you-sell-food-from-home.png',
   'do you sell food from home':'markets-and-events-icon-updates-are-you-a-home-seller-change-to-do-you-sell-food-from-home.png',
-  'inbox':'messages-icon-updates-inbox.png',
-  'sent':'messages-icon-updates-sent.png',
-  'compose':'messages-icon-update-compose.png',
-  'new message':'messages-icon-updates-new-message.png',
+  'inbox':'messages-icon-updates-inbox-icon.png',
+  'sent':'messages-icon-updates-sent-icon.png',
+  'compose':'messages-icon-update-compose-icon.png',
+  'new message':'messages-icon-updates-new-message-icon.png',
   'messages':'messages-icon-updates-messages.png',
   'low sugar':'preferences-low-sugar.png',
   'preference low sugar':'preferences-low-sugar.png',
@@ -8744,6 +8759,11 @@ var HM_ICON_ASSETS={
   'orders':'tab-selection-buyer-icon-updates-orders.png',
   'taste identity':'tab-selection-buyer-icon-updates-taste-identity.png',
   'markets':'tab-selection-buyer-icon-updates-markets.png',
+  'safety centre':'safety-center-1.png',
+  'safety center':'safety-center-1.png',
+  'safety hero':'safety-center-2.png',
+  'scam red flags':'safety-center-scam-red-flags.png',
+  'payment guidance':'safety-center-payment-guidelines.png',
   'for buyers':'safety-center-for-buyers.png',
   'for sellers':'safety-center-for-sellers.png',
   'check ratings first':'safety-center-buyers-check-ratings-first.png',
@@ -13172,7 +13192,7 @@ function destroyEventsLeafMap(){
     window._eventsLeafMap=null;
   }
 }
-function evtSetView(v){ if(_evtView==='map'&&v!=='map')destroyEventsLeafMap(); _evtView=v; rEvents(); }
+function evtSetView(v){ if(_evtView==='map'&&v!=='map'){destroyEventsLeafMap();document.body.classList.remove('events-map-fs');} _evtView=v; rEvents(); }
 
 function eventHasExactLL(ev){
   var lat=parseFloat(ev&&ev.lat),lng=parseFloat(ev&&ev.lng);
@@ -13264,31 +13284,21 @@ function rEvents(){
   }
 
   function buildMapView(){
-    var legend=`<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;justify-content:center">
-      <div style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--body)"><span style="width:10px;height:10px;border-radius:50%;background:#1A9040;display:inline-block"></span>Live Now</div>
-      <div style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--body)"><span style="width:10px;height:10px;border-radius:50%;background:#0094C8;display:inline-block"></span>Upcoming</div>
-      <div style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--body)"><span style="width:10px;height:10px;border-radius:50%;background:#A08060;display:inline-block"></span>Ended</div>
-    </div>`;
-
-    return `<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:18px;overflow:hidden;box-shadow:var(--shadow);margin-bottom:20px">
-      <div id="events-leaf-map" style="height:360px;width:100%;background:#E8F4F0"></div>
-      ${legend}
-      <div style="padding:12px 16px;border-top:1px solid var(--border2)">
-        <div style="font-size:11px;color:var(--muted)">Tap a pin to view event details · ${EVENTS.length} markets mapped · exact event pins where provided</div>
+    document.body.classList.add('events-map-fs');
+    return `<div class="events-map-full">
+      <div class="events-map-top">
+        <button class="events-map-back" onclick="evtSetView('list')" aria-label="Back to markets and events">&larr; Back</button>
+        <div class="events-map-title">Markets &amp; Events Map</div>
       </div>
-    </div>
-    <!-- Card list below map -->
-    <div style="font-family:var(--font-head);font-size:16px;color:var(--heading);margin-bottom:14px">All Markets</div>
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">${EVENTS.map(evtCard).join('')}</div>`;
+      <div id="events-leaf-map" style="height:360px;width:100%;background:#E8F4F0"></div>
+    </div>`;
   }
-
   var viewToggle=`<div style="display:flex;gap:3px;background:var(--bg);border-radius:10px;padding:3px;border:1.5px solid var(--border);flex-shrink:0">
     <button onclick="evtSetView('list')" style="padding:7px 14px;border-radius:7px;border:none;cursor:pointer;font-size:12px;font-weight:700;font-family:var(--font-body);transition:all .15s;background:${_evtView==='list'?'var(--accent)':'transparent'};color:${_evtView==='list'?'#fff':'var(--muted)'}">☰ List</button>
     <button onclick="evtSetView('grid')" style="padding:7px 14px;border-radius:7px;border:none;cursor:pointer;font-size:12px;font-weight:700;font-family:var(--font-body);transition:all .15s;background:${_evtView==='grid'?'var(--accent)':'transparent'};color:${_evtView==='grid'?'#fff':'var(--muted)'}">⊞ Grid</button>
     <button onclick="evtSetView('map')" style="padding:7px 14px;border-radius:7px;border:none;cursor:pointer;font-size:12px;font-weight:700;font-family:var(--font-body);transition:all .15s;background:${_evtView==='map'?'var(--accent)':'transparent'};color:${_evtView==='map'?'#fff':'var(--muted)'}">🗺️ Map</button>
   </div>`;
-
-  var sellerEventCTA=(ST.role==='buyer')?`<div style="margin-top:24px;background:linear-gradient(135deg,#FFF0E0,#FFEBD4);border:1.5px solid var(--border);border-radius:20px;padding:22px 24px;text-align:center"><div style="font-size:36px;margin-bottom:10px">🍽️</div><div style="font-family:var(--font-head);font-size:17px;color:var(--heading);margin-bottom:6px">Are you a home seller?</div><p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6">Request seller access to list stalls, food events and reach buyers in your neighbourhood.</p><button class="btn btn-a btn-sm" onclick="openSellerRequestModal()">🗓️ Request Seller Access</button></div>`:'';
+  var sellerEventCTA=(ST.role==='buyer')?`<div style="margin-top:24px;background:linear-gradient(135deg,#FFF0E0,#FFEBD4);border:1.5px solid var(--border);border-radius:20px;padding:22px 24px;text-align:center">${hmIconImage('do you sell food from home','seller-flow-hero')}<div style="font-family:var(--font-head);font-size:17px;color:var(--heading);margin-bottom:6px">Do you sell food from home?</div><p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6">Request seller access to list stalls, food events and reach buyers in your neighbourhood.</p><button class="btn btn-a btn-sm" onclick="openSellerRequestModal()">Request Seller Access</button></div>`:'';
   viewToggle='<div class="icon-choice-row" style="margin-bottom:0">'
     +iconChoice({icon:'☰',label:'List',color:'#0EA5A5',on:_evtView==='list',onclick:"evtSetView('list')",cls:'compact tab'})
     +iconChoice({icon:'▦',label:'Grid',color:'#2A83C6',on:_evtView==='grid',onclick:"evtSetView('grid')",cls:'compact tab'})
@@ -13312,10 +13322,11 @@ function rEvents(){
     </div>`:''}
     ${sellerEventCTA}`;
 
+  if(_evtView!=='map') document.body.classList.remove('events-map-fs');
   el.innerHTML=`<div style="padding:22px 28px 80px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:10px">
       <div>
-        <div class="stitle">🗺️ Markets &amp; Events</div>
+        <div class="stitle" style="display:flex;align-items:center;gap:8px">${hmIconImage('markets and events','hm-inline-icon')}<span>Markets &amp; Events</span></div>
         <div style="font-size:13px;color:var(--muted);margin-top:3px">Find home sellers at flea markets &amp; food fairs near you</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
@@ -13325,14 +13336,14 @@ function rEvents(){
     </div>
 
     ${stats.checkins_total>0?`<div style="background:linear-gradient(135deg,#FFF8E8,#FFF0D0);border:1.5px solid var(--amber);border-radius:16px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="nav('profile')">
-      <div style="font-size:36px;line-height:1">🧳</div>
+      <div>${hmIconImage('market passport','safety-mini-icon')}</div>
       <div style="flex:1">
         <div style="font-size:13px;font-weight:700;color:var(--amber)">Your Market Passport</div>
         <div style="font-size:12px;color:var(--body);margin-top:2px">${stats.checkins_total} stamp${stats.checkins_total!==1?'s':''} collected · ${stats.events_unique} event${stats.events_unique!==1?'s':''} attended · ${earnedBadges().length} badge${earnedBadges().length!==1?'s':''} earned</div>
       </div>
       <div style="font-size:11px;color:var(--muted);font-weight:600">View →</div>
     </div>`:`<div style="background:linear-gradient(135deg,rgba(212,138,0,.06),rgba(212,138,0,.02));border:1.5px dashed rgba(212,138,0,.35);border-radius:16px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:14px">
-      <div style="font-size:36px;line-height:1">🧳</div>
+      <div>${hmIconImage('market passport','safety-mini-icon')}</div>
       <div>
         <div style="font-size:13px;font-weight:700;color:var(--amber)">Start your Market Passport</div>
         <div style="font-size:12px;color:var(--muted);margin-top:2px">Visit a stall, scan the QR code and collect stamps. Earn Foodie Badges along the way!</div>
