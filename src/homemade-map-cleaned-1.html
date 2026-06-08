@@ -563,21 +563,22 @@ textarea.inp{resize:vertical}
 .icon-choice{--icon-accent:var(--accent);position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px;min-height:104px;padding:4px 4px 6px;border:0;border-radius:0;background:transparent;box-shadow:none;cursor:pointer;font-family:var(--font-body);transition:transform .16s ease,color .16s ease;min-width:86px;color:var(--muted);text-align:center}
 .icon-choice:hover{transform:translateY(-2px)}
 .icon-choice.on{color:var(--heading);transform:translateY(-2px)}
-.ic-svg{width:78px;height:78px;display:block;opacity:.68;filter:saturate(.74) drop-shadow(0 2px 1px rgba(17,24,39,.06));transition:opacity .16s ease,filter .16s ease,transform .16s ease}
-.icon-choice:hover .ic-svg{opacity:.86;filter:saturate(.92) drop-shadow(0 3px 2px rgba(17,24,39,.08))}
-.icon-choice.on .ic-svg{opacity:1;filter:saturate(1.14) drop-shadow(0 4px 3px rgba(17,24,39,.1));transform:scale(1.04)}
+.ic-svg,.ic-img{width:78px;height:78px;display:block;opacity:.68;filter:saturate(.74) drop-shadow(0 2px 1px rgba(17,24,39,.06));transition:opacity .16s ease,filter .16s ease,transform .16s ease}
+.ic-img{object-fit:contain}
+.icon-choice:hover .ic-svg,.icon-choice:hover .ic-img{opacity:.86;filter:saturate(.92) drop-shadow(0 3px 2px rgba(17,24,39,.08))}
+.icon-choice.on .ic-svg,.icon-choice.on .ic-img{opacity:1;filter:saturate(1.14) drop-shadow(0 4px 3px rgba(17,24,39,.1));transform:scale(1.04)}
 .hm-inline-icon{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0}
-.hm-inline-icon .ic-svg{width:34px;height:34px;opacity:1;filter:saturate(1)}
+.hm-inline-icon .ic-svg,.hm-inline-icon .ic-img{width:34px;height:34px;opacity:1;filter:saturate(1);transform:none}
 .ic-label{font-size:12px;font-weight:800;line-height:1.18;color:inherit}
 .ic-sub{font-size:10px;line-height:1.25;color:var(--muted);max-width:120px}
 .ic-badge{position:absolute;top:8px;right:8px;min-width:19px;height:19px;padding:0 5px;border-radius:100px;background:var(--accent);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center}
 .icon-choice.compact{min-width:80px;min-height:86px;padding:3px 4px 5px}
-.icon-choice.compact .ic-svg{width:64px;height:64px}
+.icon-choice.compact .ic-svg,.icon-choice.compact .ic-img{width:64px;height:64px}
 .icon-choice.tab{min-width:104px}
 .icon-feature-card{background:var(--surface);border:1.5px solid var(--border);border-radius:20px;padding:22px;text-align:center;box-shadow:var(--shadow)}
 .icon-feature-card .icon-choice{margin:0 auto 10px;border-color:transparent;background:transparent;box-shadow:none;cursor:default}
 .icon-feature-card .icon-choice:hover{transform:none;box-shadow:none}
-@media(max-width:560px){.icon-choice-grid{grid-template-columns:repeat(auto-fit,minmax(76px,1fr));gap:10px 8px}.icon-choice{min-width:76px;min-height:92px;padding:3px 3px 5px}.ic-svg{width:66px;height:66px}.icon-choice.compact .ic-svg{width:58px;height:58px}.ic-label{font-size:11px}}
+@media(max-width:560px){.icon-choice-grid{grid-template-columns:repeat(auto-fit,minmax(76px,1fr));gap:10px 8px}.icon-choice{min-width:76px;min-height:92px;padding:3px 3px 5px}.ic-svg,.ic-img{width:66px;height:66px}.icon-choice.compact .ic-svg,.icon-choice.compact .ic-img{width:58px;height:58px}.ic-label{font-size:11px}}
 .budget-btn{flex:1;padding:8px 4px;border-radius:10px;border:1.5px solid var(--border);cursor:pointer;font-size:11px;font-weight:700;transition:all .15s;font-family:var(--font-body);background:transparent;color:var(--muted);text-align:center}
 .budget-btn.on{border-color:var(--accent);background:var(--accent-l);color:var(--accent)}
 
@@ -611,8 +612,11 @@ textarea.inp{resize:vertical}
 /* Foodie badges */
 .fbadge{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;transition:all .15s}
 .fbadge.earned{border-color:var(--amber);background:linear-gradient(135deg,rgba(212,138,0,.06),rgba(212,138,0,.02))}
-.fbadge-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;background:var(--bg)}
-.fbadge.earned .fbadge-icon{background:linear-gradient(135deg,#FFF0C0,#FFE090)}
+.fbadge-icon{width:48px;height:48px;border-radius:0;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;background:transparent}
+.fbadge-icon img{width:48px;height:48px;object-fit:contain;display:block}
+.fbadge-img{width:48px;height:48px;object-fit:contain;display:block}
+.fbadge.earned .fbadge-icon{background:transparent}
+.safety-mini-icon{width:54px;height:54px;object-fit:contain;display:block;flex-shrink:0}
 
 /* QR panel */
 .qr-panel{background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:16px;text-align:center}
@@ -1082,7 +1086,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.52';
+const APP_VERSION='4.53';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -3581,7 +3585,7 @@ function rSafety(){
         {icon:'💳',title:'Prefer EFT or cashless payment',body:'Pay by EFT before collection, or cashless on arrival. Avoid large cash amounts and change requests.'},
         {icon:'⚠️',title:'Trust your instincts',body:'If anything feels wrong — unusual payment requests, pressure, location changes — do not proceed.'},
       ].map(function(item){
-        return '<div style="display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--border2)">'+'<div style="font-size:18px;flex-shrink:0;margin-top:1px">'+item.icon+'</div><div><div style="font-size:13px;font-weight:700;color:var(--heading);margin-bottom:2px">'+item.title+'</div><div style="font-size:12px;color:var(--muted);line-height:1.6">'+item.body+'</div></div></div>';
+        return '<div style="display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--border2);align-items:flex-start">'+(hmIconImage(item.title,'safety-mini-icon')||'<div style="font-size:18px;flex-shrink:0;margin-top:1px">'+item.icon+'</div>')+'<div><div style="font-size:13px;font-weight:700;color:var(--heading);margin-bottom:2px">'+item.title+'</div><div style="font-size:12px;color:var(--muted);line-height:1.6">'+item.body+'</div></div></div>';
       }).join('').replace(/<div[^>]+>.*border-bottom.*<\/div>(?=\s*$)/,function(m){return m.replace('border-bottom:1px solid var(--border2)','');})
     +'</div>'
     // For Sellers section
@@ -3595,7 +3599,7 @@ function rSafety(){
         {icon:'🚫',title:'You can always decline',body:'You are not obligated to accept any order. If a buyer behaviour feels off, decline and report.'},
         {icon:'📸',title:'Accurate listings only',body:'Use real photos of your actual food. Misleading listings result in account suspension.'},
       ].map(function(item){
-        return '<div style="display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--border2)">'+'<div style="font-size:18px;flex-shrink:0;margin-top:1px">'+item.icon+'</div><div><div style="font-size:13px;font-weight:700;color:var(--heading);margin-bottom:2px">'+item.title+'</div><div style="font-size:12px;color:var(--muted);line-height:1.6">'+item.body+'</div></div></div>';
+        return '<div style="display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--border2);align-items:flex-start">'+(hmIconImage(item.title,'safety-mini-icon')||'<div style="font-size:18px;flex-shrink:0;margin-top:1px">'+item.icon+'</div>')+'<div><div style="font-size:13px;font-weight:700;color:var(--heading);margin-bottom:2px">'+item.title+'</div><div style="font-size:12px;color:var(--muted);line-height:1.6">'+item.body+'</div></div></div>';
       }).join('')
     +'</div>'
     // Scam red flags
@@ -3612,7 +3616,8 @@ function rSafety(){
       +'<div style="font-size:15px;font-weight:800;color:var(--heading);margin-bottom:12px;font-family:var(--font-head)">💳 Payment Guidance</div>'
       +'<div style="display:flex;flex-direction:column;gap:8px">'
         +[{icon:'✅',t:'EFT before collection — safest option'},{icon:'✅',t:'Cashless payment on arrival'},{icon:'⚠️',t:'Small cash amounts if cashless not possible'},{icon:'❌',t:'Large cash amounts or change requests'},{icon:'❌',t:'Payments to personal bank numbers you cannot verify'},{icon:'❌',t:'Late-night cash handoffs'}].map(function(p){
-          return '<div style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--body)">'+'<span style="font-size:16px;flex-shrink:0">'+p.icon+'</span>'+p.t+'</div>';
+          var iconKey=p.t.replace(/[^A-Za-z0-9]+/g,' ');
+          return '<div style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--body)">'+(hmIconImage(iconKey,'safety-mini-icon')||'<span style="font-size:16px;flex-shrink:0">'+p.icon+'</span>')+p.t+'</div>';
         }).join('')
       +'</div>'
     +'</div>'
@@ -8188,7 +8193,7 @@ function buildDietPanel(){
   };
   var chips=DIETARY.map(function(d){
     var on=ST.userDietary.includes(d);
-    return '<button class="chip '+(on?'on':'')+'" onclick="toggleUserDiet(\''+d+'\')">'+(dietIcons[d]||'🍽️')+' '+d+'</button>';
+    return iconChoice({key:'diet '+d,label:d,color:'#65A30D',on:on,onclick:"toggleUserDiet('"+d+"')",cls:'compact'});
   }).join('');
   var statusMsg='';
   if(ST.dietLock&&ST.userDietary.length){
@@ -8206,7 +8211,7 @@ function buildDietPanel(){
   var hlockColor=ST.healthLock?'var(--sky)':'var(--muted)';
   var hchips=HEALTH_FILTERS.map(function(h){
     var on=ST.healthFilters.includes(h.id);
-    return '<button class="chip '+(on?'on':'')+'" onclick="toggleHealthFilter(\''+h.id+'\')" style="'+(on?'border-color:var(--sky);background:#EEF5FF;color:var(--sky)':'')+'">'+h.e+' '+h.id+'</button>';
+    return iconChoice({key:'preference '+h.id,label:h.id,color:'#3B82F6',on:on,onclick:"toggleHealthFilter('"+h.id+"')",cls:'compact'});
   }).join('');
   var hStatusMsg='';
   if(ST.healthLock&&ST.healthFilters.length){
@@ -8236,7 +8241,7 @@ function buildDietPanel(){
         +'<span style="font-size:12px;font-weight:700;color:'+lockColor+'">'+lockLabel+'</span>'
       +'</div>'
     +'</div>'
-    +'<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">'+chips+'</div>'
+    +'<div class="icon-choice-grid">'+chips+'</div>'
     +statusMsg
   +'</div>'
 
@@ -8258,7 +8263,7 @@ function buildDietPanel(){
     +'<div style="font-size:11px;color:var(--muted);margin-bottom:10px;padding:6px 8px;background:var(--bg);border-radius:8px">'
       +'ℹ️ Meal filters are for preference guidance only and not medical advice. Please consult your healthcare provider.'
     +'</div>'
-    +'<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">'+hchips+'</div>'
+    +'<div class="icon-choice-grid">'+hchips+'</div>'
     +hStatusMsg
   +'</div>'
 
@@ -8624,6 +8629,156 @@ function hmIconKey(opts){
   var raw=(opts.key||opts.label||'').toLowerCase();
   return raw.replace(/[^a-z0-9]+/g,' ').trim();
 }
+var HM_ICON_ASSET_BASE='/icons/hm-icons/';
+var HM_ICON_ASSETS={
+  'african':'favourite-cuisines-icons-update-african.png',
+  'asian':'favourite-cuisines-icons-update-asian.png',
+  'baked':'favourite-cuisines-icons-update-baked.png',
+  'bbq':'favourite-cuisines-icons-update-bbq.png',
+  'desserts':'favourite-cuisines-icons-update-desserts.png',
+  'indian':'favourite-cuisines-icons-update-indian.png',
+  'italian':'favourite-cuisines-icons-update-italian.png',
+  'seafood':'favourite-cuisines-icons-update-seafood.png',
+  'street':'favourite-cuisines-icons-update-street.png',
+  'vegan':'favourite-cuisines-icons-update-vegan.png',
+  'mild':'spice-tolerance-mild.png',
+  'medium':'spice-tolerance-medium.png',
+  'hot':'spice-tolerance-hot.png',
+  'durban hot':'spice-tolerance-durban-hot.png',
+  'comfort food':'meal-goals-icon-updates-comfort-food.png',
+  'gym meals':'meal-goals-icon-updates-gym-meals.png',
+  'family dinners':'meal-goals-icon-updates-family-dinners.png',
+  'date night':'meal-goals-icon-updates-date-night.png',
+  'date night wine heart':'tonights-mood-icons-update-date-night.png',
+  'health goals':'meal-goals-icon-updates-health-goals.png',
+  'weight loss':'meal-goals-icon-updates-weight-loss.png',
+  'senior friendly':'meal-goals-icon-updates-senior-friendly.png',
+  'lunchbox meals':'meal-goals-icon-updates-lunchbox-meals.png',
+  'tired':'tonights-mood-icons-update-tired.png',
+  'celebrating':'tonights-mood-icons-update-celebrating.png',
+  'budget':'tonights-mood-icons-update-budget.png',
+  'budget wallet':'tonights-mood-icons-update-budget.png',
+  'gym mode':'tonights-mood-icons-update-gym-mode.png',
+  'comfort':'tonights-mood-icons-update-comfort.png',
+  'comfort food bowl':'tonights-mood-icons-update-comfort.png',
+  'under r80':'tonights-mood-icons-update-budget.png',
+  'r80 r120':'filter-price-low-high.png',
+  'r120 r200':'filter-price-high-low.png',
+  'splurge':'filter-featured.png',
+  'splurge star':'filter-featured.png',
+  'trending now':'home-trending-now.png',
+  'this week s top 3 sellers':'home-top-3-sellers.png',
+  'top 3 sellers':'home-top-3-sellers.png',
+  'top sellers':'home-top-3-sellers.png',
+  'all listings':'home-all-listings.png',
+  'featured':'filter-featured.png',
+  'newly added':'filter-newly-added.png',
+  'top rated':'filter-top-rated.png',
+  'most reviewed':'filter-most-reviewed.png',
+  'price high low':'filter-price-high-low.png',
+  'price low high':'filter-price-low-high.png',
+  'sort a z':'filter-sort-a-z.png',
+  'sort z a':'filter-sort-z-a.png',
+  'first steps':'foodie-badges-icon-updates-first-steps.png',
+  'market explorer':'foodie-badges-icon-updates-market-explorer.png',
+  'stall hopper':'foodie-badges-icon-updates-stall-hopper.png',
+  'market regular':'foodie-badges-icon-updates-market-regular.png',
+  'durban foodie':'foodie-badges-icon-updates-durban-foodie.png',
+  'super supporter':'foodie-badges-icon-updates-super-supporter.png',
+  'markets events':'markets-and-events-icon-updates-markets-and-events.png',
+  'markets and events':'markets-and-events-icon-updates-markets-and-events.png',
+  'market passport':'markets-and-events-icon-updates-start-your-market-passport.png',
+  'start your market passport':'markets-and-events-icon-updates-start-your-market-passport.png',
+  'seller access':'markets-and-events-icon-updates-are-you-a-home-seller-change-to-do-you-sell-food-from-home.png',
+  'do you sell food from home':'markets-and-events-icon-updates-are-you-a-home-seller-change-to-do-you-sell-food-from-home.png',
+  'inbox':'messages-icon-updates-inbox.png',
+  'sent':'messages-icon-updates-sent.png',
+  'compose':'messages-icon-update-compose.png',
+  'new message':'messages-icon-updates-new-message.png',
+  'messages':'messages-icon-updates-messages.png',
+  'low sugar':'preferences-low-sugar.png',
+  'preference low sugar':'preferences-low-sugar.png',
+  'low salt':'preferences-low-salt.png',
+  'preference low salt':'preferences-low-salt.png',
+  'high protein':'preferences-high-protein.png',
+  'preference high protein':'preferences-high-protein.png',
+  'mild spice':'preferences-mild-spice.png',
+  'preference mild spice':'preferences-mild-spice.png',
+  'soft foods':'preferences-soft-foods.png',
+  'preference soft foods':'preferences-soft-foods.png',
+  'heart healthy':'preferences-heart-healthy.png',
+  'preference heart healthy':'preferences-heart-healthy.png',
+  'kidney friendly':'preferences-kidney-friendly.png',
+  'preference kidney friendly':'preferences-kidney-friendly.png',
+  'high fibre':'preferences-high-fibre.png',
+  'preference high fibre':'preferences-high-fibre.png',
+  'low gi':'preferences-low-gi.png',
+  'preference low gi':'preferences-low-gi.png',
+  'keto':'preferences-keto.png',
+  'preference keto':'preferences-keto.png',
+  'high calorie':'preferences-high-calorie.png',
+  'preference high calorie':'preferences-high-calorie.png',
+  'pregnancy friendly':'preferences-pregnancy-friendly.png',
+  'preference pregnancy friendly':'preferences-pregnancy-friendly.png',
+  'lunchbox friendly':'preferences-lunchbox-friendly.png',
+  'preference lunchbox friendly':'preferences-lunchbox-friendly.png',
+  'low purine':'preferences-low-purine.png',
+  'preference low purine':'preferences-low-purine.png',
+  'preference weight loss':'preferences-weight-loss.png',
+  'preference senior friendly':'preferences-senior-friendly.png',
+  'vegetarian':'religious-allergy-icon-updates-vegetarian.png',
+  'diet vegetarian':'religious-allergy-icon-updates-vegetarian.png',
+  'halaal':'religious-allergy-icon-updates-halaal.png',
+  'diet halaal':'religious-allergy-icon-updates-halaal.png',
+  'kosher':'religious-allergy-icon-updates-kosher.png',
+  'diet kosher':'religious-allergy-icon-updates-kosher.png',
+  'gluten free':'religious-allergy-icon-updates-gluten-free.png',
+  'diet gluten free':'religious-allergy-icon-updates-gluten-free.png',
+  'dairy free':'religious-allergy-icon-updates-dairy-free.png',
+  'diet dairy free':'religious-allergy-icon-updates-dairy-free.png',
+  'nut free':'religious-allergy-icon-updates-nut-free.png',
+  'diet nut free':'religious-allergy-icon-updates-nut-free.png',
+  'diet vegan':'religious-allergy-icon-updates-vegan.png',
+  'today':'tab-selection-buyer-icon-updates-today.png',
+  'bio':'tab-selection-buyer-icon-updates-bio.png',
+  'orders':'tab-selection-buyer-icon-updates-orders.png',
+  'taste identity':'tab-selection-buyer-icon-updates-taste-identity.png',
+  'markets':'tab-selection-buyer-icon-updates-markets.png',
+  'for buyers':'safety-center-for-buyers.png',
+  'for sellers':'safety-center-for-sellers.png',
+  'check ratings first':'safety-center-buyers-check-ratings-first.png',
+  'area shown address shared privately':'safety-center-buyers-area-shown-address-shared-privately.png',
+  'collect at entrance only':'safety-center-buyers-collect-at-entrance-only.png',
+  'daytime collections preferred':'safety-center-buyers-daytime-collections-preferred.png',
+  'prefer eft or cashless payment':'safety-center-buyers-prefer-eft-or-cashless-payment.png',
+  'trust your instincts':'safety-center-buyers-trust-your-instincts.png',
+  'use gate or driveway handoff':'safety-center-sellers-use-gate-or-driveway-handoff.png',
+  'share area only address after confirmation':'safety-center-sellers-share-area-only.png',
+  'confirm payment before release':'safety-center-sellers-confirm-payment-before-release.png',
+  'keep someone nearby for first orders':'safety-center-sellers-keep-someone-nearby-for-first-orders.png',
+  'you can always decline':'safety-center-sellers-you-can-always-decline.png',
+  'accurate listings only':'safety-center-sellers-accurate-listings-only.png',
+  'eft before collection safest option':'safety-center-payment-guidelines-eft-before.png',
+  'cashless payment on arrival':'safety-center-payment-guidelines-cashless-arrival.png',
+  'small cash amounts if cashless not possible':'safety-center-payment-guidelines-small-cash-amounts.png',
+  'large cash amounts or change requests':'safety-center-payment-guidelines-large-cash-or-change-request.png',
+  'payments to personal bank numbers you cannot verify':'safety-center-payment-guidelines-payments-to-personal-bank-accounts.png',
+  'late night cash handoffs':'safety-center-payment-guidelines-late-night-cash-hand-offs.png'
+};
+function hmIconAsset(key){
+  var k=hmIconKey({key:key});
+  var file=HM_ICON_ASSETS[k];
+  return file?HM_ICON_ASSET_BASE+file:'';
+}
+function hmIconGraphic(key,accent){
+  var src=hmIconAsset(key);
+  if(src) return '<img class="ic-img" src="'+src+'" alt="" loading="lazy" decoding="async">';
+  return hmIconArt(key,accent);
+}
+function hmIconImage(key,cls){
+  var src=hmIconAsset(key);
+  return src?'<img class="'+(cls||'ic-img')+'" src="'+src+'" alt="" loading="lazy" decoding="async">':'';
+}
 function hmIconArt(key,accent){
   var stroke='#1F2937';
   function common(inner){
@@ -8682,7 +8837,8 @@ function hmIconArt(key,accent){
   return common('<g '+base+' fill="none"><path d="M31 52l17-15 17 15"/><path d="M37 50v17h22V50"/><path d="M43 67V56h10v11"/><path d="M29 69h38"/></g><path d="M48 40l14 12v15H34V52z" '+fill+' opacity=".18"/><path d="M43 48c3 3 7 3 10 0" '+base+' fill="none"/>');
 }
 function hmInlineIcon(label,color){
-  return '<span class="hm-inline-icon">'+hmIconArt(hmIconKey({label:label}),hmIconColor(color))+'</span>';
+  var key=hmIconKey({label:label});
+  return '<span class="hm-inline-icon">'+hmIconGraphic(key,hmIconColor(color))+'</span>';
 }
 function iconChoice(opts){
   opts=opts||{};
@@ -8696,7 +8852,7 @@ function iconChoice(opts){
   var key=hmIconKey(opts);
   return '<button type="button" class="'+classes+'" aria-pressed="'+pressed+'" style="'+style+'"'+click+'>'
     +badge
-    +hmIconArt(key,color)
+    +hmIconGraphic(key,color)
     +'<span class="ic-label">'+hmEsc(opts.label||'')+'</span>'
     +sub
   +'</button>';
@@ -13700,7 +13856,7 @@ function renderPassport(){
   var badgeHTML=BADGES.map(function(b){
     var e=earned.find(function(eb){ return eb.id===b.id; });
     return `<div class="fbadge ${e?'earned':''}">
-      <div class="fbadge-icon">${b.e}</div>
+      <div class="fbadge-icon">${hmIconImage(b.name,'fbadge-img')||b.e}</div>
       <div style="flex:1;min-width:0">
         <div style="font-size:12px;font-weight:700;color:${e?'var(--heading)':'var(--muted)'}">${b.name}</div>
         <div style="font-size:11px;color:var(--muted);margin-top:1px">${b.desc}</div>
