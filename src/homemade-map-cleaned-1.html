@@ -553,8 +553,8 @@ textarea.inp{resize:vertical}
 .icon-choice{--icon-accent:var(--accent);position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px;min-height:104px;padding:4px 4px 6px;border:0;border-radius:0;background:transparent;box-shadow:none;cursor:pointer;font-family:var(--font-body);transition:transform .16s ease,color .16s ease;min-width:86px;color:var(--muted);text-align:center}
 .icon-choice:hover{transform:translateY(-2px)}
 .icon-choice.on{color:var(--heading);transform:translateY(-2px)}
-.ic-svg{width:78px;height:78px;display:block;opacity:.48;filter:saturate(.5) drop-shadow(0 2px 1px rgba(17,24,39,.06));transition:opacity .16s ease,filter .16s ease,transform .16s ease}
-.icon-choice:hover .ic-svg{opacity:.78;filter:saturate(.85) drop-shadow(0 3px 2px rgba(17,24,39,.08))}
+.ic-svg{width:78px;height:78px;display:block;opacity:.68;filter:saturate(.74) drop-shadow(0 2px 1px rgba(17,24,39,.06));transition:opacity .16s ease,filter .16s ease,transform .16s ease}
+.icon-choice:hover .ic-svg{opacity:.86;filter:saturate(.92) drop-shadow(0 3px 2px rgba(17,24,39,.08))}
 .icon-choice.on .ic-svg{opacity:1;filter:saturate(1.14) drop-shadow(0 4px 3px rgba(17,24,39,.1));transform:scale(1.04)}
 .hm-inline-icon{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0}
 .hm-inline-icon .ic-svg{width:34px;height:34px;opacity:1;filter:saturate(1)}
@@ -866,7 +866,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.50</strong><small>Production build</small>
+      <span>Version</span><strong>v4.51</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -1072,7 +1072,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.50';
+const APP_VERSION='4.51';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -7871,7 +7871,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.50 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.51 · Production build</div>
   </div>`;
 }
 function swR(r){
@@ -8617,17 +8617,17 @@ function hmIconArt(key,accent){
   if(k.indexOf('medium')>-1) return common('<path d="M42 31c13 6 18 19 10 34-11-7-16-18-10-34z" '+fill+' opacity=".28"/><g '+base+' fill="none"><path d="M42 31c13 6 18 19 10 34-11-7-16-18-10-34z"/><path d="M50 32c4-5 9-5 13-1"/><path d="M47 40c5 7 7 14 5 23"/></g>');
   if(k.indexOf('durban hot')>-1) return common('<path d="M48 68c-12-8-14-20-4-31 1 7 5 9 9 13 2-8 0-14-4-21 17 13 19 29 5 39z" '+fill+' opacity=".3"/><g '+base+' fill="none"><path d="M48 68c-12-8-14-20-4-31 1 7 5 9 9 13 2-8 0-14-4-21 17 13 19 29 5 39z"/><path d="M42 65c-8-4-12-10-11-19"/><path d="M64 64c6-5 8-13 5-21"/></g>');
   if(k.indexOf('hot')>-1) return common('<path d="M48 68c-11-7-13-18-4-29 2 6 5 8 9 11 2-8-1-13-4-20 15 12 17 27 5 38z" '+fill+' opacity=".3"/><g '+base+' fill="none"><path d="M48 68c-11-7-13-18-4-29 2 6 5 8 9 11 2-8-1-13-4-20 15 12 17 27 5 38z"/></g>');
-  if(k.indexOf('budget')>-1||k.indexOf('under')>-1||k.indexOf('r80')>-1) return common('<g '+base+' fill="none"><rect x="31" y="39" width="34" height="22" rx="6"/><path d="M31 45h34"/><circle cx="54" cy="53" r="4"/></g><path d="M36 33h23" '+base+' fill="none"/><circle cx="40" cy="32" r="4" '+fill+' opacity=".28"/>');
+  if(k.indexOf('budget')>-1||k.indexOf('under')>-1||k.indexOf('r80')>-1) return common('<path d="M31 42h30c4 0 7 3 7 7v15c0 4-3 7-7 7H31c-4 0-7-3-7-7V49c0-4 3-7 7-7z" fill="'+accent+'" opacity=".3"/><path d="M37 35h20c5 0 8 3 8 7H34c0-4 1-7 3-7z" fill="#65A30D" opacity=".28"/><g '+base+' fill="none"><path d="M31 42h30c4 0 7 3 7 7v15c0 4-3 7-7 7H31c-4 0-7-3-7-7V49c0-4 3-7 7-7z"/><path d="M34 42c0-4 1-7 3-7h20c5 0 8 3 8 7"/><path d="M58 52h13v10H58c-3 0-5-2-5-5s2-5 5-5z"/><circle cx="60" cy="57" r="1.5" fill="'+stroke+'"/><path d="M36 47h11"/></g>');
   if(k.indexOf('splurge')>-1||k.indexOf('featured')>-1||k.indexOf('top rated')>-1) return common('<path d="M48 29l5 13 14 1-11 9 4 14-12-8-12 8 4-14-11-9 14-1z" '+fill+' opacity=".28"/><path d="M48 29l5 13 14 1-11 9 4 14-12-8-12 8 4-14-11-9 14-1z" '+base+' fill="none"/>');
-  if(k.indexOf('comfort')>-1) return common('<g '+base+' fill="none"><path d="M32 53h32c-2 10-8 15-16 15s-14-5-16-15z"/><path d="M38 48c6-7 14-7 20 0"/><path d="M42 37c-2-4 2-6 0-10"/><path d="M53 38c-2-5 3-7 1-12"/></g><path d="M35 53h26c-2 7-7 10-13 10s-11-3-13-10z" '+fill+' opacity=".24"/>');
-  if(k.indexOf('gym')>-1) return common('<g '+base+' fill="none"><path d="M29 48h38"/><path d="M36 38v20"/><path d="M60 38v20"/><path d="M25 42v12"/><path d="M71 42v12"/></g><path d="M40 44h16v8H40z" '+fill+' opacity=".24"/>');
-  if(k.indexOf('family')>-1) return common('<g '+base+' fill="none"><circle cx="38" cy="41" r="7"/><circle cx="58" cy="41" r="7"/><circle cx="48" cy="55" r="6"/><path d="M28 67c2-9 8-14 16-14"/><path d="M52 53c8 0 14 5 16 14"/><path d="M39 69c1-6 4-10 9-10s8 4 9 10"/></g>');
-  if(k.indexOf('date')>-1) return common('<g '+base+' fill="none"><path d="M39 31v16c0 5-4 9-9 9"/><path d="M57 31v16c0 5 4 9 9 9"/><path d="M30 68h18"/><path d="M66 68H48"/><path d="M48 56v12"/><path d="M48 30c9 9 11 18 0 26-11-8-9-17 0-26z"/></g><path d="M48 34c6 7 7 13 0 18-7-5-6-11 0-18z" '+fill+' opacity=".28"/>');
-  if(k.indexOf('weight')>-1) return common('<g '+base+' fill="none"><path d="M32 61h32l-4-25H36z"/><path d="M42 36c1-5 11-5 12 0"/><path d="M48 45v8l7 3"/></g><circle cx="48" cy="53" r="13" '+fill+' opacity=".18"/>');
-  if(k.indexOf('senior')>-1) return common('<g '+base+' fill="none"><circle cx="48" cy="39" r="10"/><path d="M34 68c2-10 7-16 14-16s12 6 14 16"/><path d="M59 59v13"/><path d="M59 72h8"/></g><path d="M40 37c5 4 11 4 16 0" '+base+' fill="none"/>');
-  if(k.indexOf('lunchbox')>-1) return common('<rect x="31" y="38" width="34" height="27" rx="7" '+fill+' opacity=".22"/><g '+base+' fill="none"><rect x="31" y="38" width="34" height="27" rx="7"/><path d="M40 38v-5h16v5"/><path d="M31 49h34"/><path d="M48 49v16"/></g>');
-  if(k.indexOf('tired')>-1) return common('<path d="M57 31c-10 4-17 13-17 24 0 6 2 11 6 15-10-2-18-11-18-22 0-13 11-24 24-24 2 0 4 0 5 1z" '+fill+' opacity=".26"/><g '+base+' fill="none"><path d="M57 31c-10 4-17 13-17 24 0 6 2 11 6 15-10-2-18-11-18-22 0-13 11-24 24-24 2 0 4 0 5 1z"/><path d="M62 45h8M66 41v8"/></g>');
-  if(k.indexOf('celebrating')>-1) return common('<g '+base+' fill="none"><path d="M35 63l8-29 18 18z"/><path d="M45 38l12-12"/><path d="M55 45l15-5"/><path d="M42 54l-13 8"/></g><path d="M38 58l5-18 12 12z" '+fill+' opacity=".3"/>');
+  if(k.indexOf('comfort')>-1) return common('<path d="M30 51h36c-1 11-8 18-18 18S31 62 30 51z" fill="'+accent+'" opacity=".34"/><path d="M35 48c5-8 21-8 26 0" fill="#FDE68A" opacity=".75"/><g '+base+' fill="none"><path d="M30 51h36c-1 11-8 18-18 18S31 62 30 51z"/><path d="M35 48c5-8 21-8 26 0"/><path d="M41 40c-2-4 2-6 0-10"/><path d="M50 40c-2-5 3-7 1-12"/><path d="M57 41c-2-4 2-6 1-10"/><path d="M44 60c3 4 5 4 8 0 3-4 9 0 4 6l-8 6-8-6c-5-6 1-10 4-6z"/></g>');
+  if(k.indexOf('gym')>-1) return common('<path d="M29 56h38" '+base+' fill="none"/><path d="M35 45v22M61 45v22M27 50v12M69 50v12" '+base+' fill="none"/><path d="M40 51h16v10H40z" fill="'+accent+'" opacity=".34"/><g '+base+' fill="none"><rect x="53" y="31" width="14" height="28" rx="4"/><path d="M56 31h8v-4h-8z"/><path d="M58 45l4-6v8h5l-7 10 1-8h-5z"/></g>');
+  if(k.indexOf('family')>-1) return common('<path d="M33 67c2-10 7-15 15-15s13 5 15 15z" fill="'+accent+'" opacity=".24"/><g '+base+' fill="none"><circle cx="35" cy="43" r="7"/><circle cx="61" cy="43" r="7"/><circle cx="48" cy="51" r="6"/><path d="M25 67c1-9 5-14 12-16"/><path d="M59 51c7 2 11 7 12 16"/><path d="M38 68c1-7 5-11 10-11s9 4 10 11"/><path d="M39 64h18"/><path d="M39 49c5 5 13 5 18 0"/></g><circle cx="48" cy="63" r="7" fill="#FDE68A" opacity=".55"/>');
+  if(k.indexOf('date')>-1) return common('<path d="M36 35h16c-1 12-4 19-12 19s-11-7-12-19h8z" fill="'+accent+'" opacity=".22"/><path d="M52 35h16c-1 12-4 19-12 19s-11-7-12-19h8z" fill="'+accent+'" opacity=".22"/><g '+base+' fill="none"><path d="M28 35h18c-1 12-4 19-12 19s-11-7-12-19"/><path d="M50 35h18c-1 12-4 19-12 19s-11-7-12-19"/><path d="M34 54v13M56 54v13M25 67h18M47 67h18"/><path d="M45 61c3-4 7-4 10 0 3-4 10 0 5 6l-5 5-5-5c-5-6 2-10 5-6z"/><path d="M37 27v-5M46 29l3-5M28 29l-3-5"/></g>');
+  if(k.indexOf('weight')>-1) return common('<rect x="30" y="35" width="36" height="29" rx="7" fill="#BFDBFE" opacity=".72"/><g '+base+' fill="none"><rect x="30" y="35" width="36" height="29" rx="7"/><path d="M39 44c4-5 14-5 18 0"/><path d="M48 45v8"/><circle cx="62" cy="62" r="11" fill="#F8FAFC"/><path d="M62 56v11"/><path d="M57 63l5 5 5-5"/></g>');
+  if(k.indexOf('senior')>-1) return common('<circle cx="48" cy="40" r="13" fill="#FDE68A" opacity=".4"/><path d="M34 69c2-12 7-18 14-18s12 6 14 18z" fill="'+accent+'" opacity=".25"/><g '+base+' fill="none"><circle cx="48" cy="40" r="13"/><path d="M34 69c2-12 7-18 14-18s12 6 14 18"/><circle cx="42" cy="40" r="4"/><circle cx="54" cy="40" r="4"/><path d="M46 40h4"/><path d="M41 50c5 4 9 4 14 0"/><path d="M36 34c5-6 19-6 24 0"/></g>');
+  if(k.indexOf('lunchbox')>-1) return common('<rect x="28" y="39" width="40" height="28" rx="7" fill="'+accent+'" opacity=".32"/><path d="M37 35h22v7H37z" fill="#FDE68A" opacity=".55"/><g '+base+' fill="none"><rect x="28" y="39" width="40" height="28" rx="7"/><path d="M37 39v-5h22v5"/><path d="M32 51h32"/><path d="M45 51v16"/><path d="M35 58h10l-3-6h-10z"/><circle cx="58" cy="58" r="5"/><path d="M58 53c1-4 4-5 7-4"/></g>');
+  if(k.indexOf('tired')>-1) return common('<path d="M58 29c-10 4-17 13-17 24 0 6 2 11 6 15-11-2-19-11-19-23 0-14 11-25 25-25 2 0 4 0 5 1z" fill="#BFDBFE" opacity=".78"/><path d="M31 63c2-6 7-9 13-7 4-5 13-2 14 4 5-1 9 2 10 6H31z" fill="#F8FAFC" opacity=".9"/><g '+base+' fill="none"><path d="M58 29c-10 4-17 13-17 24 0 6 2 11 6 15-11-2-19-11-19-23 0-14 11-25 25-25 2 0 4 0 5 1z"/><path d="M31 63c2-6 7-9 13-7 4-5 13-2 14 4 5-1 9 2 10 6H31z"/><path d="M62 36h8l-8 8h8"/><path d="M68 49h6l-6 6h6"/></g>');
+  if(k.indexOf('celebrating')>-1) return common('<path d="M34 65l10-32 20 21z" fill="'+accent+'" opacity=".36"/><g '+base+' fill="none"><path d="M34 65l10-32 20 21z"/><path d="M41 43l13 13"/><path d="M46 34c4-6 9-7 14-3"/><path d="M58 45c5-4 10-5 14-2"/><path d="M36 54l-9 8"/><path d="M61 29c1-5-2-7-1-11"/><path d="M70 54l5 3M69 32l5-4"/><circle cx="33" cy="35" r="2" fill="#F59E0B"/><circle cx="65" cy="39" r="2" fill="#65A30D"/></g>');
   if(k.indexOf('inbox')>-1) return common('<rect x="30" y="35" width="36" height="27" rx="6" '+fill+' opacity=".2"/><g '+base+' fill="none"><rect x="30" y="35" width="36" height="27" rx="6"/><path d="M31 39l17 14 17-14"/><path d="M39 59h18"/></g>');
   if(k.indexOf('sent')>-1) return common('<path d="M29 49l38-18-12 34-8-14z" '+fill+' opacity=".24"/><g '+base+' fill="none"><path d="M29 49l38-18-12 34-8-14z"/><path d="M47 51l20-20"/></g>');
   if(k.indexOf('compose')>-1) return common('<g '+base+' fill="none"><path d="M34 64l6-16 19-19 10 10-19 19z"/><path d="M55 33l10 10"/><path d="M33 68h31"/></g><path d="M40 55l5 5-10 4z" '+fill+' opacity=".3"/>');
@@ -8751,10 +8751,11 @@ function buildBuyerTastePanel(){
     return iconChoice({icon:s.e,label:s.l,color:s.c,on:bp.spice===s.v,onclick:'bpSetSpice('+s.v+')',cls:'compact'});
   }).join('');
   var moodBtns=moodOpts.map(function(m){
-    return iconChoice({icon:m.e,label:m.l,color:m.c,on:bp.mood===m.v,onclick:"bpSetMood('"+m.v+"')"});
+    var key=m.v==='datenight'?'date night wine heart':(m.v==='broke'?'budget wallet':(m.v==='hangover'?'comfort food bowl':m.l));
+    return iconChoice({key:key,icon:m.e,label:m.l,color:m.c,on:bp.mood===m.v,onclick:"bpSetMood('"+m.v+"')"});
   }).join('');
   var budgetBtns=budgetOpts.map(function(b){
-    return iconChoice({icon:b.e,label:b.l,color:b.c,on:bp.budget===b.v,onclick:'bpSetBudget('+b.v+')',cls:'compact'});
+    return iconChoice({key:b.l==='Splurge'?'splurge star':'budget wallet',icon:b.e,label:b.l,color:b.c,on:bp.budget===b.v,onclick:'bpSetBudget('+b.v+')',cls:'compact'});
   }).join('');
   var goalChips=goalOpts.map(function(g){
     var on=(bp.mealGoals||[]).includes(g.v);
