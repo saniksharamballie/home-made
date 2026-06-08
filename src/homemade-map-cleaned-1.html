@@ -553,21 +553,21 @@ textarea.inp{resize:vertical}
 .icon-choice{--icon-accent:var(--accent);position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px;min-height:104px;padding:4px 4px 6px;border:0;border-radius:0;background:transparent;box-shadow:none;cursor:pointer;font-family:var(--font-body);transition:transform .16s ease,color .16s ease;min-width:86px;color:var(--muted);text-align:center}
 .icon-choice:hover{transform:translateY(-2px)}
 .icon-choice.on{color:var(--heading);transform:translateY(-2px)}
-.ic-svg{width:72px;height:72px;display:block;opacity:.42;filter:saturate(.42);transition:opacity .16s ease,filter .16s ease,transform .16s ease}
-.icon-choice:hover .ic-svg{opacity:.7;filter:saturate(.8)}
-.icon-choice.on .ic-svg{opacity:1;filter:saturate(1.12);transform:scale(1.04)}
+.ic-svg{width:78px;height:78px;display:block;opacity:.48;filter:saturate(.5) drop-shadow(0 2px 1px rgba(17,24,39,.06));transition:opacity .16s ease,filter .16s ease,transform .16s ease}
+.icon-choice:hover .ic-svg{opacity:.78;filter:saturate(.85) drop-shadow(0 3px 2px rgba(17,24,39,.08))}
+.icon-choice.on .ic-svg{opacity:1;filter:saturate(1.14) drop-shadow(0 4px 3px rgba(17,24,39,.1));transform:scale(1.04)}
 .hm-inline-icon{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0}
 .hm-inline-icon .ic-svg{width:34px;height:34px;opacity:1;filter:saturate(1)}
 .ic-label{font-size:12px;font-weight:800;line-height:1.18;color:inherit}
 .ic-sub{font-size:10px;line-height:1.25;color:var(--muted);max-width:120px}
 .ic-badge{position:absolute;top:8px;right:8px;min-width:19px;height:19px;padding:0 5px;border-radius:100px;background:var(--accent);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center}
 .icon-choice.compact{min-width:80px;min-height:86px;padding:3px 4px 5px}
-.icon-choice.compact .ic-svg{width:58px;height:58px}
+.icon-choice.compact .ic-svg{width:64px;height:64px}
 .icon-choice.tab{min-width:104px}
 .icon-feature-card{background:var(--surface);border:1.5px solid var(--border);border-radius:20px;padding:22px;text-align:center;box-shadow:var(--shadow)}
 .icon-feature-card .icon-choice{margin:0 auto 10px;border-color:transparent;background:transparent;box-shadow:none;cursor:default}
 .icon-feature-card .icon-choice:hover{transform:none;box-shadow:none}
-@media(max-width:560px){.icon-choice-grid{grid-template-columns:repeat(auto-fit,minmax(76px,1fr));gap:10px 8px}.icon-choice{min-width:76px;min-height:92px;padding:3px 3px 5px}.ic-svg{width:62px;height:62px}.icon-choice.compact .ic-svg{width:54px;height:54px}.ic-label{font-size:11px}}
+@media(max-width:560px){.icon-choice-grid{grid-template-columns:repeat(auto-fit,minmax(76px,1fr));gap:10px 8px}.icon-choice{min-width:76px;min-height:92px;padding:3px 3px 5px}.ic-svg{width:66px;height:66px}.icon-choice.compact .ic-svg{width:58px;height:58px}.ic-label{font-size:11px}}
 .budget-btn{flex:1;padding:8px 4px;border-radius:10px;border:1.5px solid var(--border);cursor:pointer;font-size:11px;font-weight:700;transition:all .15s;font-family:var(--font-body);background:transparent;color:var(--muted);text-align:center}
 .budget-btn.on{border-color:var(--accent);background:var(--accent-l);color:var(--accent)}
 
@@ -866,7 +866,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.49</strong><small>Production build</small>
+      <span>Version</span><strong>v4.50</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -1072,7 +1072,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.49';
+const APP_VERSION='4.50';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -7871,7 +7871,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.49 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.50 · Production build</div>
   </div>`;
 }
 function swR(r){
@@ -8594,9 +8594,10 @@ function hmIconArt(key,accent){
   var stroke='#1F2937';
   function common(inner){
     return '<svg class="ic-svg" viewBox="0 0 96 96" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">'
-      +'<ellipse cx="48" cy="88" rx="23" ry="4" fill="#9CA3AF" opacity=".08"/>'
-      +'<path d="M48 12a36 36 0 1 0 0 72 36 36 0 0 0 30-56" fill="none" stroke="'+accent+'" stroke-width="3.5" stroke-linecap="round"/>'
-      +'<circle cx="82" cy="38" r="2" fill="'+accent+'"/><circle cx="82" cy="48" r="2" fill="'+accent+'"/><circle cx="82" cy="58" r="2" fill="'+accent+'"/>'
+      +'<circle cx="48" cy="48" r="36" fill="'+accent+'" opacity=".055"/>'
+      +'<ellipse cx="48" cy="78" rx="21" ry="4" fill="'+accent+'" opacity=".08"/>'
+      +'<path d="M79 26A38 38 0 1 0 79 70" fill="none" stroke="'+accent+'" stroke-width="2.9" stroke-linecap="round"/>'
+      +'<circle cx="83" cy="38" r="2.4" fill="'+accent+'"/><circle cx="83" cy="48" r="2.4" fill="'+accent+'"/><circle cx="83" cy="58" r="2.4" fill="'+accent+'"/>'
       +inner+'</svg>';
   }
   var base='stroke="'+stroke+'" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"';
@@ -8633,11 +8634,18 @@ function hmIconArt(key,accent){
   if(k.indexOf('list')>-1||k.indexOf('all listings')>-1) return common('<g '+base+' fill="none"><path d="M35 36h30"/><path d="M35 48h30"/><path d="M35 60h30"/><circle cx="27" cy="36" r="2"/><circle cx="27" cy="48" r="2"/><circle cx="27" cy="60" r="2"/></g>');
   if(k.indexOf('grid')>-1) return common('<g '+base+' fill="none"><rect x="31" y="31" width="13" height="13" rx="3"/><rect x="52" y="31" width="13" height="13" rx="3"/><rect x="31" y="52" width="13" height="13" rx="3"/><rect x="52" y="52" width="13" height="13" rx="3"/></g><rect x="52" y="52" width="13" height="13" rx="3" '+fill+' opacity=".22"/>');
   if(k.indexOf('map')>-1) return common('<g '+base+' fill="none"><path d="M48 67s15-13 15-27a15 15 0 0 0-30 0c0 14 15 27 15 27z"/><circle cx="48" cy="40" r="5"/><path d="M31 70h34"/></g>');
+  if(k.indexOf('taste identity')>-1) return common('<g '+base+' fill="none"><path d="M30 46h36"/><path d="M35 36v25"/><path d="M61 36v25"/><circle cx="48" cy="49" r="15"/><path d="M41 48l7 7 9-12"/></g><path d="M48 36l8 8-8 8-8-8z" '+fill+' opacity=".22"/>');
+  if(k.indexOf('markets')>-1||k.indexOf('events')>-1) return common('<path d="M30 42h36l-3-12H33z" '+fill+' opacity=".22"/><g '+base+' fill="none"><path d="M30 42h36l-3-12H33z"/><path d="M34 42v22h28V42"/><path d="M39 42v-8M48 42v-8M57 42v-8"/><path d="M58 60c8-8 8-17 0-25"/><circle cx="58" cy="42" r="5"/></g>');
+  if(k.indexOf('market passport')>-1) return common('<rect x="31" y="35" width="34" height="28" rx="6" '+fill+' opacity=".24"/><g '+base+' fill="none"><rect x="31" y="35" width="34" height="28" rx="6"/><path d="M39 35v-7h18v7"/><circle cx="43" cy="48" r="5"/><path d="M53 45h7M53 53h7"/><path d="M38 61l8-8"/></g>');
+  if(k.indexOf('seller')>-1||k.indexOf('home made seller')>-1) return common('<g '+base+' fill="none"><path d="M32 50l16-14 16 14"/><path d="M37 48v18h22V48"/><path d="M43 66V55h10v11"/><path d="M27 66h42"/></g><path d="M48 39l14 12v15H34V51z" '+fill+' opacity=".18"/><path d="M43 45c3 3 7 3 10 0" '+base+' fill="none"/>');
+  if(k.indexOf('whatsapp')>-1||k.indexOf('orders via')>-1) return common('<circle cx="47" cy="45" r="18" '+fill+' opacity=".22"/><g '+base+' fill="none"><path d="M31 64l4-12a18 18 0 1 1 8 8z"/><path d="M41 37c4 9 9 14 18 18"/><path d="M40 36l4-3 5 7-4 3"/><path d="M55 51l5 3-3 5"/></g>');
+  if(k.indexOf('grow')>-1||k.indexOf('gold')>-1||k.indexOf('platinum')>-1) return common('<path d="M34 36h28v9c0 10-6 18-14 21-8-3-14-11-14-21z" '+fill+' opacity=".25"/><g '+base+' fill="none"><path d="M34 36h28v9c0 10-6 18-14 21-8-3-14-11-14-21z"/><path d="M34 41h-8c1 9 4 14 11 15"/><path d="M62 41h8c-1 9-4 14-11 15"/><path d="M43 70h10"/><path d="M48 66v4"/><path d="M48 43l3 7 8 1-6 5 2 8-7-4-7 4 2-8-6-5 8-1z"/></g>');
+  if(k.indexOf('message')>-1) return common('<path d="M31 36h27c6 0 10 4 10 10s-4 10-10 10H46l-10 8 2-8h-7c-6 0-10-4-10-10s4-10 10-10z" '+fill+' opacity=".25"/><g '+base+' fill="none"><path d="M31 36h27c6 0 10 4 10 10s-4 10-10 10H46l-10 8 2-8h-7c-6 0-10-4-10-10s4-10 10-10z"/><path d="M38 46h.1M48 46h.1M58 46h.1"/></g>');
   if(k.indexOf('newly')>-1) return common('<g '+base+' fill="none"><path d="M48 30v36"/><path d="M30 48h36"/><path d="M36 36l24 24"/><path d="M60 36L36 60"/></g><circle cx="48" cy="48" r="15" '+fill+' opacity=".18"/>');
   if(k.indexOf('review')>-1) return common('<g '+base+' fill="none"><path d="M31 36h34v23H48l-10 8v-8h-7z"/><path d="M39 47h18"/><path d="M39 54h11"/></g><circle cx="58" cy="42" r="4" '+fill+' opacity=".3"/>');
   if(k.indexOf('trending')>-1) return common('<g '+base+' fill="none"><path d="M30 61l13-13 9 8 15-21"/><path d="M57 35h10v10"/></g><path d="M41 50l10 9 16-23" '+base+' fill="none"/><circle cx="43" cy="48" r="5" '+fill+' opacity=".28"/>');
   if(k.indexOf('top 3')>-1||k.indexOf('top sellers')>-1) return common('<g '+base+' fill="none"><path d="M35 35h26v8c0 9-5 16-13 18-8-2-13-9-13-18z"/><path d="M35 39h-8c1 9 4 13 11 14"/><path d="M61 39h8c-1 9-4 13-11 14"/><path d="M42 68h12"/><path d="M48 61v7"/></g><path d="M39 39h18v5c0 6-3 11-9 13-6-2-9-7-9-13z" '+fill+' opacity=".24"/>');
-  return common('<circle cx="48" cy="48" r="18" '+fill+' opacity=".2"/><g '+base+' fill="none"><circle cx="48" cy="48" r="18"/><path d="M39 49h18"/><path d="M48 40v18"/></g>');
+  return common('<g '+base+' fill="none"><path d="M31 52l17-15 17 15"/><path d="M37 50v17h22V50"/><path d="M43 67V56h10v11"/><path d="M29 69h38"/></g><path d="M48 40l14 12v15H34V52z" '+fill+' opacity=".18"/><path d="M43 48c3 3 7 3 10 0" '+base+' fill="none"/>');
 }
 function hmInlineIcon(label,color){
   return '<span class="hm-inline-icon">'+hmIconArt(hmIconKey({label:label}),hmIconColor(color))+'</span>';
