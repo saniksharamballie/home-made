@@ -577,18 +577,18 @@ textarea.inp{resize:vertical}
 .ic-img{object-fit:contain}
 .icon-choice:hover .ic-svg,.icon-choice:hover .ic-img{opacity:.86;filter:saturate(.92) drop-shadow(0 3px 2px rgba(17,24,39,.08))}
 .icon-choice.on .ic-svg,.icon-choice.on .ic-img{opacity:1;filter:saturate(1.14) drop-shadow(0 4px 3px rgba(17,24,39,.1));transform:scale(1.04)}
-.hm-inline-icon{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0}
+.hm-inline-icon{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0;object-fit:contain}
 .hm-inline-icon .ic-svg,.hm-inline-icon .ic-img{width:34px;height:34px;opacity:1;filter:saturate(1);transform:none}
 .ic-label{font-size:12px;font-weight:800;line-height:1.18;color:inherit}
 .ic-sub{font-size:10px;line-height:1.25;color:var(--muted);max-width:120px}
 .ic-badge{position:absolute;top:8px;right:8px;min-width:19px;height:19px;padding:0 5px;border-radius:100px;background:var(--accent);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center}
 .icon-choice.compact{min-width:80px;min-height:86px;padding:3px 4px 5px}
-.icon-choice.compact .ic-svg,.icon-choice.compact .ic-img{width:64px;height:64px}
+.icon-choice.compact .ic-svg,.icon-choice.compact .ic-img{width:64px;height:64px;object-fit:contain}
 .icon-choice.tab{min-width:104px}
 .icon-feature-card{background:var(--surface);border:1.5px solid var(--border);border-radius:20px;padding:22px;text-align:center;box-shadow:var(--shadow)}
 .icon-feature-card .icon-choice{margin:0 auto 10px;border-color:transparent;background:transparent;box-shadow:none;cursor:default}
 .icon-feature-card .icon-choice:hover{transform:none;box-shadow:none}
-@media(max-width:560px){.icon-choice-grid{grid-template-columns:repeat(auto-fit,minmax(76px,1fr));gap:10px 8px}.icon-choice{min-width:76px;min-height:92px;padding:3px 3px 5px}.ic-svg,.ic-img{width:66px;height:66px}.icon-choice.compact .ic-svg,.icon-choice.compact .ic-img{width:58px;height:58px}.ic-label{font-size:11px}}
+@media(max-width:560px){.icon-choice-grid{grid-template-columns:repeat(auto-fit,minmax(76px,1fr));gap:10px 8px}.icon-choice{min-width:76px;min-height:92px;padding:3px 3px 5px}.ic-svg,.ic-img{width:66px;height:66px}.icon-choice.compact .ic-svg,.icon-choice.compact .ic-img{width:62px;height:62px}.ic-label{font-size:11px}}
 .budget-btn{flex:1;padding:8px 4px;border-radius:10px;border:1.5px solid var(--border);cursor:pointer;font-size:11px;font-weight:700;transition:all .15s;font-family:var(--font-body);background:transparent;color:var(--muted);text-align:center}
 .budget-btn.on{border-color:var(--accent);background:var(--accent-l);color:var(--accent)}
 
@@ -1102,7 +1102,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.54';
+const APP_VERSION='4.55';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -8700,12 +8700,12 @@ var HM_ICON_ASSETS={
   'market regular':'foodie-badges-icon-updates-market-regular.png',
   'durban foodie':'foodie-badges-icon-updates-durban-foodie.png',
   'super supporter':'foodie-badges-icon-updates-super-supporter.png',
-  'markets events':'markets-and-events-icon-updates-markets-and-events.png',
-  'markets and events':'markets-and-events-icon-updates-markets-and-events.png',
-  'market passport':'markets-and-events-icon-updates-start-your-market-passport.png',
-  'start your market passport':'markets-and-events-icon-updates-start-your-market-passport.png',
-  'seller access':'markets-and-events-icon-updates-are-you-a-home-seller-change-to-do-you-sell-food-from-home.png',
-  'do you sell food from home':'markets-and-events-icon-updates-are-you-a-home-seller-change-to-do-you-sell-food-from-home.png',
+  'markets events':'markets-and-events-icon-updates-markets-and-events-icon.png',
+  'markets and events':'markets-and-events-icon-updates-markets-and-events-icon.png',
+  'market passport':'markets-and-events-icon-updates-start-your-market-passport-icon.png',
+  'start your market passport':'markets-and-events-icon-updates-start-your-market-passport-icon.png',
+  'seller access':'markets-and-events-icon-updates-do-you-sell-food-from-home-icon.png',
+  'do you sell food from home':'markets-and-events-icon-updates-do-you-sell-food-from-home-icon.png',
   'inbox':'messages-icon-updates-inbox-icon.png',
   'sent':'messages-icon-updates-sent-icon.png',
   'compose':'messages-icon-update-compose-icon.png',
