@@ -1102,7 +1102,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.55';
+const APP_VERSION='4.56';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -2531,6 +2531,7 @@ var hmAuth = (function(){
   var _session = null;
   var _profile = null;
   var _demoMode = (!SUPABASE_URL || SUPABASE_URL==='YOUR_SUPABASE_URL');
+  var _authActionOpts = {};
 
   function _adminEmails(){
     var configured = String(ADMIN_EMAIL||'').split(',');
@@ -2685,11 +2686,19 @@ var hmAuth = (function(){
     });
   }
 
-  function createAccount(email, password, cb){
+  function createAccount(email, password, opts, cb){
+    if(typeof opts === 'function'){ cb = opts; opts = {}; }
+    opts = opts || {};
     if(_demoMode){ cb({error:'Account setup is unavailable in demo mode.'}); return; }
     _initClient();
     var redirectTo = ((window.HM_CONFIG && window.HM_CONFIG.SITE_URL) || window.location.origin).replace(/\/$/, '') + window.location.pathname;
-    _sb.auth.signUp({email:email,password:password,options:{emailRedirectTo:redirectTo}})
+    var data = {};
+    if(opts.sellerIntent){
+      data.seller_intent = true;
+      data.seller_request_name = opts.sellerName || '';
+      data.seller_request_notes = opts.sellerNotes || '';
+    }
+    _sb.auth.signUp({email:email,password:password,options:{emailRedirectTo:redirectTo,data:data}})
     .then(function(res){ cb(res.error ? {error:res.error.message} : {ok:true, needsVerification:!(res.data&&res.data.session)}); });
   }
 
@@ -2708,24 +2717,36 @@ var hmAuth = (function(){
     .then(function(res){ cb(res.error ? {error:res.error.message} : {ok:true}); });
   }
 
-  function showAuthAction(mode){
+  function showAuthAction(mode, opts){
+    opts = opts || {};
+    _authActionOpts = opts;
     var old=document.getElementById('hm-auth-action'); if(old) old.remove();
     var isSetup=mode==='setup';
+    var sellerIntent=isSetup && !!opts.sellerIntent;
+    var title=sellerIntent?'Create your seller account':(isSetup?'Create your account':'Reset your password');
+    var intro=sellerIntent?'Create your buyer account first. We will attach a seller access request for admin review.':(isSetup?'We will email you once to verify the new account.':'We will email you a secure password-reset link.');
+    var sellerFields=sellerIntent?'<div class="lsm" style="margin-bottom:6px">Store / kitchen name</div><input id="hm-action-seller-name" type="text" autocomplete="organization" placeholder="e.g. Home Kitchen" class="inp" style="margin-bottom:10px"><div class="lsm" style="margin-bottom:6px">What will you sell?</div><textarea id="hm-action-seller-notes" class="inp" rows="3" placeholder="Meals, baked goods, catering, markets..." style="resize:vertical;margin-bottom:10px"></textarea>':'';
+    var buttonLabel=sellerIntent?'Create Account & Request Seller Access':(isSetup?'Create Account':'Send Reset Link');
     var ov=document.createElement('div');
     ov.id='hm-auth-action';
     ov.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(30,14,4,.55);display:flex;align-items:center;justify-content:center;padding:20px';
     ov.onclick=function(e){if(e.target===ov)ov.remove();};
     ov.innerHTML='<div style="width:100%;max-width:390px;background:var(--surface);border:1.5px solid var(--border);border-radius:18px;padding:22px;box-shadow:0 16px 48px rgba(30,14,4,.2)">'
-      +'<div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:14px"><div><div style="font-family:var(--font-head);font-size:22px;color:var(--heading)">'+(isSetup?'Create your account':'Reset your password')+'</div><div style="font-size:12px;color:var(--muted);margin-top:3px">'+(isSetup?'We will email you once to verify the new account.':'We will email you a secure password-reset link.')+'</div></div><button aria-label="Close" onclick="document.getElementById(\'hm-auth-action\').remove()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">✕</button></div>'
+      +'<div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:14px"><div><div style="font-family:var(--font-head);font-size:22px;color:var(--heading)">'+title+'</div><div style="font-size:12px;color:var(--muted);margin-top:3px">'+intro+'</div></div><button aria-label="Close" onclick="document.getElementById(\'hm-auth-action\').remove()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">x</button></div>'
       +'<input id="hm-action-email" type="email" autocomplete="email" placeholder="you@example.com" class="inp" style="margin-bottom:10px">'
+      +sellerFields
       +(isSetup?'<input id="hm-action-pw" type="password" autocomplete="new-password" placeholder="Create a password (minimum 8 characters)" class="inp" style="margin-bottom:10px" oninput="hmAuth.passwordMatchHint(\'hm-action-pw\',\'hm-action-pw-confirm\',\'hm-action-match\')"><input id="hm-action-pw-confirm" type="password" autocomplete="new-password" placeholder="Confirm your password" class="inp" style="margin-bottom:6px" oninput="hmAuth.passwordMatchHint(\'hm-action-pw\',\'hm-action-pw-confirm\',\'hm-action-match\')"><div id="hm-action-match" role="status" style="min-height:18px;font-size:12px;font-weight:700;margin-bottom:4px"></div><label style="display:flex;gap:8px;align-items:flex-start;font-size:11px;line-height:1.5;color:var(--muted);margin:2px 0 8px"><input id="hm-action-legal" type="checkbox" style="margin-top:2px"> <span>I am at least 18 and agree to the <a href="/terms" target="_blank">Terms</a> and <a href="/privacy" target="_blank">Privacy Notice</a>.</span></label>':'')
       +'<div id="hm-action-msg" role="alert" style="min-height:18px;font-size:12px;color:var(--red);font-weight:700;margin-bottom:8px"></div>'
-      +'<button id="hm-action-btn" onclick="hmAuth.submitAuthAction(\''+mode+'\')" class="btn btn-a btn-fw">'+(isSetup?'Create Account':'Send Reset Link')+'</button></div>';
+      +'<button id="hm-action-btn" onclick="hmAuth.submitAuthAction(\''+mode+'\')" class="btn btn-a btn-fw">'+buttonLabel+'</button></div>';
     document.body.appendChild(ov);
     setTimeout(function(){var el=document.getElementById('hm-action-email');if(el)el.focus();},60);
   }
 
-  function showAccountCreatedPage(email){
+  function showAccountCreatedPage(email, opts){
+    opts = opts || {};
+    var sellerIntent=!!opts.sellerIntent;
+    var title=sellerIntent?'Seller request started':'Account created';
+    var body=sellerIntent?'Check your email to verify it, then sign in. Your seller access request will be waiting for admin review.':'Check your email to verify it, then sign in with your password.';
     var old=document.getElementById('hm-auth-action'); if(old) old.remove();
     var existing=document.getElementById('hm-auth-created'); if(existing) existing.remove();
     var ov=document.createElement('div');
@@ -2733,13 +2754,13 @@ var hmAuth = (function(){
     ov.style.cssText='position:fixed;inset:0;z-index:100001;background:linear-gradient(180deg,var(--bg),var(--surface));overflow:auto;padding:24px;display:flex;align-items:center;justify-content:center';
     ov.innerHTML='<main tabindex="-1" role="status" aria-live="polite" style="width:100%;max-width:620px;background:var(--surface);border:1.5px solid var(--border);border-radius:22px;padding:28px;box-shadow:0 18px 54px rgba(30,14,4,.16);text-align:center">'
       +'<div style="width:70px;height:70px;border-radius:22px;background:var(--lime-l);border:1.5px solid rgba(60,140,70,.24);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:30px;color:var(--lime);font-weight:900">✓</div>'
-      +'<div style="font-family:var(--font-head);font-size:30px;line-height:1.15;color:var(--heading);margin-bottom:8px">Account created</div>'
-      +'<p style="font-size:15px;line-height:1.7;color:var(--body);margin:0 auto 16px;max-width:480px">Check your email to verify it, then sign in with your password.</p>'
+      +'<div style="font-family:var(--font-head);font-size:30px;line-height:1.15;color:var(--heading);margin-bottom:8px">'+title+'</div>'
+      +'<p style="font-size:15px;line-height:1.7;color:var(--body);margin:0 auto 16px;max-width:480px">'+body+'</p>'
       +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:13px 14px;margin:0 auto 16px;max-width:460px;text-align:left">'
       +'<div style="font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">Email sent to</div>'
       +'<div style="font-size:14px;font-weight:800;color:var(--heading);word-break:break-word">'+hmText(email)+'</div></div>'
       +'<div style="font-size:13px;line-height:1.65;color:var(--muted);margin:0 auto 22px;max-width:500px">If you do not see it within a few minutes, check Spam/Junk. For Yahoo, mark the message as Not spam so future Home-Made emails are less likely to be filtered.</div>'
-      +'<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><button class="btn btn-a" onclick="document.getElementById(\'hm-auth-created\').remove();hmAuth.showLogin()">Back to Sign In</button><button class="btn btn-ol" onclick="document.getElementById(\'hm-auth-created\').remove();hmAuth.showAuthAction(\'setup\')">Use another email</button></div>'
+      +'<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><button class="btn btn-a" onclick="document.getElementById(\'hm-auth-created\').remove();hmAuth.showLogin()">Back to Sign In</button><button class="btn btn-ol" onclick="document.getElementById(\'hm-auth-created\').remove();'+(sellerIntent?'hmAuth.showSellerSignup()':'hmAuth.showAuthAction(\'setup\')')+'">Use another email</button></div>'
       +'</main>';
     document.body.appendChild(ov);
     setTimeout(function(){var el=ov.querySelector('main');if(el)el.focus();},30);
@@ -2750,19 +2771,29 @@ var hmAuth = (function(){
     var pw=((document.getElementById('hm-action-pw')||{}).value||'').trim();
     var pwConfirm=((document.getElementById('hm-action-pw-confirm')||{}).value||'').trim();
     var legal=((document.getElementById('hm-action-legal')||{}).checked);
+    var opts=_authActionOpts||{};
+    var sellerIntent=mode==='setup'&&!!opts.sellerIntent;
+    var sellerName=((document.getElementById('hm-action-seller-name')||{}).value||'').trim();
+    var sellerNotes=((document.getElementById('hm-action-seller-notes')||{}).value||'').trim();
+    var actionLabel=sellerIntent?'Create Account & Request Seller Access':(mode==='setup'?'Create Account':'Send Reset Link');
     var msg=document.getElementById('hm-action-msg'),btn=document.getElementById('hm-action-btn');
     if(!email||email.indexOf('@')<1){if(msg)msg.textContent='Please enter your email address.';return;}
+    if(sellerIntent&&!sellerName){if(msg)msg.textContent='Please enter your store or kitchen name.';return;}
     if(mode==='setup'&&pw.length<8){if(msg)msg.textContent='Use at least 8 characters for your password.';return;}
     if(mode==='setup'&&pw!==pwConfirm){if(msg)msg.textContent='Passwords do not match yet.';return;}
     if(mode==='setup'&&!legal){if(msg)msg.textContent='Please accept the Terms and Privacy Notice to continue.';return;}
     if(btn){btn.disabled=true;btn.textContent=mode==='setup'?'Creating account...':'Sending link...';}
     var done=function(res){
-      if(res.error){if(msg)msg.textContent=res.error;if(btn){btn.disabled=false;btn.textContent=mode==='setup'?'Create Account':'Send Reset Link';}return;}
-      if(mode==='setup'){showAccountCreatedPage(email);return;}
+      if(res.error){if(msg)msg.textContent=res.error;if(btn){btn.disabled=false;btn.textContent=actionLabel;}return;}
+      if(mode==='setup'){showAccountCreatedPage(email,{sellerIntent:sellerIntent});return;}
       if(msg){msg.style.color='var(--lime)';msg.textContent='Password reset link sent. Check your email.';}
       if(btn)btn.textContent='Email Sent';
     };
-    if(mode==='setup')createAccount(email,pw,done);else sendPasswordReset(email,done);
+    if(mode==='setup')createAccount(email,pw,{sellerIntent:sellerIntent,sellerName:sellerName,sellerNotes:sellerNotes},done);else sendPasswordReset(email,done);
+  }
+
+  function showSellerSignup(){
+    showAuthAction('setup',{sellerIntent:true});
   }
 
   function showResetPassword(){
@@ -2860,10 +2891,17 @@ var hmAuth = (function(){
     return function(){ _sb.removeChannel(ch); }; /* returns unsubscribe fn */
   }
 
+  function scopedStorageFolder(folder){
+    var safeFolder = folder || 'listing-uploads';
+    if(['listing-uploads','seller-profiles','buyer-profiles'].indexOf(safeFolder) < 0) return safeFolder;
+    var userId = (_profile && _profile.authId) || (_session && _session.user && _session.user.id) || '';
+    return userId ? safeFolder + '/' + userId : safeFolder;
+  }
+
   /* Public Supabase Storage upload for listing/profile images. */
   function uploadPublicImage(file, folder, cb){
     if(_demoMode||!_sb){ if(cb) cb({error:'Storage is unavailable in demo mode'}); return; }
-    var safeFolder = folder || 'listing-uploads';
+    var safeFolder = scopedStorageFolder(folder);
     var ext = (file.name.split('.').pop() || 'webp').toLowerCase().replace(/[^a-z0-9]/g,'') || 'webp';
     var stem = (file.name.replace(/\.[^.]+$/,'') || 'image').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60) || 'image';
     var path = safeFolder + '/' + Date.now() + '-' + Math.random().toString(36).slice(2,8) + '-' + stem + '.' + ext;
@@ -2880,7 +2918,7 @@ var hmAuth = (function(){
 
   function listPublicImages(folder, cb){
     if(_demoMode||!_sb){ if(cb) cb({error:'Storage is unavailable in demo mode', images:[]}); return; }
-    var safeFolder = folder || 'listing-uploads';
+    var safeFolder = scopedStorageFolder(folder);
     _sb.storage.from('seller-images').list(safeFolder, {
       limit: 100,
       sortBy: { column: 'created_at', order: 'desc' }
@@ -3248,7 +3286,7 @@ var hmAuth = (function(){
 
   return {boot:boot, signOut:signOut, signInWithPassword:signInWithPassword,
           createAccount:createAccount, sendPasswordReset:sendPasswordReset, updatePassword:updatePassword,
-          showAuthAction:showAuthAction, submitAuthAction:submitAuthAction, passwordMatchHint:passwordMatchHint, submitNewPassword:submitNewPassword,
+          showAuthAction:showAuthAction, showSellerSignup:showSellerSignup, submitAuthAction:submitAuthAction, passwordMatchHint:passwordMatchHint, submitNewPassword:submitNewPassword,
           insert:insert, update:update, remove:remove, upsert:upsert, select:select, rpc:rpc, subscribe:subscribe,
           uploadPublicImage:uploadPublicImage, listPublicImages:listPublicImages,
           getProfile:getProfile, isDemoMode:isDemoMode, togglePasswordField:togglePasswordField,
@@ -6259,7 +6297,7 @@ function goLiveListing(){
 
 function openSellerRequestModal(){
   if(!ST.role || ST.role==='guest'){
-    hmAuth.requireLogin(function(){ openSellerRequestModal(); });
+    if(hmAuth && hmAuth.showSellerSignup) hmAuth.showSellerSignup();
     return;
   }
   var old=document.getElementById('seller-request-modal');
@@ -6301,7 +6339,14 @@ function submitSellerRequest(){
     sendMessage(ST.role||'buyer',(ST.bp&&ST.bp.displayName)||'Buyer','admin','Home-Made Admin',null,'Seller access request','Store / kitchen: '+name+'\n\nDetails: '+(notes||'No extra details provided.')+'\n\nCurrent role remains: '+(ST.role||'buyer'),null);
   }
   if(hmAuth&&hmAuth.insert){
-    hmAuth.insert('seller_access_requests',lead,function(){});
+    hmAuth.insert('seller_access_requests',lead,function(res){
+      if(res&&res.error){
+        console.warn('[Home-Made seller access] Supabase insert failed:',res.error);
+        if(String(res.error).toLowerCase().indexOf('duplicate')>=0 || String(res.error).indexOf('uq_seller_access_requests_pending_user')>=0){
+          showToast('You already have a seller request waiting for review.');
+        }
+      }
+    });
   }
   var modal=document.getElementById('seller-request-modal');
   if(modal) modal.remove();
@@ -6310,6 +6355,9 @@ function submitSellerRequest(){
 
 function buildSellerAccessIntro(){
   var base='/icons/seller-flow/';
+  var isGuest=!ST.role || ST.role==='guest';
+  var actionLabel=isGuest?'Create Account to Sell':'Request Seller Access';
+  var actionCopy=isGuest?'Create an account first, then the Home-Made team will review your seller request.':'This keeps your buyer profile active until seller access is approved.';
   var steps=[
     {img:'list-dishes.png',title:'List your dishes',copy:'Add photos, prices and availability'},
     {img:'receive-orders-whatsapp.png',title:'Receive orders via WhatsApp',copy:'Buyers contact you directly - no middleman'},
@@ -6327,17 +6375,13 @@ function buildSellerAccessIntro(){
         +'</div>';
       }).join('')
     +'</div>'
-    +'<button class="btn btn-a" style="width:100%;max-width:320px;justify-content:center;font-size:15px;padding:14px 22px" onclick="openSellerRequestModal()">'+ic('zap',15,'#fff')+' Request Seller Access</button>'
-    +'<p style="font-size:11px;color:var(--muted);margin-top:14px">This keeps your buyer profile active until seller access is approved.</p>'
+    +'<button class="btn btn-a" style="width:100%;max-width:320px;justify-content:center;font-size:15px;padding:14px 22px" onclick="openSellerRequestModal()">'+ic('zap',15,'#fff')+' '+actionLabel+'</button>'
+    +'<p style="font-size:11px;color:var(--muted);margin-top:14px">'+actionCopy+'</p>'
   +'</div>';
 }
 
 function rPost(){
-  if(!ST.role || ST.role==='guest'){
-    hmAuth.requireLogin(function(){ nav('post'); });
-    return;
-  }
-  if(ST.role==='buyer'){document.getElementById('page-post').innerHTML=buildSellerAccessIntro();return;}
+  if(!ST.role || ST.role==='guest' || ST.role==='buyer'){document.getElementById('page-post').innerHTML=buildSellerAccessIntro();return;}
   if(ST.pdone){document.getElementById('page-post').innerHTML=`<div style="padding:80px 28px;text-align:center;max-width:480px;margin:0 auto"><div style="width:84px;height:84px;border-radius:50%;background:var(--lime-l);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:36px;border:2px solid var(--lime)">✅</div><div style="font-family:var(--font-head);font-size:28px;color:var(--heading);margin-bottom:10px">You're Live!</div><p style="color:var(--muted);font-size:14px;margin-bottom:26px">Your listing is now visible to buyers across eThekwini.</p><button class="btn btn-a" onclick="ST.pdone=false;ST.ps=1;nav('browse')">${ic('eye',14,'#fff')} Browse Listings</button></div>`;return;}
   rPS();
 }
@@ -7773,12 +7817,23 @@ function rProfile(){
   const profileData=((p&&p.raw&&p.raw.data)||{});
   const profileAvatar=profileData.avatar || profileData.storePic || '';
   const installBtn='<button class="btn btn-gh btn-sm" onclick="installHomeMadeApp()" aria-label="Install Home-Made app">'+ic('dl',14,'var(--accent)')+' Install app</button>';
+  const rolesTitle=hmAuth.isDemoMode()?'Switch Role':'Account';
   const roles=hmAuth.isDemoMode()
     ?['buyer','seller','admin'].map(ro=>`<button onclick="swR('${ro}')" style="padding:12px 0;border-radius:12px;border:2px solid ${r===ro?'var(--accent)':'var(--border)'};background:${r===ro?'var(--accent-l)':'var(--surface)'};color:${r===ro?'var(--accent)':'var(--muted)'};font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;font-family:var(--font-body);text-transform:capitalize;box-shadow:var(--shadow)">${ro==='buyer'?'🛍️':ro==='seller'?'🍳':'👑'}<br/>${ro}</button>`).join('')+`<button onclick="hmAuth.signOut()" style="padding:12px 0;border-radius:12px;border:2px solid var(--border);background:var(--surface);color:#c0392b;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;font-family:var(--font-body);box-shadow:var(--shadow)">🚪<br/>Sign Out</button>`
     :`<button onclick="hmAuth.signOut()" style="width:100%;padding:12px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface);color:#c0392b;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-body)">🚪 Sign Out</button>`;
   const savedList=saved.length===0?`<div style="padding:28px;text-align:center;color:var(--muted);font-size:13px;background:var(--surface);border-radius:14px;border:1.5px solid var(--border)">No saved sellers yet.<br/>Tap ❤️ on any listing to save.</div>`:saved.map(s=>`<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:11px 13px;display:flex;gap:10px;align-items:center;cursor:pointer;transition:all .15s;box-shadow:var(--shadow)" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform=''" onclick="openDet(${s.id})"><div style="width:44px;height:44px;border-radius:12px;background:${s.bg};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${s.e}</div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--heading);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.name}</div><div style="font-size:11px;color:var(--muted)">${s.region}</div></div>${stars(s.rat)}</div>`).join('');
   const cls=r==='admin'?'bp':r==='seller'?'bgold':'bstd';
   const lv=buyerFoodieLevel();
+  const sellerAccessPanel=r==='buyer'?`
+    <div style="background:linear-gradient(135deg,var(--lime-l),var(--surface));border:1.5px solid rgba(60,140,70,.24);border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:var(--shadow)">
+      <div style="display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap">
+        <div style="min-width:0;flex:1">
+          <div style="font-family:var(--font-head);font-size:20px;color:var(--heading);line-height:1.15">Do you sell food from home?</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.55;margin-top:5px">Keep this buyer profile and request seller access for listings, markets and catering.</div>
+        </div>
+        <button class="btn btn-a btn-sm" onclick="openSellerRequestModal()">${ic('zap',14,'#fff')} Request Seller Access</button>
+      </div>
+    </div>`:'';
 
   /* ── PROFILE DASHBOARD TABS ── */
   var _pdt = window._profDashTab || {};
@@ -7879,11 +7934,13 @@ function rProfile(){
   </div>
   <div style="padding:24px 28px 28px">
     <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:var(--shadow)">
-      <div class="lsm" style="margin-bottom:10px">Switch Role</div>
+      <div class="lsm" style="margin-bottom:10px">${rolesTitle}</div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">${roles}</div>
     </div>
 
-    ${r==='seller'||r==='buyer'?`
+    ${sellerAccessPanel}
+
+    ${hmAuth.isDemoMode()&&(r==='seller'||r==='buyer')?`
     <!-- ── TEST SELLER SWITCHER ── -->
     <div style="background:linear-gradient(135deg,#1E0E04,#3A1A08);border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:var(--shadow-lg)">
       <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">
@@ -7925,7 +7982,7 @@ function rProfile(){
     <div id="prof-dash-tabbar">${_tabBarHTML}</div>
     <div id="prof-dash-panel">${statPanel}</div>
     ${buyerPanels}
-    <div class="profile-mobile-version" aria-label="App version">Home-Made v4.52 · Production build</div>
+    <div class="profile-mobile-version" aria-label="App version">Home-Made v${APP_VERSION} &middot; Production build</div>
   </div>`;
 }
 function swR(r){
@@ -12420,16 +12477,21 @@ function rMessages(){
     var age=Date.now()-m.ts;
     var ageStr=age<3600000?Math.round(age/60000)+'m ago':age<86400000?Math.round(age/3600000)+'h ago':Math.round(age/86400000)+'d ago';
     var wasUnread=!m.read&&isInbox;
-    return '<div role="button" tabindex="0" aria-label="Message: '+m.subject+' from '+m.fromLabel+'"'+(!m.read?' aria-describedby="unread-badge"':'')+' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){window._msgOpen=\''+m.id+'\';rMessages()}" onclick="window._msgOpen=\''+m.id+'\';rMessages()" style="background:var(--surface);border:1.5px solid '+(wasUnread?'rgba(229,90,24,.35)':'var(--border)')+';border-radius:14px;padding:14px;margin-bottom:8px;cursor:pointer;transition:all .15s;box-shadow:'+(wasUnread?'0 2px 12px rgba(229,90,24,.1)':'var(--shadow)')+'" onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\''+(wasUnread?'rgba(229,90,24,.35)':'var(--border)')+'\';">'
+    var msgId=hmJs(m.id);
+    var safeSubject=hmText(m.subject||'');
+    var safeFrom=hmText(m.fromLabel||'');
+    var safeTo=hmText(m.toLabel||'');
+    var safePreview=hmText((m.body||'').slice(0,80))+((m.body||'').length>80?'...':'');
+    return '<div role="button" tabindex="0" aria-label="Message: '+safeSubject+' from '+safeFrom+'"'+(!m.read?' aria-describedby="unread-badge"':'')+' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){window._msgOpen=\''+msgId+'\';rMessages()}" onclick="window._msgOpen=\''+msgId+'\';rMessages()" style="background:var(--surface);border:1.5px solid '+(wasUnread?'rgba(229,90,24,.35)':'var(--border)')+';border-radius:14px;padding:14px;margin-bottom:8px;cursor:pointer;transition:all .15s;box-shadow:'+(wasUnread?'0 2px 12px rgba(229,90,24,.1)':'var(--shadow)')+'" onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\''+(wasUnread?'rgba(229,90,24,.35)':'var(--border)')+'\';">'
       +'<div style="display:flex;align-items:flex-start;gap:10px">'
         +'<div style="width:36px;height:36px;border-radius:11px;background:'+(isInbox?'var(--accent-l)':'var(--lime-l)')+';display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">'+(isInbox?'📩':'📤')+'</div>'
         +'<div style="flex:1;min-width:0">'
           +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">'
-            +'<div style="font-size:12px;font-weight:'+(wasUnread?'800':'700')+';color:var(--heading);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:65%">'+(isInbox?m.fromLabel:m.toLabel)+'</div>'
+            +'<div style="font-size:12px;font-weight:'+(wasUnread?'800':'700')+';color:var(--heading);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:65%">'+(isInbox?safeFrom:safeTo)+'</div>'
             +'<div style="font-size:10px;color:var(--muted);flex-shrink:0">'+ageStr+'</div>'
           +'</div>'
-          +'<div style="font-size:13px;font-weight:'+(wasUnread?'700':'600')+';color:'+(wasUnread?'var(--heading)':'var(--body)')+';margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.subject+'</div>'
-          +'<div style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.body.slice(0,80)+(m.body.length>80?'…':'')+'</div>'
+          +'<div style="font-size:13px;font-weight:'+(wasUnread?'700':'600')+';color:'+(wasUnread?'var(--heading)':'var(--body)')+';margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+safeSubject+'</div>'
+          +'<div style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+safePreview+'</div>'
         +'</div>'
         +(wasUnread?'<div style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:4px"></div>':'')
         +(!isInbox?'<div style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;background:'+(m.read?'var(--lime-l)':'var(--amber-l)')+';color:'+(m.read?'var(--lime)':'var(--amber)')+';flex-shrink:0;">'+(m.read?'✓ Read':'⏳ Unread')+'</div>':'')
@@ -12440,21 +12502,25 @@ function rMessages(){
   /* Open a single message thread */
   var openMsg=window._msgOpen?MESSAGES.find(function(m){return m.id===window._msgOpen;}):null;
   if(openMsg){
+    var safeOpenSubject=hmText(openMsg.subject||'');
+    var safeOpenFrom=hmText(openMsg.fromLabel||'');
+    var safeOpenTo=hmText(openMsg.toLabel||'');
+    var safeOpenBody=hmText(openMsg.body||'');
     el.innerHTML=
       '<div style="padding:16px 20px;border-bottom:1.5px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--surface)">'
         +'<button onclick="window._msgOpen=null;rMessages()" style="background:var(--bg);border:1.5px solid var(--border);border-radius:9px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font-body);color:var(--muted)">← Back</button>'
-        +'<div style="font-size:14px;font-weight:700;color:var(--heading);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+openMsg.subject+'</div>'
+        +'<div style="font-size:14px;font-weight:700;color:var(--heading);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+safeOpenSubject+'</div>'
       +'</div>'
       +'<div style="padding:20px">'
         +'<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:var(--shadow)">'
           +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;gap:6px">'
             +'<div>'
-              +'<div style="font-size:12px;font-weight:700;color:var(--heading)">From: '+openMsg.fromLabel+'</div>'
-              +'<div style="font-size:11px;color:var(--muted)">To: '+openMsg.toLabel+' · '+new Date(openMsg.ts).toLocaleString('en-ZA',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+'</div>'
+              +'<div style="font-size:12px;font-weight:700;color:var(--heading)">From: '+safeOpenFrom+'</div>'
+              +'<div style="font-size:11px;color:var(--muted)">To: '+safeOpenTo+' &middot; '+new Date(openMsg.ts).toLocaleString('en-ZA',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+'</div>'
             +'</div>'
             +'<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;background:'+(openMsg.read?'var(--lime-l)':'var(--amber-l)')+';color:'+(openMsg.read?'var(--lime)':'var(--amber)')+';">'+(openMsg.read?'✓ Read':'Unread')+'</span>'
           +'</div>'
-          +'<div style="font-size:13px;color:var(--body);line-height:1.7;white-space:pre-wrap">'+openMsg.body+'</div>'
+          +'<div style="font-size:13px;color:var(--body);line-height:1.7;white-space:pre-wrap">'+safeOpenBody+'</div>'
         +'</div>'
         /* Quick reply */
         +'<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:16px;box-shadow:var(--shadow)">'
@@ -12477,7 +12543,7 @@ function rMessages(){
         +'<div style="margin-bottom:10px">'
           +'<label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">To</label>'
           +'<select id="msg-to" class="inp" style="font-size:13px">'
-            +composeOptions.map(function(o){return '<option value="'+o.val+'">'+o.l+'</option>';}).join('')
+            +composeOptions.map(function(o){return '<option value="'+hmText(o.val)+'">'+hmText(o.l)+'</option>';}).join('')
           +'</select>'
         +'</div>'
         +'<div style="margin-bottom:10px">'

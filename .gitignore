@@ -14,3 +14,4 @@ public/seller/
 Thumbs.db
 
 .vercel
+supabase/.temp/
