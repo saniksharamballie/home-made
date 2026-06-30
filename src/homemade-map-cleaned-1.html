@@ -909,7 +909,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.58</strong><small>Production build</small>
+      <span>Version</span><strong>v4.59</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -1113,7 +1113,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.58';
+const APP_VERSION='4.59';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -1148,11 +1148,38 @@ const FOOD_IMGS=[
 function sellerImg(s){return FOOD_IMGS[s.id%FOOD_IMGS.length];}
 
 function sellerPhoto(s, fallbackIndex){
-  return (s && s.img) || FOOD_IMGS[(fallbackIndex || (s && s.id) || 0) % FOOD_IMGS.length];
+  var d = (s && (s.data || s._data)) || {};
+  var pools = [
+    s && s.images,
+    s && s.gallery,
+    d.images,
+    d.gallery,
+    d.storeImages,
+    d.store_images,
+    d.photos,
+    d.photoUrls,
+    d.photo_urls
+  ];
+  var direct = imageValue(s && (s.img || s.storePic || s.store_pic || s.image || s.image_url || s.photo || s.photoUrl || s.photo_url || s.heroImage || s.hero_image))
+    || imageValue(d.storePic || d.store_pic || d.img || d.image || d.image_url || d.photo || d.photoUrl || d.photo_url || d.heroImage || d.hero_image || d.avatar);
+  if(direct) return direct;
+  for(var i=0;i<pools.length;i++){
+    var pool = pools[i];
+    var pooled = Array.isArray(pool) ? imageValue(pool[0]) : imageValue(pool);
+    if(pooled) return pooled;
+  }
+  return FOOD_IMGS[(fallbackIndex || (s && s.id) || 0) % FOOD_IMGS.length];
 }
 
 function authFoodImage(){
   return FOOD_IMGS[0];
+}
+
+function authPhotoCardStyle(strength){
+  var overlay = strength === 'dark'
+    ? 'linear-gradient(180deg,rgba(30,14,4,.82),rgba(30,14,4,.52) 34%,rgba(255,249,241,.94) 58%,rgba(255,249,241,.98))'
+    : 'linear-gradient(180deg,rgba(255,249,241,.88),rgba(255,249,241,.96) 46%,rgba(255,249,241,.98))';
+  return 'background-image:'+overlay+',url('+authFoodImage()+');background-size:cover;background-position:center;';
 }
 
 function sellerPhotoImg(s, alt, extraStyle){
@@ -1291,9 +1318,10 @@ function mergeLiveSellers(rows){
       tier:row.tier||d.tier||'standard',
       region:row.region||d.region||'Durban CBD',
       wa:row.wa||d.wa||'27000000000',
-      img:d.storePic||d.img||d.image||d.photo||d.photoUrl||d.photo_url||'',
+      img:d.storePic||d.store_pic||d.img||d.image||d.image_url||d.photo||d.photoUrl||d.photo_url||d.heroImage||d.hero_image||row.store_pic||row.image_url||row.photo_url||'',
+      storePic:d.storePic||d.store_pic||row.store_pic||'',
       avatar:d.avatar||d.icon||'',
-      images:d.images||d.gallery||[],
+      images:d.images||d.gallery||d.storeImages||d.store_images||d.photos||d.photoUrls||d.photo_urls||[],
       desc:d.desc||d.bio||d.description||'',
       _data:d,
       _supabase:true
@@ -2750,7 +2778,7 @@ var hmAuth = (function(){
     ov.id='hm-auth-action';
     ov.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(30,14,4,.55);display:flex;align-items:center;justify-content:center;padding:20px';
     ov.onclick=function(e){if(e.target===ov)ov.remove();};
-    ov.innerHTML='<div style="width:100%;max-width:390px;background:var(--surface);border:1.5px solid var(--border);border-radius:18px;padding:22px;box-shadow:0 16px 48px rgba(30,14,4,.2)">'
+    ov.innerHTML='<div style="width:100%;max-width:390px;background:var(--surface);'+authPhotoCardStyle('light')+'border:1.5px solid rgba(120,80,45,.18);border-radius:18px;padding:22px;box-shadow:0 16px 48px rgba(30,14,4,.2)">'
       +'<div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:14px"><div><div style="font-family:var(--font-head);font-size:22px;color:var(--heading)">'+title+'</div><div style="font-size:12px;color:var(--muted);margin-top:3px">'+intro+'</div></div><button aria-label="Close" onclick="document.getElementById(\'hm-auth-action\').remove()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">x</button></div>'
       +'<input id="hm-action-email" type="email" autocomplete="email" placeholder="you@example.com" class="inp" style="margin-bottom:10px">'
       +sellerFields
@@ -2771,7 +2799,7 @@ var hmAuth = (function(){
     var ov=document.createElement('div');
     ov.id='hm-auth-created';
     ov.style.cssText='position:fixed;inset:0;z-index:100001;background:linear-gradient(180deg,var(--bg),var(--surface));overflow:auto;padding:24px;display:flex;align-items:center;justify-content:center';
-    ov.innerHTML='<main tabindex="-1" role="status" aria-live="polite" style="width:100%;max-width:620px;background:var(--surface);border:1.5px solid var(--border);border-radius:22px;padding:28px;box-shadow:0 18px 54px rgba(30,14,4,.16);text-align:center">'
+    ov.innerHTML='<main tabindex="-1" role="status" aria-live="polite" style="width:100%;max-width:620px;background:var(--surface);'+authPhotoCardStyle('light')+'border:1.5px solid rgba(120,80,45,.18);border-radius:22px;padding:28px;box-shadow:0 18px 54px rgba(30,14,4,.16);text-align:center">'
       +'<div style="width:70px;height:70px;border-radius:22px;background:var(--lime-l);border:1.5px solid rgba(60,140,70,.24);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:30px;color:var(--lime);font-weight:900">✓</div>'
       +'<div style="font-family:var(--font-head);font-size:30px;line-height:1.15;color:var(--heading);margin-bottom:8px">'+title+'</div>'
       +'<p style="font-size:15px;line-height:1.7;color:var(--body);margin:0 auto 16px;max-width:480px">'+body+'</p>'
@@ -3002,17 +3030,17 @@ var hmAuth = (function(){
 
     d.innerHTML = [
       /* ── Card ── */
-      '<div style="width:100%;max-width:400px;background:var(--surface);border:1.5px solid var(--border);border-radius:24px;overflow:hidden;box-shadow:0 16px 48px rgba(30,14,4,.14)">',
+      '<div style="width:100%;max-width:400px;background:var(--surface);'+authPhotoCardStyle('dark')+'border:1.5px solid rgba(120,80,45,.18);border-radius:24px;overflow:hidden;box-shadow:0 16px 48px rgba(30,14,4,.14)">',
 
         /* Header gradient */
-        '<div style="background:linear-gradient(135deg,#1E0E04 0%,#3A1A08 100%);padding:32px 28px 24px;text-align:center">',
+        '<div style="background:linear-gradient(135deg,rgba(30,14,4,.80),rgba(58,26,8,.50));padding:32px 28px 24px;text-align:center">',
           '<div style="width:76px;height:76px;border-radius:22px;overflow:hidden;margin:0 auto 14px;box-shadow:0 8px 24px rgba(229,90,24,.35);border:2px solid rgba(255,255,255,.22)"><img src="'+authFoodImage()+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></div>',
           '<div style="font-family:var(--font-head);font-size:26px;font-weight:700;color:#fff;margin-bottom:4px">Home-Made</div>',
           '<div style="font-size:13px;color:rgba(255,255,255,.55)">Real Food. Real Homes. Durban.</div>',
         '</div>',
 
         /* Form body */
-        '<div style="padding:28px">',
+        '<div style="padding:28px;background:rgba(255,249,241,.92);backdrop-filter:blur(2px)">',
 
           /* Username */
           '<div style="margin-bottom:14px">',
@@ -3210,7 +3238,7 @@ var hmAuth = (function(){
     overlay.onclick = function(e){ if(e.target===overlay) overlay.remove(); };
 
     overlay.innerHTML = [
-      '<div style="width:100%;max-width:440px;background:var(--surface);border-radius:24px 24px 0 0;padding:28px 24px 32px;box-shadow:0 -8px 40px rgba(30,14,4,.2)">',
+      '<div style="width:100%;max-width:440px;background:var(--surface);'+authPhotoCardStyle('light')+'border-radius:24px 24px 0 0;padding:28px 24px 32px;box-shadow:0 -8px 40px rgba(30,14,4,.2)">',
         '<div style="width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 20px"></div>',
         '<div style="text-align:center;margin-bottom:20px">',
           '<div style="width:74px;height:74px;border-radius:22px;overflow:hidden;margin:0 auto 12px;border:1.5px solid var(--border);box-shadow:0 8px 26px rgba(60,30,10,.12)"><img src="'+authFoodImage()+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></div>',
@@ -6372,7 +6400,7 @@ function openSellerRequestModal(){
   modal.className='ov';
   modal.style.cssText='position:fixed;inset:0;z-index:100002;background:rgba(30,14,4,.52);display:flex;align-items:center;justify-content:center;padding:24px;overflow:auto';
   modal.onclick=function(e){if(e.target===modal)modal.remove();};
-  modal.innerHTML='<div role="dialog" aria-modal="true" aria-labelledby="seller-request-title" class="adm-rating-sheet" style="max-width:460px;max-height:calc(100vh - 48px);overflow:auto">'
+  modal.innerHTML='<div role="dialog" aria-modal="true" aria-labelledby="seller-request-title" class="adm-rating-sheet" style="max-width:460px;max-height:calc(100vh - 48px);overflow:auto;'+authPhotoCardStyle('light')+'">'
     +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px">'
       +'<div><div id="seller-request-title" style="font-family:var(--font-head);font-size:22px;font-weight:800;color:var(--heading)">Request seller access</div><div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.55">Tell us what you want to sell. Your buyer profile will stay active while admin reviews the request.</div></div>'
       +'<button aria-label="Close" onclick="document.getElementById(\'seller-request-modal\').remove()" style="background:var(--bg);border:1.5px solid var(--border);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)">x</button>'
