@@ -546,6 +546,17 @@ textarea.inp{resize:vertical}
 .seller-flow-card img{width:138px;height:138px;object-fit:contain;display:block;margin:0 auto 10px}
 .seller-flow-card h3{font-family:var(--font-head);font-size:18px;line-height:1.18;color:var(--heading);margin:0 0 8px}
 .seller-flow-card p{font-size:12px;line-height:1.55;color:var(--muted);margin:0}
+@media(min-width:900px){
+  .seller-flow{padding:22px 20px 26px;max-width:1060px}
+  .seller-flow-hero{width:132px;height:132px;margin-bottom:10px}
+  .seller-flow-title{font-size:34px;margin-bottom:8px}
+  .seller-flow-copy{font-size:14px;line-height:1.55;margin-bottom:18px}
+  .seller-flow-grid{gap:12px;margin-bottom:18px}
+  .seller-flow-card{padding:12px 12px 14px}
+  .seller-flow-card img{width:104px;height:104px;margin-bottom:6px}
+  .seller-flow-card h3{font-size:16px;margin-bottom:5px}
+  .seller-flow-card p{font-size:11.5px;line-height:1.42}
+}
 @media(max-width:720px){.seller-flow{padding:30px 20px 36px}.seller-flow-hero{width:156px;height:156px}.seller-flow-grid{grid-template-columns:1fr;max-width:340px}.seller-flow-card{display:grid;grid-template-columns:92px 1fr;gap:12px;align-items:center;text-align:left;padding:13px 14px}.seller-flow-card img{width:92px;height:92px;margin:0}.seller-flow-card h3{font-size:16px}.seller-flow-copy{font-size:14px}}
 .badge-pill{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:100px;font-size:11px;font-weight:700;border:1.5px solid var(--border);background:var(--bg);color:var(--muted);margin:3px}
 .badge-earned{background:linear-gradient(135deg,var(--plat-a),var(--plat-b));border-color:var(--plat-a);color:#3A2800}
@@ -898,7 +909,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.52</strong><small>Production build</small>
+      <span>Version</span><strong>v4.58</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -1102,7 +1113,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.57';
+const APP_VERSION='4.58';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -1138,6 +1149,10 @@ function sellerImg(s){return FOOD_IMGS[s.id%FOOD_IMGS.length];}
 
 function sellerPhoto(s, fallbackIndex){
   return (s && s.img) || FOOD_IMGS[(fallbackIndex || (s && s.id) || 0) % FOOD_IMGS.length];
+}
+
+function authFoodImage(){
+  return FOOD_IMGS[0];
 }
 
 function sellerPhotoImg(s, alt, extraStyle){
@@ -1276,6 +1291,10 @@ function mergeLiveSellers(rows){
       tier:row.tier||d.tier||'standard',
       region:row.region||d.region||'Durban CBD',
       wa:row.wa||d.wa||'27000000000',
+      img:d.storePic||d.img||d.image||d.photo||d.photoUrl||d.photo_url||'',
+      avatar:d.avatar||d.icon||'',
+      images:d.images||d.gallery||[],
+      desc:d.desc||d.bio||d.description||'',
       _data:d,
       _supabase:true
     });
@@ -2760,7 +2779,7 @@ var hmAuth = (function(){
       +'<div style="font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">Email sent to</div>'
       +'<div style="font-size:14px;font-weight:800;color:var(--heading);word-break:break-word">'+hmText(email)+'</div></div>'
       +'<div style="font-size:13px;line-height:1.65;color:var(--muted);margin:0 auto 22px;max-width:500px">If you do not see it within a few minutes, check Spam/Junk. For Yahoo, mark the message as Not spam so future Home-Made emails are less likely to be filtered.</div>'
-      +'<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><button class="btn btn-a" onclick="document.getElementById(\'hm-auth-created\').remove();hmAuth.showLogin()">Back to Sign In</button><button class="btn btn-ol" onclick="document.getElementById(\'hm-auth-created\').remove();'+(sellerIntent?'hmAuth.showSellerSignup()':'hmAuth.showAuthAction(\'setup\')')+'">Use another email</button></div>'
+      +'<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><button class="btn btn-a" onclick="document.getElementById(\'hm-auth-created\').remove();hmAuth.requireLogin(function(){nav(\'profile\');})">Back to Sign In</button><button class="btn btn-ol" onclick="document.getElementById(\'hm-auth-created\').remove();'+(sellerIntent?'hmAuth.showSellerSignup()':'hmAuth.showAuthAction(\'setup\')')+'">Use another email</button></div>'
       +'</main>';
     document.body.appendChild(ov);
     setTimeout(function(){var el=ov.querySelector('main');if(el)el.focus();},30);
@@ -2955,6 +2974,21 @@ var hmAuth = (function(){
   };
   /* Guest is a special transient role — not in DEMO_USERS (no login required) */
   var DEMO_PW = '1234';
+  var REMEMBER_EMAIL_KEY = 'hm_remember_email';
+
+  function rememberedEmail(){
+    try{return localStorage.getItem(REMEMBER_EMAIL_KEY)||'';}catch(e){return '';}
+  }
+  function setRememberedEmail(email, remember){
+    try{
+      if(remember) localStorage.setItem(REMEMBER_EMAIL_KEY,email||'');
+      else localStorage.removeItem(REMEMBER_EMAIL_KEY);
+    }catch(e){}
+  }
+  function isRememberChecked(id){
+    var el=document.getElementById(id);
+    return !!(el&&el.checked);
+  }
 
   function _showLogin(){
     /* Shell stays visible — only gate modal is shown now */
@@ -2972,7 +3006,7 @@ var hmAuth = (function(){
 
         /* Header gradient */
         '<div style="background:linear-gradient(135deg,#1E0E04 0%,#3A1A08 100%);padding:32px 28px 24px;text-align:center">',
-          '<div style="width:68px;height:68px;border-radius:20px;background:linear-gradient(135deg,#E55A18,#C44410);display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 14px;box-shadow:0 8px 24px rgba(229,90,24,.4)">🍳</div>',
+          '<div style="width:76px;height:76px;border-radius:22px;overflow:hidden;margin:0 auto 14px;box-shadow:0 8px 24px rgba(229,90,24,.35);border:2px solid rgba(255,255,255,.22)"><img src="'+authFoodImage()+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></div>',
           '<div style="font-family:var(--font-head);font-size:26px;font-weight:700;color:#fff;margin-bottom:4px">Home-Made</div>',
           '<div style="font-size:13px;color:rgba(255,255,255,.55)">Real Food. Real Homes. Durban.</div>',
         '</div>',
@@ -2999,6 +3033,8 @@ var hmAuth = (function(){
               '<button id="hm-login-pw-toggle" type="button" aria-label="Show password" aria-pressed="false" onclick="hmAuth.togglePasswordField(\'hm-login-pw\',\'hm-login-pw-toggle\')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:var(--surface);border:1px solid var(--border);border-radius:999px;cursor:pointer;color:var(--muted);font-size:11px;font-weight:800;padding:5px 8px;display:flex;align-items:center;gap:4px;font-family:var(--font-body)"><span aria-hidden="true">👁</span><span class="pw-toggle-text">Show</span></button>',
             '</div>',
           '</div>',
+
+          '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);font-weight:700;margin:0 0 12px;cursor:pointer"><input id="hm-login-remember" type="checkbox" style="width:15px;height:15px;accent-color:var(--accent)"> Remember me</label>',
 
           /* Error message */
           '<div id="hm-login-msg" role="alert" style="min-height:20px;font-size:13px;color:var(--red);font-weight:600;margin-bottom:10px;text-align:center"></div>',
@@ -3039,7 +3075,10 @@ var hmAuth = (function(){
         userInput.type = 'email';
         userInput.placeholder = 'you@example.com';
         userInput.autocomplete = 'email';
+        userInput.value = rememberedEmail();
       }
+      var rememberBox=document.getElementById('hm-login-remember');
+      if(rememberBox) rememberBox.checked=!!rememberedEmail();
       if(pwWrap){
         var pwContainer = pwWrap.closest('div[style*="margin-bottom:10px"]');
         if(pwContainer){
@@ -3103,6 +3142,7 @@ var hmAuth = (function(){
           if(btn){ btn.disabled=false; btn.textContent='Sign In'; }
           return;
         }
+        setRememberedEmail(username,isRememberChecked('hm-login-remember'));
         var ls=document.getElementById('hm-login-screen');
         if(ls) ls.remove();
       });
@@ -3173,7 +3213,7 @@ var hmAuth = (function(){
       '<div style="width:100%;max-width:440px;background:var(--surface);border-radius:24px 24px 0 0;padding:28px 24px 32px;box-shadow:0 -8px 40px rgba(30,14,4,.2)">',
         '<div style="width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 20px"></div>',
         '<div style="text-align:center;margin-bottom:20px">',
-          '<div style="font-size:40px;margin-bottom:10px">🍽️</div>',
+          '<div style="width:74px;height:74px;border-radius:22px;overflow:hidden;margin:0 auto 12px;border:1.5px solid var(--border);box-shadow:0 8px 26px rgba(60,30,10,.12)"><img src="'+authFoodImage()+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></div>',
           '<div style="font-family:var(--font-head);font-size:20px;color:var(--heading);margin-bottom:6px">Sign in to continue</div>',
           '<div style="font-size:13px;color:var(--muted);line-height:1.6">You need an account to place orders,<br>save listings and message sellers.</div>',
         '</div>',
@@ -3191,6 +3231,7 @@ var hmAuth = (function(){
             '<button id="hm-gate-pw-toggle" type="button" aria-label="Show password" aria-pressed="false" onclick="hmAuth.togglePasswordField(\'hm-gate-pw\',\'hm-gate-pw-toggle\')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:var(--surface);border:1px solid var(--border);border-radius:999px;cursor:pointer;color:var(--muted);font-size:11px;font-weight:800;padding:5px 8px;display:flex;align-items:center;gap:4px;font-family:var(--font-body)"><span aria-hidden="true">👁</span><span class="pw-toggle-text">Show</span></button>',
           '</div>',
         '</div>',
+        '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);font-weight:700;margin:0 0 10px;cursor:pointer"><input id="hm-gate-remember" type="checkbox" style="width:15px;height:15px;accent-color:var(--accent)"> Remember me</label>',
         '<div id="hm-gate-msg" style="min-height:18px;font-size:12px;color:var(--red);font-weight:600;text-align:center;margin-bottom:10px"></div>',
         '<button id="hm-gate-btn" onclick="hmAuth._gateSubmit()" style="width:100%;padding:14px;background:linear-gradient(135deg,#E55A18,#C44410);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font-body);margin-bottom:8px">Sign In →</button>',
         '<div class="hm-live-auth-actions" style="display:none;justify-content:space-between;gap:12px;margin-bottom:12px"><button onclick="hmAuth.showAuthAction(\'forgot\')" style="background:none;border:none;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer">Forgot password?</button><button onclick="hmAuth.showAuthAction(\'setup\')" style="background:none;border:none;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer">Create account</button></div>',
@@ -3213,7 +3254,10 @@ var hmAuth = (function(){
         gateUser.type = 'email';
         gateUser.placeholder = 'you@example.com';
         gateUser.autocomplete = 'email';
+        gateUser.value = rememberedEmail();
       }
+      var gateRemember=document.getElementById('hm-gate-remember');
+      if(gateRemember) gateRemember.checked=!!rememberedEmail();
       if(gatePw){
         var gatePwContainer = gatePw.closest('div[style*="margin-bottom:8px"]');
         if(gatePwContainer) gatePwContainer.style.display = '';
@@ -3247,6 +3291,7 @@ var hmAuth = (function(){
           if(btn){ btn.disabled=false; btn.textContent='Sign In'; }
           return;
         }
+        setRememberedEmail(username,isRememberChecked('hm-gate-remember'));
         var overlay=document.getElementById('hm-gate-modal');
         if(overlay) overlay.remove();
         var cb=window._hm_gate_cb; window._hm_gate_cb=null;
@@ -3332,8 +3377,8 @@ let ST={page:'home',ctx:{},saved:[1,8],role:'buyer',notif:true,aiOpen:false,detL
   bf:{q:'',cat:'all',region:'',dietary:[],health:[],sort:'featured'},
   mf:'',mapTx:0,mapTy:0,_mapDragged:false,
   ps:1,pt:'standard',
-  pf:{name:'',desc:'',region:'',cat:'african',dietary:[],healthTags:[],del:false,fee:'',pu:true,minOrder:10,maxOrder:100,leadDays:3,pricingModel:'per_person',eventTypes:[],serviceTypes:[],cookingStyle:'pre-cooked',setupIncluded:false,equipmentProvided:[],depositPct:0,travelRadius:30,cancellationPolicy:'',img:'',imgPath:'',imgName:'',imgUploading:false,imgError:'',legalAccepted:false},
-  pi:[{n:'',p:'',svs:'',hot:false}],
+  pf:{name:'',desc:'',region:'',cat:'african',dietary:[],healthTags:[],del:false,fee:'',pu:true,minOrder:10,maxOrder:100,leadDays:3,pricingModel:'per_person',eventTypes:[],serviceTypes:[],cookingStyle:'pre-cooked',setupIncluded:false,equipmentProvided:[],depositPct:0,travelRadius:30,cancellationPolicy:'',wa:'',waConfirm:'',img:'',imgPath:'',imgName:'',imgUploading:false,imgError:'',legalAccepted:false},
+  pi:[{n:'',p:'',svs:'',hot:false,img:'',imgPath:'',imgName:'',imgUploading:false,imgError:''}],
   pd:[{qty:2,pct:10}],
   pdone:false,dtab:'menu',homeView:'grid',scrollPos:{}};
 
@@ -6187,10 +6232,11 @@ function setDT(t,id){
     const ci=CART.items.find(x=>x.itemIdx===idx&&CART.sellerId===s.id);
     const currentQty=ci?ci.qty:0;
     const atLimit=stk!==null&&currentQty>=stk&&!soldOut;
+    const itemPhotoHTML=menuItemPhotoImg(s,i,idx);
     return `<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:13px 16px;box-shadow:var(--shadow);${soldOut?'opacity:.6':''}">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
         <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
-          ${i.hot?'<span style="font-size:15px;flex-shrink:0">🔥</span>':'<span style="width:15px;flex-shrink:0"></span>'}
+          <div style="width:52px;height:52px;border-radius:10px;overflow:hidden;flex-shrink:0;position:relative;box-shadow:0 1px 4px rgba(60,30,10,.12)">${itemPhotoHTML}${i.hot?'<div style="position:absolute;bottom:2px;right:3px;font-size:10px;z-index:2">🔥</div>':''}</div>
           <div style="min-width:0"><div style="font-size:14px;font-weight:600;color:var(--heading)">${i.n}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <span>${ic('users',10,'var(--muted)')} ${i.svs||'1 person'}</span>${i.hot?'<span style="color:var(--amber);font-weight:700">Popular</span>':''}${stockBadge(stk,cap)}
@@ -6249,9 +6295,28 @@ function toggleSave(id){
 }
 
 /* ══════════════ POST AD ══════════════ */
+function normalizePhoneNumber(v){
+  return String(v||'').replace(/[^\d+]/g,'').replace(/^\+/, '');
+}
+function cleanPostItem(it){
+  it=it||{};
+  return {
+    n:it.n||'',
+    p:parseFloat(it.p)||0,
+    svs:it.svs||'',
+    hot:!!it.hot,
+    img:it.img||'',
+    imgPath:it.imgPath||'',
+    imgName:it.imgName||''
+  };
+}
 function goLiveListing(){
   var f=ST.pf, items=ST.pi, discs=ST.pd;
   if(!f.name||!f.region||!f.cat){showToast('Please complete all required fields.');return;}
+  var phone=normalizePhoneNumber(f.wa);
+  var phoneConfirm=normalizePhoneNumber(f.waConfirm);
+  if(!phone||phone.length<9){showToast('Please enter the telephone number buyers should use.');return;}
+  if(phone!==phoneConfirm){showToast('Telephone numbers do not match yet.');return;}
   if(!f.legalAccepted){showToast('Please confirm the seller terms before publishing.');return;}
   var catObj=CATS.find(function(c){return c.id===f.cat;})||CATS[1];
   var newId=Date.now(); // unique numeric id
@@ -6279,18 +6344,18 @@ function goLiveListing(){
     imgPath:f.imgPath||'',
     bg:'linear-gradient(135deg,#FFF0E0,#FFE0C0)',
     ec:'#C44410',
-    items:items.length?items:[{n:'Homemade Special',p:100,svs:'1 person'}],
+    items:items.length?items.map(cleanPostItem):[{n:'Homemade Special',p:100,svs:'1 person',hot:false,img:'',imgPath:'',imgName:''}],
     discounts:discs||[],
     cx:{x:50,y:50},
-    wa:'27000000000',
+    wa:phone,
     _userCreated:true
   };
   SELLERS.push(newSeller);
   SELLER_OWN_ID=newId;
   ST.pdone=true;
   // Reset form for next time
-  ST.pf={name:'',desc:'',region:'',cat:'african',dietary:[],healthTags:[],del:false,fee:'',pu:true,minOrder:10,maxOrder:100,leadDays:3,pricingModel:'per_person',eventTypes:[],serviceTypes:[],cookingStyle:'pre-cooked',setupIncluded:false,equipmentProvided:[],depositPct:0,travelRadius:30,cancellationPolicy:'',img:'',imgPath:'',imgName:'',imgUploading:false,imgError:'',legalAccepted:false};
-  ST.pi=[]; ST.pd=[];
+  ST.pf={name:'',desc:'',region:'',cat:'african',dietary:[],healthTags:[],del:false,fee:'',pu:true,minOrder:10,maxOrder:100,leadDays:3,pricingModel:'per_person',eventTypes:[],serviceTypes:[],cookingStyle:'pre-cooked',setupIncluded:false,equipmentProvided:[],depositPct:0,travelRadius:30,cancellationPolicy:'',wa:'',waConfirm:'',img:'',imgPath:'',imgName:'',imgUploading:false,imgError:'',legalAccepted:false};
+  ST.pi=[{n:'',p:'',svs:'',hot:false,img:'',imgPath:'',imgName:'',imgUploading:false,imgError:''}]; ST.pd=[];
   rPost();
   showToast('🎉 Your listing is now live!');
 }
@@ -6305,7 +6370,9 @@ function openSellerRequestModal(){
   var modal=document.createElement('div');
   modal.id='seller-request-modal';
   modal.className='ov';
-  modal.innerHTML='<div role="dialog" aria-modal="true" aria-labelledby="seller-request-title" class="adm-rating-sheet" style="max-width:460px">'
+  modal.style.cssText='position:fixed;inset:0;z-index:100002;background:rgba(30,14,4,.52);display:flex;align-items:center;justify-content:center;padding:24px;overflow:auto';
+  modal.onclick=function(e){if(e.target===modal)modal.remove();};
+  modal.innerHTML='<div role="dialog" aria-modal="true" aria-labelledby="seller-request-title" class="adm-rating-sheet" style="max-width:460px;max-height:calc(100vh - 48px);overflow:auto">'
     +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px">'
       +'<div><div id="seller-request-title" style="font-family:var(--font-head);font-size:22px;font-weight:800;color:var(--heading)">Request seller access</div><div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.55">Tell us what you want to sell. Your buyer profile will stay active while admin reviews the request.</div></div>'
       +'<button aria-label="Close" onclick="document.getElementById(\'seller-request-modal\').remove()" style="background:var(--bg);border:1.5px solid var(--border);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)">x</button>'
@@ -6426,6 +6493,70 @@ function uploadListingImg(input){
   input.value='';
 }
 
+function uploadMenuItemImg(index,input){
+  var file=input.files&&input.files[0];
+  if(!file) return;
+  if(!/^image\/(jpeg|png|webp|gif)$/.test(file.type)){ showToast('Please upload a JPG, PNG, WebP or GIF image.'); input.value=''; return; }
+  if(file.size>5*1024*1024){ showToast('Dish image must be under 5 MB'); input.value=''; return; }
+  if(!ST.pi[index]) return;
+  ST.pi[index].imgError='';
+  ST.pi[index].imgUploading=!(hmAuth&&hmAuth.isDemoMode&&hmAuth.isDemoMode());
+  ST.pi[index].imgName=file.name;
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    if(!ST.pi[index]) return;
+    ST.pi[index].img=ev.target.result;
+    rPS();
+    if(!hmAuth||!hmAuth.uploadPublicImage||(hmAuth.isDemoMode&&hmAuth.isDemoMode())){
+      ST.pi[index].imgUploading=false;
+      rPS();
+      return;
+    }
+    prepareListingImage(file,function(uploadFile){
+      hmAuth.uploadPublicImage(uploadFile,'listing-uploads',function(res){
+        if(!ST.pi[index]) return;
+        ST.pi[index].imgUploading=false;
+        if(res&&res.url){
+          ST.pi[index].img=res.url;
+          ST.pi[index].imgPath=res.path||'';
+          ST.pi[index].imgName=file.name+' (hosted)';
+          showToast('Dish photo uploaded.');
+        }else{
+          ST.pi[index].imgError=(res&&res.error)||'Could not upload dish photo yet.';
+          showToast('Dish preview saved, but hosting upload failed.');
+        }
+        rPS();
+      });
+    },{max:900,quality:0.78});
+  };
+  reader.readAsDataURL(file);
+  input.value='';
+}
+
+function menuItemUploadControl(it,index){
+  it=it||{};
+  var status=it.imgUploading?'Uploading to secure hosting...':(it.imgError?it.imgError:(it.imgPath?'Dish photo hosted securely':(it.imgName||'Dish photo added')));
+  var color=it.imgError?'var(--red)':(it.imgUploading?'var(--accent)':'var(--muted)');
+  if(it.img){
+    return '<div style="margin-top:8px;display:grid;grid-template-columns:64px minmax(0,1fr);gap:10px;align-items:center">'
+      +'<div style="position:relative;width:64px;height:64px;border-radius:12px;overflow:hidden;border:1.5px solid var(--border);background:var(--bg);box-shadow:var(--shadow)">'
+        +'<img src="'+hmText(it.img)+'" alt="Dish photo preview" style="width:100%;height:100%;object-fit:cover;display:block">'
+        +'<button aria-label="Remove dish photo" onclick="ST.pi['+index+'].img=\'\';ST.pi['+index+'].imgPath=\'\';ST.pi['+index+'].imgName=\'\';ST.pi['+index+'].imgUploading=false;ST.pi['+index+'].imgError=\'\';rPS()" style="position:absolute;top:3px;right:3px;background:rgba(30,14,4,.68);border:none;border-radius:50%;width:22px;height:22px;color:#fff;font-size:13px;cursor:pointer;line-height:1">x</button>'
+      +'</div>'
+      +'<div style="min-width:0">'
+        +'<div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Dish photo</div>'
+        +'<div style="font-size:11px;color:'+color+';line-height:1.4;margin-bottom:6px">'+hmText(status)+'</div>'
+        +'<label class="chip" style="display:inline-flex;cursor:pointer">Change photo<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none" onchange="uploadMenuItemImg('+index+',this)"></label>'
+      +'</div>'
+    +'</div>';
+  }
+  return '<label style="margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px dashed var(--border);border-radius:12px;padding:10px 12px;background:var(--bg);cursor:pointer;color:var(--muted);font-size:12px;font-weight:700">'
+    +ic('plus',12,'var(--accent)')
+    +'<span>Upload dish photo</span>'
+    +'<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none" onchange="uploadMenuItemImg('+index+',this)">'
+  +'</label>';
+}
+
 function prepareListingImage(file, cb, opts){
   if(file.type === 'image/gif'){ cb(file); return; }
   opts=opts||{};
@@ -6459,6 +6590,10 @@ function rPS(){
     body=`<div style="display:flex;flex-direction:column;gap:16px">
       <div><div class="lsm" style="margin-bottom:7px">Business Name</div><input class="inp" placeholder="e.g. Rose's Kitchen" value="${f.name}" oninput="ST.pf.name=this.value"/></div>
       <div><div class="lsm" style="margin-bottom:7px">Description</div><textarea class="inp" rows="3" placeholder="Tell buyers about your food…" oninput="ST.pf.desc=this.value">${f.desc}</textarea></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><div class="lsm" style="margin-bottom:7px">Telephone / WhatsApp Number</div><input class="inp" type="tel" autocomplete="tel" placeholder="e.g. 27821234567" value="${f.wa||''}" oninput="ST.pf.wa=this.value"/></div>
+        <div><div class="lsm" style="margin-bottom:7px">Confirm Telephone Number</div><input class="inp" type="tel" autocomplete="tel" placeholder="Repeat number" value="${f.waConfirm||''}" oninput="ST.pf.waConfirm=this.value"/></div>
+      </div>
       <div>
         <div class="lsm" style="margin-bottom:7px">Listing Photo <span style="font-weight:400;color:var(--muted);font-size:10px">(recommended — listings with photos get 4× more clicks)</span></div>
         ${f.img
@@ -6607,6 +6742,7 @@ function rPS(){
           <div><div class="lsm" style="margin-bottom:5px;font-size:10px">Price (R)</div><input class="inp" type="number" placeholder="0.00" value="${it.p}" oninput="ST.pi[${i}].p=this.value" style="font-size:13px;padding:9px 12px"/></div>
         </div>
         <div><div class="lsm" style="margin-bottom:5px;font-size:10px">Serving Size</div><input class="inp" placeholder="e.g. 1 person / 2–3 people / 6 pieces" value="${it.svs||''}" oninput="ST.pi[${i}].svs=this.value" style="font-size:13px;padding:9px 12px"/></div>
+        ${menuItemUploadControl(it,i)}
         <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
           <input type="checkbox" id="hot${i}" ${it.hot?'checked':''} onchange="ST.pi[${i}].hot=this.checked" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer"/>
           <label for="hot${i}" style="font-size:12px;font-weight:600;color:var(--muted);cursor:pointer">🔥 Mark as Popular item</label>
@@ -6631,7 +6767,7 @@ function rPS(){
           <span style="font-size:11px;color:var(--muted)">${items.length} item${items.length!==1?'s':''}</span>
         </div>
         ${itemRows}
-        <button class="btn btn-gh btn-fw" style="margin-top:10px" onclick="ST.pi.push({n:'',p:'',svs:'',hot:false});rPS()">${ic('plus',14)} Add Menu Item</button>
+        <button class="btn btn-gh btn-fw" style="margin-top:10px" onclick="ST.pi.push({n:'',p:'',svs:'',hot:false,img:'',imgPath:'',imgName:'',imgUploading:false,imgError:''});rPS()">${ic('plus',14)} Add Menu Item</button>
       </div>
       <div style="border-top:1.5px solid var(--border);padding-top:16px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
@@ -7810,6 +7946,20 @@ function sellerShareRatingWA(sid){
   var _a=document.createElement('a');_a.href='https://wa.me/?text='+msg;_a.target='_blank';_a.rel='noopener noreferrer';document.body.appendChild(_a);_a.click();document.body.removeChild(_a);
 }
 
+function buildSellerAccessPanel(){
+  if(ST.role!=='buyer') return '';
+  return `
+    <div style="background:linear-gradient(135deg,var(--lime-l),var(--surface));border:1.5px solid rgba(60,140,70,.24);border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:var(--shadow)">
+      <div style="display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap">
+        <div style="min-width:0;flex:1">
+          <div style="font-family:var(--font-head);font-size:20px;color:var(--heading);line-height:1.15">Do you sell food from home?</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.55;margin-top:5px">Keep this buyer profile and request seller access for listings, markets and catering.</div>
+        </div>
+        <button class="btn btn-a btn-sm" onclick="openSellerRequestModal()">${ic('zap',14,'#fff')} Request Seller Access</button>
+      </div>
+    </div>`;
+}
+
 function rProfile(){
   if(!ST.role || ST.role==='guest'){ hmAuth.requireLogin(function(){ nav('profile'); }); return; }
   if(ST.role==='admin'){ nav('admin'); return; }
@@ -7828,16 +7978,7 @@ function rProfile(){
   const savedList=saved.length===0?`<div style="padding:28px;text-align:center;color:var(--muted);font-size:13px;background:var(--surface);border-radius:14px;border:1.5px solid var(--border)">No saved sellers yet.<br/>Tap ❤️ on any listing to save.</div>`:saved.map(s=>`<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:11px 13px;display:flex;gap:10px;align-items:center;cursor:pointer;transition:all .15s;box-shadow:var(--shadow)" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform=''" onclick="openDet(${s.id})"><div style="width:44px;height:44px;border-radius:12px;background:${s.bg};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${s.e}</div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--heading);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.name}</div><div style="font-size:11px;color:var(--muted)">${s.region}</div></div>${stars(s.rat)}</div>`).join('');
   const cls=r==='admin'?'bp':r==='seller'?'bgold':'bstd';
   const lv=buyerFoodieLevel();
-  const sellerAccessPanel=r==='buyer'?`
-    <div style="background:linear-gradient(135deg,var(--lime-l),var(--surface));border:1.5px solid rgba(60,140,70,.24);border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:var(--shadow)">
-      <div style="display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap">
-        <div style="min-width:0;flex:1">
-          <div style="font-family:var(--font-head);font-size:20px;color:var(--heading);line-height:1.15">Do you sell food from home?</div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.55;margin-top:5px">Keep this buyer profile and request seller access for listings, markets and catering.</div>
-        </div>
-        <button class="btn btn-a btn-sm" onclick="openSellerRequestModal()">${ic('zap',14,'#fff')} Request Seller Access</button>
-      </div>
-    </div>`:'';
+  const sellerAccessPanel=buildSellerAccessPanel();
 
   /* ── PROFILE DASHBOARD TABS ── */
   var _pdt = window._profDashTab || {};
@@ -7915,7 +8056,7 @@ function rProfile(){
   const buyerPanels = r==='buyer' ? (
     buyTabBar()
     + '<div id="prof-dash-content">'
-    + (_buyTab==='today'  ? buildBuyerStatsPanel() + buildBuyerQuickPrefs() + buildBuyerSAPanel() + buildBuyerAddressPanel() : '')
+    + (_buyTab==='today'  ? buildBuyerStatsPanel() + sellerAccessPanel + buildBuyerQuickPrefs() + buildBuyerSAPanel() + buildBuyerAddressPanel() : '')
     + (_buyTab==='bio'    ? buildBuyerBioPanel() : '')
     + (_buyTab==='orders' ? buildBuyerOrderHistory() : '')
     + (_buyTab==='taste'  ? buildBuyerTastePanel() + buildDietPanel() + buildBuyerPrefsPanel(saved) : '')
@@ -7943,8 +8084,6 @@ function rProfile(){
       <div class="lsm" style="margin-bottom:10px">${rolesTitle}</div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">${roles}</div>
     </div>
-
-    ${sellerAccessPanel}
 
     ${hmAuth.isDemoMode()&&(r==='seller'||r==='buyer')?`
     <!-- ── TEST SELLER SWITCHER ── -->
@@ -8219,12 +8358,12 @@ function refreshDashContent(){
   } else if(r==='seller'){
     html=(tab==='myprefs'?buildDietPanel()+buildSellerPrefsPanel(saved):tab==='storefront'?buildSellerStorefrontPanel():buildSellerDashboard(tab));
   } else if(r==='buyer'){
-    html=(tab==='today'  ?buildBuyerStatsPanel()+buildBuyerQuickPrefs()+buildBuyerSAPanel()+buildBuyerAddressPanel()
+    html=(tab==='today'  ?buildBuyerStatsPanel()+buildSellerAccessPanel()+buildBuyerQuickPrefs()+buildBuyerSAPanel()+buildBuyerAddressPanel()
          :tab==='bio'    ?buildBuyerBioPanel()
          :tab==='orders' ?buildBuyerOrderHistory()
          :tab==='taste'  ?buildBuyerTastePanel()+buildDietPanel()+buildBuyerPrefsPanel(saved)
          :tab==='markets'?renderPassport()
-         :buildBuyerStatsPanel()+buildBuyerQuickPrefs()+buildBuyerSAPanel()+buildBuyerAddressPanel());
+         :buildBuyerStatsPanel()+buildSellerAccessPanel()+buildBuyerQuickPrefs()+buildBuyerSAPanel()+buildBuyerAddressPanel());
   }
   contentEl.innerHTML=html;
 }
@@ -9354,10 +9493,16 @@ function adminSellerRequestStatus(status){
   return '<span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border:1px solid '+color+';color:'+color+';background:'+bg+';border-radius:100px;padding:4px 9px">'+hmText(s)+'</span>';
 }
 
+function refreshSellerRequestAdminUI(){
+  if(ST.page==='admin') rAdmin();
+  else refreshDashContent();
+}
+
 function buildAdminSellerRequestsTab(){
   if(!ADMIN_SELLER_REQUESTS_LOADED && !ADMIN_SELLER_REQUESTS_LOADING){
     loadAdminSellerRequests(false,function(){
-      if(ST.role==='admin' && window._profDashTab && window._profDashTab.admin==='requests') refreshDashContent();
+      if(ST.role==='admin' && ST.page==='admin') rAdmin();
+      else if(ST.role==='admin' && window._profDashTab && window._profDashTab.admin==='requests') refreshDashContent();
     });
   }
   if(ADMIN_SELLER_REQUESTS_LOADING && !ADMIN_SELLER_REQUESTS_LOADED){
@@ -9367,7 +9512,7 @@ function buildAdminSellerRequestsTab(){
     return '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:18px;box-shadow:var(--shadow)">'
       +'<div style="font-size:16px;font-weight:800;color:var(--heading);margin-bottom:6px">Could not load seller requests</div>'
       +'<div style="font-size:13px;color:var(--red);line-height:1.5;margin-bottom:12px">'+hmText(ADMIN_SELLER_REQUESTS_ERROR)+'</div>'
-      +'<button class="btn btn-a btn-sm" onclick="ADMIN_SELLER_REQUESTS_LOADED=false;loadAdminSellerRequests(true,function(){refreshDashContent();})">'+ic('zap',14,'#fff')+' Retry</button>'
+      +'<button class="btn btn-a btn-sm" onclick="ADMIN_SELLER_REQUESTS_LOADED=false;loadAdminSellerRequests(true,function(){refreshSellerRequestAdminUI();})">'+ic('zap',14,'#fff')+' Retry</button>'
     +'</div>';
   }
 
@@ -9386,7 +9531,7 @@ function buildAdminSellerRequestsTab(){
   var filterBar='<div style="display:flex;gap:6px;overflow-x:auto;padding:2px 0 4px;margin-bottom:12px;scrollbar-width:none">'
     +filters.map(function(f){
       var on=filter===f.id;
-      return '<button onclick="window._adminSellerRequestFilter=\''+f.id+'\';refreshDashContent()" style="flex:0 0 auto;border:1.5px solid '+(on?'var(--accent)':'var(--border)')+';background:'+(on?'var(--accent)':'var(--surface)')+';color:'+(on?'#fff':'var(--muted)')+';border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;font-family:var(--font-body);cursor:pointer">'+f.label+' <span style="opacity:.75">'+f.count+'</span></button>';
+      return '<button onclick="window._adminSellerRequestFilter=\''+f.id+'\';refreshSellerRequestAdminUI()" style="flex:0 0 auto;border:1.5px solid '+(on?'var(--accent)':'var(--border)')+';background:'+(on?'var(--accent)':'var(--surface)')+';color:'+(on?'#fff':'var(--muted)')+';border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;font-family:var(--font-body);cursor:pointer">'+f.label+' <span style="opacity:.75">'+f.count+'</span></button>';
     }).join('')
   +'</div>';
 
@@ -9482,7 +9627,7 @@ function approveSellerAccessRequest(reqId){
     showToast('Seller access approved.');
     ADMIN_SELLER_REQUESTS_LOADED=false;
     loadAdminSellerRequests(true,function(){
-      loadLiveSellers(function(){ refreshDashContent(); });
+      loadLiveSellers(function(){ refreshSellerRequestAdminUI(); });
     });
   });
 }
@@ -9502,7 +9647,7 @@ function rejectSellerAccessRequest(reqId){
     }
     showToast('Seller request rejected.');
     ADMIN_SELLER_REQUESTS_LOADED=false;
-    loadAdminSellerRequests(true,function(){ refreshDashContent(); });
+    loadAdminSellerRequests(true,function(){ refreshSellerRequestAdminUI(); });
   });
 }
 
@@ -10512,6 +10657,7 @@ function rAdmin(){
     {id:'revenue',   label:'💰 Revenue'},
     {id:'users',     label:'👥 Users'},
     {id:'sellers',   label:'🏪 Sellers'},
+    {id:'requests',  label:'Seller Requests'},
     {id:'events',    label:'🗺️ Markets'},
     {id:'ads',       label:'📣 Ads'},
     {id:'demand',    label:'🔍 Demand'},
@@ -10838,6 +10984,9 @@ function rAdmin(){
   /* ══════════════════════════════════════════
      TAB: USERS
   ══════════════════════════════════════════ */
+  } else if(t==='requests'){
+    tabContent=buildAdminSellerRequestsTab();
+
   } else if(t==='users'){
 
     // 30-day DAU area chart
