@@ -909,7 +909,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.59</strong><small>Production build</small>
+      <span>Version</span><strong>v4.60</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -1113,7 +1113,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.59';
+const APP_VERSION='4.60';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -1190,6 +1190,48 @@ function imageValue(entry){
   if(!entry) return '';
   if(typeof entry === 'string') return entry;
   return entry.url || entry.src || entry.image || entry.img || entry.photo || entry.imageUrl || entry.image_url || entry.photoUrl || entry.photo_url || '';
+}
+
+function hmNumber(value, fallback){
+  var raw = typeof value === 'string' ? value.replace(/[^0-9.-]/g,'') : value;
+  var n = Number(raw);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function hmBool(value, fallback){
+  if(value === true || value === false) return value;
+  if(value == null || value === '') return fallback;
+  return ['true','1','yes','on'].indexOf(String(value).toLowerCase()) >= 0;
+}
+
+function hmTagArray(value){
+  if(Array.isArray(value)) return value.filter(Boolean);
+  if(typeof value === 'string' && value.trim()) return value.split(',').map(function(v){return v.trim();}).filter(Boolean);
+  return [];
+}
+
+function normalizeSellerItems(rawItems, sellerName){
+  var items = Array.isArray(rawItems) ? rawItems : [];
+  var cleaned = items.map(function(item){
+    if(!item) return null;
+    var name = item.n || item.name || item.title || item.item || item.item_name || 'Homemade Special';
+    var price = hmNumber(item.p != null ? item.p : (item.price != null ? item.price : item.amount), 100);
+    return Object.assign({}, item, {
+      n: String(name || 'Homemade Special').trim() || 'Homemade Special',
+      p: price > 0 ? price : 100,
+      svs: item.svs || item.serves || item.serving || item.portion || '1 person',
+      hot: !!item.hot,
+      img: imageValue(item)
+    });
+  }).filter(Boolean);
+  if(cleaned.length) return cleaned;
+  return [{
+    n: (sellerName ? sellerName + ' Special' : 'Homemade Special'),
+    p: 100,
+    svs: '1 person',
+    hot: false,
+    img: ''
+  }];
 }
 
 function menuItemPhoto(s, item, idx){
@@ -1310,9 +1352,10 @@ function mergeLiveSellers(rows){
     var d=row.data||{};
     var id=row.id;
     var existing=SELLERS.find(function(s){return s.id===id;});
+    var sellerName=row.name||d.name||row.seller||'Home-Made Seller';
     var mapped=Object.assign({}, d, {
       id:id,
-      name:row.name||d.name||row.seller||'Home-Made Seller',
+      name:sellerName,
       seller:row.seller||d.seller||row.name||'Home Chef',
       cat:row.category||d.cat||'african',
       tier:row.tier||d.tier||'standard',
@@ -1322,6 +1365,21 @@ function mergeLiveSellers(rows){
       storePic:d.storePic||d.store_pic||row.store_pic||'',
       avatar:d.avatar||d.icon||'',
       images:d.images||d.gallery||d.storeImages||d.store_images||d.photos||d.photoUrls||d.photo_urls||[],
+      items:normalizeSellerItems(d.items||d.menu||d.menuItems||d.menu_items||row.items, sellerName),
+      dietary:hmTagArray(d.dietary||d.dietaryTags||d.dietary_tags),
+      healthTags:hmTagArray(d.healthTags||d.health_tags),
+      discounts:Array.isArray(d.discounts)?d.discounts:[],
+      del:hmBool(d.del != null ? d.del : d.delivery, false),
+      pu:hmBool(d.pu != null ? d.pu : d.pickup, true),
+      fee:hmNumber(d.fee||d.deliveryFee||d.delivery_fee, 0),
+      rat:hmNumber(row.rating||d.rat||d.rating, 4.5),
+      rev:hmNumber(row.review_count||d.rev||d.reviews, 0),
+      ord:String(row.orders||d.ord||d.orders||0),
+      sch:d.sch||d.schedule||'weekly',
+      e:d.e||d.emoji||'🍽️',
+      bg:d.bg||d.background||'var(--accent-l)',
+      yr:d.yr||d.year||new Date().getFullYear(),
+      verified:hmBool(d.verified, false),
       desc:d.desc||d.bio||d.description||'',
       _data:d,
       _supabase:true
@@ -2702,7 +2760,7 @@ var hmAuth = (function(){
     if(typeof loadBackendWantList==='function') setTimeout(loadBackendWantList, 50);
     if(window.ADM && typeof ADM.loadBackendRatings==='function') setTimeout(ADM.loadBackendRatings, 80);
     /* Role-appropriate landing page. Load seller rows first so live-only pages do not render empty. */
-    var landing = p.role==='admin' ? 'admin' : p.role==='seller' ? 'admin' : p.role==='buyer' ? 'profile' : 'home';
+    var landing = p.role==='admin' ? 'admin' : p.role==='seller' ? 'profile' : p.role==='buyer' ? 'profile' : 'home';
     if(opts.preservePage){
       loadLiveSellers(function(){ try{ renderCurrentPage(); }catch(e){} });
     }else{
@@ -3545,7 +3603,10 @@ function tbadge(t){
   return '';
 }
 function tg(txt,cls=''){return `<span class="tag ${cls}">${txt}</span>`;}
-function minP(s){return Math.min(...s.items.map(i=>i.p));}
+function minP(s){
+  var items = (s && Array.isArray(s.items) && s.items.length) ? s.items : [{p:100}];
+  return Math.min.apply(null, items.map(function(i){return hmNumber(i && i.p, 100);}));
+}
 
 
 /* ══════════════════════════════════════════════════════════════════════════
