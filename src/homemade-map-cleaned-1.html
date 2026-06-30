@@ -1102,7 +1102,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.56';
+const APP_VERSION='4.57';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -2602,8 +2602,8 @@ var hmAuth = (function(){
       _sb.from('sellers').select('*').eq('auth_id', user.id).maybeSingle()
       .then(function(res){
         if(res.data || (profileRow && profileRow.role === 'seller')){
-          var seller = res.data || {};
-          _profile = {role:'seller', displayName:seller.name || (profileRow && profileRow.display_name) || fallbackName, sellerId:seller.id || null, authId:user.id, email:user.email, loginEmail:user.email, raw:seller};
+          var seller = res.data || null;
+          _profile = {role:'seller', displayName:(seller && seller.name) || (profileRow && profileRow.display_name) || fallbackName, sellerId:(seller && seller.id) || null, authId:user.id, email:(seller && seller.email) || user.email, loginEmail:user.email, raw:seller || {data:{}, needsSellerLink:true}, needsSellerLink:!seller};
           cb(_profile); return;
         }
 
@@ -2638,7 +2638,7 @@ var hmAuth = (function(){
     ST.bp.displayName = p.displayName || p.role;
     applyStoredPreferences(p);
     ST.bp.displayName = p.displayName || ST.bp.displayName || p.role;
-    if(p.role==='seller') SELLER_OWN_ID = p.sellerId || 1;
+    SELLER_OWN_ID = p.role==='seller' ? (p.sellerId || null) : null;
     /* Reset any stale state from previous session */
     if(!opts.preservePage){
       ST.scrollPos = {};
@@ -6723,6 +6723,10 @@ function togPEq(eq){ST.pf.equipmentProvided=ST.pf.equipmentProvided||[];ST.pf.eq
 /* ══════════════ SELLER DASHBOARD ══════════════ */
 // In production this would be the authenticated seller's own listing ID.
 var SELLER_OWN_ID = null;
+var ADMIN_SELLER_REQUESTS = [];
+var ADMIN_SELLER_REQUESTS_LOADED = false;
+var ADMIN_SELLER_REQUESTS_LOADING = false;
+var ADMIN_SELLER_REQUESTS_ERROR = '';
 
 /* ══════════════════════════════════════════════════
    TEST SELLER PROFILES — Phase 2 QA
@@ -7850,6 +7854,7 @@ function rProfile(){
       {id:'myprefs',label:'🎛️ My Preferences'},
     ];
     var adminTabs=[
+      {id:'requests',  label:'Seller Requests'},
       {id:'today',     label:'📊 Today'},
       {id:'analytics', label:'📈 Analytics'},
       {id:'sellers',   label:'🍳 Sellers'},
@@ -7892,6 +7897,7 @@ function rProfile(){
     ? (_selTab==='myprefs' ? buildDietPanel()+buildSellerPrefsPanel(saved)
         : _selTab==='analytics' ? buildAdminAnalyticsTab()
         : _selTab==='sellers'   ? buildAdminSellersTab()
+        : _selTab==='requests'  ? buildAdminSellerRequestsTab()
         : _selTab==='lifecycle' ? buildAdminLifecycleTab()
         : _selTab==='events'    ? buildAdminEventsTab()
         : _selTab==='ratings'   ? buildAdminRatingsTab()
@@ -8009,7 +8015,19 @@ function hmField(id){
 function hmOwnSeller(){
   var p=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
   var sid=(p&&p.sellerId)||SELLER_OWN_ID;
-  return SELLERS.find(function(s){return s.id===sid;}) || (p&&p.raw) || null;
+  if(!sid) return null;
+  return SELLERS.find(function(s){return s.id===sid;}) || null;
+}
+function sellerProfileLinkNotice(){
+  var p=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
+  var email=(p&&p.loginEmail)||(p&&p.email)||'this account';
+  return '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:var(--shadow)">'
+    +'<div style="display:flex;gap:12px;align-items:flex-start">'
+      +'<div style="width:42px;height:42px;border-radius:14px;background:rgba(20,184,166,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--teal);font-weight:900">'+ic('shld',20,'var(--teal)')+'</div>'
+      +'<div><div style="font-size:16px;font-weight:800;color:var(--heading)">Seller profile not linked yet</div>'
+      +'<div style="font-size:13px;color:var(--body);line-height:1.55;margin-top:6px">This account has seller access, but it is not connected to a seller listing yet. In Supabase, link a row in <strong>sellers</strong> to <strong>'+hmText(email)+'</strong> by setting <strong>sellers.auth_id</strong> to this user id.</div></div>'
+    +'</div>'
+  +'</div>';
 }
 function profileImagePreview(url, fallback, px){
   var size=px||92;
@@ -8025,7 +8043,8 @@ function profileTextarea(label, id, value, placeholder, rows){
 }
 function buildSellerStorefrontPanel(){
   var p=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
-  var s=hmOwnSeller() || {};
+  var s=hmOwnSeller();
+  if(!s) return sellerProfileLinkNotice();
   var d=s.data || {};
   var storePic=d.storePic || s.img || '';
   var avatar=d.avatar || d.icon || '';
@@ -8147,7 +8166,7 @@ function assignSellerAdvertImage(sid, url, path){
 function saveSellerStorefront(){
   var p=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
   var s=hmOwnSeller();
-  if(!p || !s || !s.id){ showToast('Seller profile is still loading.'); return; }
+  if(!p || !s || !s.id){ showToast('Seller profile is not linked yet.'); return; }
   var data=Object.assign({}, s._data||s.data||{}, {storeName:hmField('seller_store_name'),contactName:hmField('seller_contact_name'),contactEmail:hmField('seller_contact_email'),phone:hmField('seller_phone'),address:hmField('seller_address'),paymentInfo:hmField('seller_payment'),bio:hmField('seller_bio'),storePic:hmField('seller_store_pic'),avatar:hmField('seller_avatar')});
   var values={name:data.storeName || s.name,seller:data.contactName || s.seller,email:data.contactEmail || s.email || p.email,wa:data.phone || s.wa,data:data};
   hmAuth.update('sellers',{id:s.id},values,function(res){
@@ -8192,6 +8211,7 @@ function refreshDashContent(){
     html=(tab==='myprefs'   ?buildDietPanel()+buildSellerPrefsPanel(saved)
          :tab==='analytics' ?buildAdminAnalyticsTab()
          :tab==='sellers'   ?buildAdminSellersTab()
+         :tab==='requests'  ?buildAdminSellerRequestsTab()
          :tab==='lifecycle' ?buildAdminLifecycleTab()
          :tab==='events'    ?buildAdminEventsTab()
          :tab==='ratings'   ?buildAdminRatingsTab()
@@ -9296,6 +9316,197 @@ function buildAdminSellersTab(){
 }
 
 /* ── Admin Lifecycle Tab ── */
+/* Admin Seller Requests Tab */
+function adminSellerRequestKey(id){
+  return String(id||'').replace(/[^a-zA-Z0-9_-]/g,'_');
+}
+
+function loadAdminSellerRequests(force, cb){
+  if(ST.role!=='admin'){ if(cb) cb(false); return; }
+  if(!force && ADMIN_SELLER_REQUESTS_LOADED){ if(cb) cb(true); return; }
+  if(ADMIN_SELLER_REQUESTS_LOADING){ if(cb) setTimeout(function(){ cb(ADMIN_SELLER_REQUESTS_LOADED); }, 250); return; }
+  ADMIN_SELLER_REQUESTS_LOADING = true;
+  ADMIN_SELLER_REQUESTS_ERROR = '';
+  if(!hmAuth || !hmAuth.rpc || (hmAuth.isDemoMode && hmAuth.isDemoMode())){
+    ADMIN_SELLER_REQUESTS = [];
+    ADMIN_SELLER_REQUESTS_LOADED = true;
+    ADMIN_SELLER_REQUESTS_LOADING = false;
+    if(cb) cb(true);
+    return;
+  }
+  hmAuth.rpc('home_made_admin_seller_access_requests',{},function(res){
+    ADMIN_SELLER_REQUESTS_LOADING = false;
+    ADMIN_SELLER_REQUESTS_LOADED = true;
+    if(res && res.error){
+      ADMIN_SELLER_REQUESTS_ERROR = res.error;
+      if(cb) cb(false);
+      return;
+    }
+    ADMIN_SELLER_REQUESTS = Array.isArray(res && res.data) ? res.data : [];
+    if(cb) cb(true);
+  });
+}
+
+function adminSellerRequestStatus(status){
+  var s=String(status||'pending').toLowerCase();
+  var color=s==='approved'?'var(--lime)':s==='rejected'?'var(--red)':'var(--amber)';
+  var bg=s==='approved'?'var(--lime-l)':s==='rejected'?'rgba(220,38,38,.08)':'var(--amber-l)';
+  return '<span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border:1px solid '+color+';color:'+color+';background:'+bg+';border-radius:100px;padding:4px 9px">'+hmText(s)+'</span>';
+}
+
+function buildAdminSellerRequestsTab(){
+  if(!ADMIN_SELLER_REQUESTS_LOADED && !ADMIN_SELLER_REQUESTS_LOADING){
+    loadAdminSellerRequests(false,function(){
+      if(ST.role==='admin' && window._profDashTab && window._profDashTab.admin==='requests') refreshDashContent();
+    });
+  }
+  if(ADMIN_SELLER_REQUESTS_LOADING && !ADMIN_SELLER_REQUESTS_LOADED){
+    return '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:22px;box-shadow:var(--shadow);font-size:13px;color:var(--muted)">Loading seller access requests...</div>';
+  }
+  if(ADMIN_SELLER_REQUESTS_ERROR){
+    return '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:18px;box-shadow:var(--shadow)">'
+      +'<div style="font-size:16px;font-weight:800;color:var(--heading);margin-bottom:6px">Could not load seller requests</div>'
+      +'<div style="font-size:13px;color:var(--red);line-height:1.5;margin-bottom:12px">'+hmText(ADMIN_SELLER_REQUESTS_ERROR)+'</div>'
+      +'<button class="btn btn-a btn-sm" onclick="ADMIN_SELLER_REQUESTS_LOADED=false;loadAdminSellerRequests(true,function(){refreshDashContent();})">'+ic('zap',14,'#fff')+' Retry</button>'
+    +'</div>';
+  }
+
+  var filter=window._adminSellerRequestFilter||'pending';
+  var rows=ADMIN_SELLER_REQUESTS.slice();
+  var pending=rows.filter(function(r){return r.status==='pending';}).length;
+  var approved=rows.filter(function(r){return r.status==='approved';}).length;
+  var rejected=rows.filter(function(r){return r.status==='rejected';}).length;
+  var visible=filter==='all'?rows:rows.filter(function(r){return r.status===filter;});
+  var filters=[
+    {id:'pending',label:'Pending',count:pending},
+    {id:'approved',label:'Approved',count:approved},
+    {id:'rejected',label:'Rejected',count:rejected},
+    {id:'all',label:'All',count:rows.length}
+  ];
+  var filterBar='<div style="display:flex;gap:6px;overflow-x:auto;padding:2px 0 4px;margin-bottom:12px;scrollbar-width:none">'
+    +filters.map(function(f){
+      var on=filter===f.id;
+      return '<button onclick="window._adminSellerRequestFilter=\''+f.id+'\';refreshDashContent()" style="flex:0 0 auto;border:1.5px solid '+(on?'var(--accent)':'var(--border)')+';background:'+(on?'var(--accent)':'var(--surface)')+';color:'+(on?'#fff':'var(--muted)')+';border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;font-family:var(--font-body);cursor:pointer">'+f.label+' <span style="opacity:.75">'+f.count+'</span></button>';
+    }).join('')
+  +'</div>';
+
+  var summary='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">'
+    +[{l:'Pending',v:pending,c:'var(--amber)'},{l:'Approved',v:approved,c:'var(--lime)'},{l:'Rejected',v:rejected,c:'var(--red)'}].map(function(s){
+      return '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:14px;box-shadow:var(--shadow)">'
+        +'<div style="font-size:24px;font-weight:800;color:'+s.c+';font-family:var(--font-head)">'+s.v+'</div>'
+        +'<div style="font-size:11px;color:var(--muted);margin-top:2px">'+s.l+' requests</div>'
+      +'</div>';
+    }).join('')
+  +'</div>';
+
+  var regionOpts=REGIONS.slice(1).map(function(r){return '<option value="'+hmText(r)+'">'+hmText(r)+'</option>';}).join('');
+  var catOpts=CATS.filter(function(c){return c.id!=='all';}).map(function(c){return '<option value="'+hmText(c.id)+'">'+hmText(c.l)+'</option>';}).join('');
+  var cards=visible.map(function(req){
+    var key=adminSellerRequestKey(req.id);
+    var created=req.created_at ? new Date(req.created_at).toLocaleString('en-ZA',{dateStyle:'medium',timeStyle:'short'}) : '';
+    var linked=req.linked_seller_id ? 'Linked to seller #'+req.linked_seller_id+' - '+(req.linked_seller_name||'Seller') : 'No seller row linked yet';
+    var pendingCard=req.status==='pending';
+    return '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:16px;box-shadow:var(--shadow)">'
+      +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px">'
+        +'<div style="min-width:0"><div style="font-size:16px;font-weight:800;color:var(--heading);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+hmText(req.request_name||'Seller request')+'</div>'
+        +'<div style="font-size:12px;color:var(--muted);line-height:1.5;margin-top:3px">'+hmText(req.profile_email||'No email on profile')+' - '+hmText(req.user_id||'')+'</div></div>'
+        +adminSellerRequestStatus(req.status)
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-bottom:12px">'
+        +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px"><div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase">Requested</div><div style="font-size:12px;color:var(--heading);font-weight:700;margin-top:3px">'+hmText(created)+'</div></div>'
+        +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px"><div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase">Current Link</div><div style="font-size:12px;color:var(--heading);font-weight:700;margin-top:3px">'+hmText(linked)+'</div></div>'
+      +'</div>'
+      +(req.notes?'<div style="font-size:13px;color:var(--body);line-height:1.55;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:12px">'+hmText(req.notes)+'</div>':'')
+      +(pendingCard
+        ? '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:10px">'
+            +profileInput('Store Name','asr-name-'+key,req.request_name||'','Kitchen or business name')
+            +'<div><div class="lsm" style="margin-bottom:7px">Area</div><select id="asr-region-'+key+'" class="inp">'+regionOpts+'</select></div>'
+            +'<div><div class="lsm" style="margin-bottom:7px">Category</div><select id="asr-category-'+key+'" class="inp">'+catOpts+'</select></div>'
+            +profileInput('WhatsApp Number','asr-wa-'+key,'','27821234567','tel')
+            +profileInput('Existing Seller ID','asr-existing-'+key,'','Optional listing ID','number')
+          +'</div>'
+          +'<div style="margin-bottom:12px">'+profileTextarea('Admin Note','asr-note-'+key,'','Optional approval/rejection note',2)+'</div>'
+          +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+            +'<button id="asr-approve-'+key+'" class="btn btn-a btn-sm" onclick="approveSellerAccessRequest(\''+hmJs(req.id)+'\')">'+ic('chk',14,'#fff')+' Approve & Link Seller</button>'
+            +'<button id="asr-reject-'+key+'" class="btn btn-ol btn-sm" onclick="rejectSellerAccessRequest(\''+hmJs(req.id)+'\')" style="border-color:var(--red);color:var(--red)">'+ic('x',14,'var(--red)')+' Reject</button>'
+          +'</div>'
+        : '<div style="font-size:12px;color:var(--muted);line-height:1.5">'+hmText(req.admin_notes||'No admin note recorded.')+'</div>'
+      )
+    +'</div>';
+  }).join('');
+
+  return '<div style="display:flex;flex-direction:column;gap:14px">'
+    +'<div style="background:linear-gradient(135deg,#1E0E04,#3A1A08);border-radius:18px;padding:18px 20px;box-shadow:var(--shadow-lg)">'
+      +'<div style="font-size:11px;font-weight:800;color:rgba(255,255,255,.62);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Buyer to seller conversion</div>'
+      +'<div style="font-family:var(--font-head);font-size:23px;color:#fff;line-height:1.15">Seller Access Requests</div>'
+      +'<div style="font-size:13px;color:rgba(255,255,255,.72);line-height:1.55;margin-top:8px;max-width:760px">Review buyer requests, create or link their seller listing, and promote their profile in one secure admin action.</div>'
+    +'</div>'
+    +summary
+    +filterBar
+    +(visible.length?'<div style="display:flex;flex-direction:column;gap:12px">'+cards+'</div>':'<div style="padding:28px;text-align:center;color:var(--muted);font-size:13px;border:1.5px dashed var(--border);border-radius:14px;background:var(--surface)">No '+hmText(filter)+' seller requests.</div>')
+  +'</div>';
+}
+
+function approveSellerAccessRequest(reqId){
+  if(ST.role!=='admin'){ showToast('Admin access required.'); return; }
+  var key=adminSellerRequestKey(reqId);
+  var name=hmField('asr-name-'+key);
+  var region=(document.getElementById('asr-region-'+key)||{}).value||'Durban CBD';
+  var category=(document.getElementById('asr-category-'+key)||{}).value||'african';
+  var wa=hmField('asr-wa-'+key);
+  var existingRaw=hmField('asr-existing-'+key);
+  var note=hmField('asr-note-'+key) || 'Approved from Home-Made admin dashboard.';
+  var existingId=null;
+  if(existingRaw){
+    existingId=parseInt(existingRaw,10);
+    if(!Number.isFinite(existingId)){ showToast('Existing seller ID must be a number.'); return; }
+  }
+  if(!name){ showToast('Please enter the store name before approval.'); return; }
+  if(!hmAuth || !hmAuth.rpc){ showToast('Seller approval service is unavailable.'); return; }
+  var btn=document.getElementById('asr-approve-'+key);
+  if(btn){ btn.disabled=true; btn.textContent='Approving...'; }
+  hmAuth.rpc('home_made_approve_seller_access_request',{
+    request_id:reqId,
+    seller_name:name,
+    seller_region:region,
+    seller_category:category,
+    seller_whatsapp:wa,
+    existing_seller_id:existingId,
+    admin_note:note
+  },function(res){
+    if(res && res.error){
+      showToast('Could not approve seller request: '+res.error);
+      if(btn){ btn.disabled=false; btn.innerHTML=ic('chk',14,'#fff')+' Approve & Link Seller'; }
+      return;
+    }
+    showToast('Seller access approved.');
+    ADMIN_SELLER_REQUESTS_LOADED=false;
+    loadAdminSellerRequests(true,function(){
+      loadLiveSellers(function(){ refreshDashContent(); });
+    });
+  });
+}
+
+function rejectSellerAccessRequest(reqId){
+  if(ST.role!=='admin'){ showToast('Admin access required.'); return; }
+  if(!confirm('Reject this seller access request?')) return;
+  var key=adminSellerRequestKey(reqId);
+  var note=hmField('asr-note-'+key) || 'Rejected from Home-Made admin dashboard.';
+  var btn=document.getElementById('asr-reject-'+key);
+  if(btn){ btn.disabled=true; btn.textContent='Rejecting...'; }
+  hmAuth.rpc('home_made_reject_seller_access_request',{request_id:reqId,admin_note:note},function(res){
+    if(res && res.error){
+      showToast('Could not reject seller request: '+res.error);
+      if(btn){ btn.disabled=false; btn.innerHTML=ic('x',14,'var(--red)')+' Reject'; }
+      return;
+    }
+    showToast('Seller request rejected.');
+    ADMIN_SELLER_REQUESTS_LOADED=false;
+    loadAdminSellerRequests(true,function(){ refreshDashContent(); });
+  });
+}
+
+/* Admin Lifecycle Tab */
 function buildAdminLifecycleTab(){
   var ret=ADM.sellerRetention;
   var tiers=[{k:'platinum',l:'Platinum',c:'var(--gold)'},{k:'gold',l:'Gold',c:'var(--amber)'},{k:'standard',l:'Standard',c:'var(--muted)'}];
