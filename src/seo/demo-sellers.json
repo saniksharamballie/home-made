@@ -14,7 +14,7 @@
       "healthTags": ["Mild Spice"],
       "rat": 4.9,
       "rev": 86,
-      "img": "/demo-ads/thandi-spice-pot.svg",
+      "img": "/images/home-passion-income.jpeg",
       "items": [
         {"n": "Mutton Bunny Chow", "p": 95, "svs": "1 person"},
         {"n": "Chicken Breyani", "p": 80, "svs": "1 person"},
@@ -37,7 +37,7 @@
       "healthTags": ["High Protein", "Senior-Friendly"],
       "rat": 4.8,
       "rev": 54,
-      "img": "/demo-ads/gogo-naledi-kitchen.svg",
+      "img": "/images/home-passion-income.jpeg",
       "items": [
         {"n": "Beef Stew Sunday Plate", "p": 90, "svs": "1 person"},
         {"n": "Samp & Beans Bowl", "p": 55, "svs": "1 person"},
@@ -60,7 +60,7 @@
       "healthTags": ["High Protein"],
       "rat": 4.6,
       "rev": 21,
-      "img": "/demo-ads/coastal-curry-cart.svg",
+      "img": "/images/home-passion-income.jpeg",
       "items": [
         {"n": "Prawn Curry & Rice", "p": 120, "svs": "1 person"},
         {"n": "Fish Curry & Roti", "p": 95, "svs": "1 person"},
@@ -83,7 +83,7 @@
       "healthTags": ["Lunchbox-Friendly", "Kidney-Friendly"],
       "rat": 4.7,
       "rev": 42,
-      "img": "/demo-ads/mamas-lunchbox.svg",
+      "img": "/images/home-passion-income.jpeg",
       "items": [
         {"n": "Chicken Wrap Lunchbox", "p": 60, "svs": "1 person"},
         {"n": "Veg Pasta Tub", "p": 55, "svs": "1 person"},
@@ -106,7 +106,7 @@
       "healthTags": ["High Protein"],
       "rat": 5,
       "rev": 73,
-      "img": "/demo-ads/sipho-smokehouse.svg",
+      "img": "/images/home-passion-income.jpeg",
       "items": [
         {"n": "Sticky Rib Plate", "p": 135, "svs": "1 person"},
         {"n": "Shisa Nyama Box", "p": 110, "svs": "1 person"},

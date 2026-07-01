@@ -44,7 +44,7 @@ const sellers = [
       rev: 86,
       ord: "320+",
       e: "🍛",
-      img: "/demo-ads/thandi-spice-pot.svg",
+      img: "/images/home-passion-income.jpeg",
       bg: "linear-gradient(135deg,#FFF0E0,#FFE0C0)",
       ec: "#C44410",
       items: [
@@ -77,7 +77,7 @@ const sellers = [
       rev: 54,
       ord: "180+",
       e: "🥘",
-      img: "/demo-ads/gogo-naledi-kitchen.svg",
+      img: "/images/home-passion-income.jpeg",
       bg: "linear-gradient(135deg,#F2EAD8,#DDE8C6)",
       ec: "#7A8B52",
       items: [
@@ -110,7 +110,7 @@ const sellers = [
       rev: 21,
       ord: "45+",
       e: "🦞",
-      img: "/demo-ads/coastal-curry-cart.svg",
+      img: "/images/home-passion-income.jpeg",
       bg: "linear-gradient(135deg,#E8F8FF,#FFEBD4)",
       ec: "#0094C8",
       items: [
@@ -143,7 +143,7 @@ const sellers = [
       rev: 42,
       ord: "130+",
       e: "🌮",
-      img: "/demo-ads/mamas-lunchbox.svg",
+      img: "/images/home-passion-income.jpeg",
       bg: "linear-gradient(135deg,#FFE4EC,#FFF3D6)",
       ec: "#D96A1D",
       items: [
@@ -176,7 +176,7 @@ const sellers = [
       rev: 73,
       ord: "260+",
       e: "🍖",
-      img: "/demo-ads/sipho-smokehouse.svg",
+      img: "/images/home-passion-income.jpeg",
       bg: "linear-gradient(135deg,#2E1C12,#7A2E12)",
       ec: "#D48A00",
       items: [
