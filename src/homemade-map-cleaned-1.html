@@ -911,7 +911,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.63</strong><small>Production build</small>
+      <span>Version</span><strong>v4.64</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -1115,7 +1115,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.63';
+const APP_VERSION='4.64';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -3274,6 +3274,33 @@ var hmAuth = (function(){
     return function(){ _sb.removeChannel(ch); }; /* returns unsubscribe fn */
   }
 
+  function apiFetch(path, options, cb){
+    if(_demoMode||!_sb){ if(cb) cb({error:'Sign in is required'}); return; }
+    if(typeof options==='function'){ cb=options; options={}; }
+    options=options||{};
+    _sb.auth.getSession().then(function(res){
+      var session=res.data&&res.data.session;
+      var token=session&&session.access_token;
+      if(!token){ if(cb) cb({error:'Sign in is required'}); return; }
+      var headers=Object.assign({'Content-Type':'application/json',Authorization:'Bearer '+token},options.headers||{});
+      var req={method:options.method||'GET',headers:headers};
+      if(options.body!==undefined) req.body=typeof options.body==='string'?options.body:JSON.stringify(options.body);
+      fetch(path,req).then(function(response){
+        return response.text().then(function(text){
+          var data=null;
+          try{data=text?JSON.parse(text):{};}catch(e){data={raw:text};}
+          if(!response.ok){
+            if(cb) cb({error:(data&&data.error)||('Request failed: '+response.status),details:data&&data.details,status:response.status});
+            return;
+          }
+          if(cb) cb(Object.assign({ok:true},data||{}));
+        });
+      }).catch(function(err){
+        if(cb) cb({error:err&&err.message?err.message:'Network error'});
+      });
+    });
+  }
+
   function scopedStorageFolder(folder){
     var safeFolder = folder || 'listing-uploads';
     if(['listing-uploads','seller-profiles','buyer-profiles'].indexOf(safeFolder) < 0) return safeFolder;
@@ -3697,6 +3724,7 @@ var hmAuth = (function(){
           createAccount:createAccount, checkAccountExists:checkAccountExists, sendPasswordReset:sendPasswordReset, updatePassword:updatePassword,
           showAuthAction:showAuthAction, showSellerSignup:showSellerSignup, setSignupProfileType:setSignupProfileType, submitAuthAction:submitAuthAction, passwordMatchHint:passwordMatchHint, submitNewPassword:submitNewPassword,
           insert:insert, update:update, remove:remove, upsert:upsert, select:select, rpc:rpc, subscribe:subscribe,
+          apiFetch:apiFetch,
           uploadPublicImage:uploadPublicImage, listPublicImages:listPublicImages,
           getProfile:getProfile, isDemoMode:isDemoMode, togglePasswordField:togglePasswordField,
           submitLogin:submitLogin, _demoSkip:_demoSkip, showLogin:showLogin,
@@ -13338,6 +13366,75 @@ function useRateLink(){
 /* ══════════════════════════════════════════════════════════
    PHASE 4 — PRICING PAGE
 ══════════════════════════════════════════════════════════ */
+function currentSellerForPayment(){
+  if(ST.role!=='seller') return null;
+  return SELLERS.find(function(x){return x.id===SELLER_OWN_ID;})||null;
+}
+
+function payfastReturnNotice(){
+  try{
+    var p=new URLSearchParams(window.location.search);
+    var state=p.get('payment');
+    if(!state) return '';
+    var ref=p.get('ref')||'';
+    var isSuccess=state==='payfast-success';
+    var isCancelled=state==='payfast-cancelled';
+    if(!isSuccess&&!isCancelled) return '';
+    return '<div style="margin:0 0 16px;padding:13px 15px;border-radius:14px;border:1.5px solid '+(isSuccess?'rgba(44,184,80,.28)':'rgba(229,90,24,.24)')+';background:'+(isSuccess?'rgba(44,184,80,.08)':'rgba(229,90,24,.08)')+';color:var(--body);font-size:13px;line-height:1.55">'
+      +'<b style="color:var(--heading)">'+(isSuccess?'Payment started':'Payment cancelled')+'</b><br>'
+      +(isSuccess?'We are waiting for PayFast confirmation. Your tier updates automatically once PayFast confirms the payment.':'No payment was completed. You can restart the upgrade whenever you are ready.')
+      +(ref?'<div style="font-size:11px;color:var(--muted);margin-top:5px">Reference: '+hmText(ref)+'</div>':'')
+    +'</div>';
+  }catch(e){return '';}
+}
+
+function submitPayFastForm(endpoint, fields){
+  var old=document.getElementById('hm-payfast-form');
+  if(old) old.remove();
+  var form=document.createElement('form');
+  form.id='hm-payfast-form';
+  form.method='POST';
+  form.action=endpoint;
+  form.style.display='none';
+  Object.keys(fields||{}).forEach(function(key){
+    var input=document.createElement('input');
+    input.type='hidden';
+    input.name=key;
+    input.value=fields[key];
+    form.appendChild(input);
+  });
+  document.body.appendChild(form);
+  form.submit();
+}
+
+function startPayFastUpgrade(plan){
+  var seller=currentSellerForPayment();
+  if(!seller){hmAuth.requireLogin(function(){nav('pricing');});return;}
+  if(window._payfastBusy){return;}
+  var billing=window._pricingBilling||'monthly';
+  var planLabel=plan==='platinum'?'Platinum':'Gold';
+  window._payfastBusy=true;
+  showToast('Opening secure PayFast checkout for '+planLabel+'...');
+  rPricing();
+  hmAuth.apiFetch('/api/payfast/create-payment',{
+    method:'POST',
+    body:{plan:plan,billing:billing,sellerId:seller.id}
+  },function(res){
+    window._payfastBusy=false;
+    if(res.error){
+      showToast('PayFast setup needs attention: '+res.error);
+      rPricing();
+      return;
+    }
+    if(!res.endpoint||!res.fields){
+      showToast('PayFast did not return a checkout form.');
+      rPricing();
+      return;
+    }
+    submitPayFastForm(res.endpoint,res.fields);
+  });
+}
+
 function rPricing(){
   var el=document.getElementById('page-pricing');
   if(!el) return;
@@ -13471,7 +13568,7 @@ function rPricing(){
       ?'<div style="width:100%;padding:12px;border-radius:12px;background:var(--bg);border:1.5px solid var(--border);text-align:center;font-size:13px;color:var(--muted)">Lower tier</div>'
       :price===0
       ?'<div style="width:100%;padding:12px;border-radius:12px;background:var(--bg);border:1.5px solid var(--border);text-align:center;font-size:13px;font-weight:700;color:var(--muted)">Free — No action needed</div>'
-      :'<button onclick="alert(\'Payment integration coming soon — upgrade flow will be wired to Stripe/PayFast here.\')" '
+      :'<button onclick="startPayFastUpgrade(\''+p.id+'\')" '
         +'style="width:100%;padding:13px;border:none;border-radius:12px;'
         +(p.highlight
           ?'background:linear-gradient(135deg,var(--plat-a),var(--plat-b));color:#2A1800;'
@@ -13480,6 +13577,17 @@ function rPricing(){
         +' onmouseover="this.style.opacity=\'.88\'" onmouseout="this.style.opacity=\'1\'">'
         +(p.highlight?'⭐ ':'🚀 ')+p.ctaLabel
       +'</button>';
+    if(!isCurrent&&!isLower&&price!==0){
+      ctaHtml='<button onclick="startPayFastUpgrade(\''+p.id+'\')" '+(window._payfastBusy?'disabled aria-busy="true" ':'')
+        +'style="width:100%;padding:13px;border:none;border-radius:12px;'
+        +(p.highlight
+          ?'background:linear-gradient(135deg,var(--plat-a),var(--plat-b));color:#2A1800;'
+          :'background:linear-gradient(135deg,var(--accent),var(--accent-d));color:#fff;')
+        +'font-size:14px;font-weight:800;cursor:'+(window._payfastBusy?'wait':'pointer')+';font-family:var(--font-body);transition:opacity .15s;display:flex;align-items:center;justify-content:center;gap:7px;'+(window._payfastBusy?'opacity:.72;':'')+'"'
+        +' onmouseover="if(!this.disabled)this.style.opacity=\'.88\'" onmouseout="if(!this.disabled)this.style.opacity=\'1\'">'
+        +(window._payfastBusy?'Opening PayFast...':((p.highlight?'â­ ':'ðŸš€ ')+p.ctaLabel))
+      +'</button>';
+    }
     return '<div style="background:'+(p.highlight?'linear-gradient(180deg,rgba(184,146,10,.04),rgba(184,146,10,.02))':p.colorBg)+';'
       +'border:2px solid '+(isCurrent?'var(--lime)':p.colorBorder)+';border-radius:20px;padding:20px;position:relative;'
       +'box-shadow:'+(p.highlight?'0 8px 32px rgba(184,146,10,.18)':'var(--shadow)')+';transition:transform .15s,box-shadow .15s;'
@@ -13653,6 +13761,7 @@ function rPricing(){
       +'</div>'
     +'</div>'
     +'<div style="padding:28px 20px">'
+      +payfastReturnNotice()
       /* Social proof strip */
       +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:24px">'
         +[{v:'400+',l:'Active sellers'},{v:'3×',l:'Avg order uplift'},{v:'R3,800',l:'Avg Gold monthly gain'}].map(function(s){
@@ -15626,7 +15735,7 @@ function renderPassport(){
       .catch(function(){
         /* Fall back to inline blob SW with smart caching */
         var swCode = [
-          'var SV="hm-v61",SH=SV+"-shell",IM=SV+"-img",DT=SV+"-data";',
+          'var SV="hm-v62",SH=SV+"-shell",IM=SV+"-img",DT=SV+"-data";',
           'self.addEventListener("install",function(e){',
           '  e.waitUntil(caches.open(SH).then(function(c){return c.addAll(["./"]);})',
           '    .then(function(){return self.skipWaiting();})',
