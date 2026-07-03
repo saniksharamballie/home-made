@@ -911,7 +911,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9997;pointer-events:none;
       <span id="sb-rbadge" class="rpill bstd">buyer</span>
     </div>
     <div class="sb-version" aria-label="App version">
-      <span>Version</span><strong>v4.64</strong><small>Production build</small>
+      <span>Version</span><strong>v4.67</strong><small>Production build</small>
     </div>
   </div>
 </aside>
@@ -1115,7 +1115,7 @@ const HEALTH_FILTERS=[
 // All filters combined (dietary + health) for convenience
 const ALL_FILTERS=[...DIETARY,...HEALTH_FILTERS.map(h=>h.id)];
 const REGIONS=['All Areas','Umhlanga','La Lucia','Durban North','Berea','Musgrave','Durban CBD','Westville','Pinetown','Chatsworth','Amanzimtoti'];
-const APP_VERSION='4.64';
+const APP_VERSION='4.67';
 const APP_RELEASE='Production';
 
 function cleanSidebarLabels(){
@@ -1223,6 +1223,96 @@ function hmNumber(value, fallback){
   var raw = typeof value === 'string' ? value.replace(/[^0-9.-]/g,'') : value;
   var n = Number(raw);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function tierRank(t){
+  return ({standard:0,gold:1,platinum:2})[String(t||'standard').toLowerCase()] || 0;
+}
+
+function tierDisplayLabel(t){
+  t=String(t||'standard').toLowerCase();
+  if(t==='platinum') return 'Platinum Seller';
+  if(t==='gold') return 'Gold Seller';
+  return 'Standard Seller';
+}
+
+var TIER_PRICES={standard:0,gold:149,platinum:299};
+var TIER_TRIAL_DAYS={standard:0,gold:7,platinum:3};
+
+function tierMonthlyPrice(t){
+  return TIER_PRICES[String(t||'standard').toLowerCase()] || 0;
+}
+
+function tierTrialDays(t){
+  return TIER_TRIAL_DAYS[String(t||'standard').toLowerCase()] || 0;
+}
+
+function tierPriceLabel(t){
+  var price=tierMonthlyPrice(t);
+  return price ? 'R'+price+'/mo' : 'Free';
+}
+
+function nextSellerTier(t){
+  t=String(t||'standard').toLowerCase();
+  if(t==='standard') return 'gold';
+  if(t==='gold') return 'platinum';
+  return '';
+}
+
+function sellerTierClass(t){
+  t=String(t||'standard').toLowerCase();
+  if(t==='platinum') return 'bp';
+  if(t==='gold') return 'bgold';
+  return 'bstd';
+}
+
+function sellerBirthdayValue(s){
+  var d=(s&&(s._data||s.data))||{};
+  return d.sellerBirthMonth || d.birthMonth || d.sellerDob || d.dateOfBirth || d.dob || d.birthDate || '';
+}
+
+function isBirthdayMonth(value){
+  if(!value) return false;
+  var raw=String(value).trim();
+  var month=0;
+  if(/^\d{1,2}$/.test(raw)){
+    month=parseInt(raw,10);
+  }else{
+    var parts=raw.slice(0,10).split('-');
+    if(parts.length<2) return false;
+    month=parseInt(parts[1],10);
+  }
+  if(!month || month<1 || month>12) return false;
+  return month === (new Date().getMonth()+1);
+}
+
+function sellerBaseTier(s){
+  if(!s) return 'standard';
+  var d=s._data||s.data||{};
+  return String(s.baseTier || d.baseTier || d.paidTier || d.adminTierPrevious || s.tier || d.tier || 'standard').toLowerCase();
+}
+
+function sellerEffectiveTier(s){
+  if(!s) return 'standard';
+  var d=s._data||s.data||{};
+  var base=String(s.baseTier || d.baseTier || d.paidTier || s.tier || d.tier || 'standard').toLowerCase();
+  var effective=base;
+  if(isBirthdayMonth(sellerBirthdayValue(s)) || d.birthdayMonthBoost===true || d.birthdayMonthBoost==='true') effective='platinum';
+  if(d.adminTier){
+    var adminTier=String(d.adminTier||'').toLowerCase();
+    var until=d.adminTierUntil || d.adminPromotionUntil || '';
+    var permanent=d.adminTierPermanent===true || d.adminTierPermanent==='true' || d.adminPromotionPermanent===true || d.adminPromotionPermanent==='true';
+    var stillActive=permanent || !until || isNaN(new Date(until).getTime()) || new Date(until).getTime()>Date.now();
+    if(stillActive && tierRank(adminTier)>tierRank(effective)) effective=adminTier;
+  }
+  return effective;
+}
+
+function applySellerComputedAccess(s){
+  if(!s) return s;
+  s.baseTier=sellerBaseTier(s);
+  s.tier=sellerEffectiveTier(s);
+  return s;
 }
 
 function hmBool(value, fallback){
@@ -1376,8 +1466,10 @@ function mergeLiveSellers(rows){
   if(!rows||!rows.length) return false;
   var changed=false;
   rows.forEach(function(row){
-    var d=row.data||{};
     var id=row.id;
+    var profile=hmAuth&&hmAuth.getProfile?hmAuth.getProfile():null;
+    var ownRaw=(profile&&profile.raw&&String(profile.raw.id)===String(id))?profile.raw:null;
+    var d=Object.assign({}, row.data||{}, (ownRaw&&ownRaw.data)||{});
     var existing=SELLERS.find(function(s){return s.id===id;});
     var sellerName=row.name||d.name||row.seller||'Home-Made Seller';
     var mapped=Object.assign({}, d, {
@@ -1385,6 +1477,7 @@ function mergeLiveSellers(rows){
       name:sellerName,
       seller:row.seller||d.seller||row.name||'Home Chef',
       cat:row.category||d.cat||'african',
+      baseTier:d.baseTier||d.paidTier||row.base_tier||row.tier||d.tier||'standard',
       tier:row.tier||d.tier||'standard',
       region:row.region||d.region||'Durban CBD',
       wa:row.wa||d.wa||'27000000000',
@@ -1414,6 +1507,7 @@ function mergeLiveSellers(rows){
       _data:d,
       _supabase:true
     });
+    applySellerComputedAccess(mapped);
     SELLER_LL[id]=approxSellerLL(id,mapped.region);
     if(existing){ Object.assign(existing, mapped); }
     else { SELLERS.push(mapped); }
@@ -1437,22 +1531,61 @@ function fetchLiveSellerRows(cb){
 }
 
 function loadLiveSellers(cb){
-  if(!hmAuth||hmAuth.isDemoMode()) {
-    fetchLiveSellerRows(function(rows){
-    var changed=mergeLiveSellers(rows);
-    if(changed&&ST&&ST.page){
-        try{ renderCurrentPage(); }catch(e){ console.warn('[Home-Made] page refresh failed:', e.message); }
-      }
-      if(cb) cb(changed);
-    });
-    return;
+  function shouldRetrySmallLiveSet(rows){
+    if(!rows || rows.length!==1) return false;
+    var known=SELLERS.filter(function(s){return s&&s.id;}).length;
+    return known>=3;
   }
-  hmAuth.select('seller_directory',{active:true},function(rows){
+  function finish(rows){
+    if(shouldRetrySmallLiveSet(rows)){
+      console.warn('[Home-Made] Ignoring suspicious one-seller live refresh; keeping current catalogue and retrying in background.');
+      setTimeout(function(){ loadLiveSellers(function(){ try{ renderCurrentPage(); }catch(e){} }); }, 4000);
+      if(cb) cb(false);
+      return;
+    }
     var changed=mergeLiveSellers(rows);
+    if(changed){ try{ updRole(); }catch(e){} }
     if(changed&&ST&&ST.page){
       try{ renderCurrentPage(); }catch(e){ console.warn('[Home-Made] page refresh failed:', e.message); }
     }
     if(cb) cb(changed);
+  }
+  if(!hmAuth||hmAuth.isDemoMode()) {
+    fetchLiveSellerRows(function(rows){
+      if(shouldRetrySmallLiveSet(rows)){
+        setTimeout(function(){
+          fetchLiveSellerRows(function(retryRows){
+            if(shouldRetrySmallLiveSet(retryRows)){
+              setTimeout(function(){
+                fetchLiveSellerRows(function(lastRows){ finish((lastRows&&lastRows.length>1)?lastRows:retryRows); });
+              }, 2200);
+            }else{
+              finish((retryRows&&retryRows.length>=rows.length)?retryRows:rows);
+            }
+          });
+        }, 900);
+        return;
+      }
+      finish(rows);
+    });
+    return;
+  }
+  hmAuth.select('seller_directory',{active:true},function(rows){
+    if(shouldRetrySmallLiveSet(rows)){
+      setTimeout(function(){
+        hmAuth.select('seller_directory',{active:true},function(retryRows){
+          if(shouldRetrySmallLiveSet(retryRows)){
+            setTimeout(function(){
+              hmAuth.select('seller_directory',{active:true},function(lastRows){ finish((lastRows&&lastRows.length>1)?lastRows:retryRows); });
+            }, 2200);
+          }else{
+            finish((retryRows&&retryRows.length>=rows.length)?retryRows:rows);
+          }
+        });
+      }, 900);
+      return;
+    }
+    finish(rows);
   });
 }
 
@@ -2435,6 +2568,16 @@ function sellerCampaignExpired(s){
   return !isNaN(end.getTime()) && end.getTime()<Date.now() && c.status==='active';
 }
 
+function sellerBackAtExpired(av){
+  if(!av || !av.backAt) return false;
+  var back=new Date(av.backAt);
+  return !isNaN(back.getTime()) && back.getTime()<=Date.now();
+}
+
+function sellerAutoResumeEligible(s){
+  return tierRank(sellerEffectiveTier(s))>=tierRank('gold');
+}
+
 function todayMenuKey(){
   return ['sun','mon','tue','wed','thu','fri','sat'][new Date().getDay()];
 }
@@ -2465,11 +2608,13 @@ function publicSellers(){
 
 function sellerUnavailable(s){
   var av=ensureSellerAvailability(s);
+  if(sellerAutoResumeEligible(s) && sellerBackAtExpired(av)) return false;
   return !!av.closed || av.status==='closed' || av.status==='paused';
 }
 
 function sellerUnavailableMessage(s){
   var av=ensureSellerAvailability(s);
+  if(sellerAutoResumeEligible(s) && sellerBackAtExpired(av)) return '';
   var reason=(av.closedReason || av.reason || 'On lunch').trim();
   var back=av.backAt ? formatSellerBackAt(av.backAt) : '';
   return reason + (back ? ' - be back '+back : '');
@@ -2477,7 +2622,7 @@ function sellerUnavailableMessage(s){
 
 function sellerCanOpenDetail(s){
   if(!sellerUnavailable(s)) return true;
-  return s.tier==='gold' || s.tier==='platinum';
+  return sellerAutoResumeEligible(s);
 }
 
 function formatSellerBackAt(value){
@@ -2497,7 +2642,8 @@ function toDatetimeLocalValue(value){
 
 function sellerDataPayload(s){
   var d=Object.assign({},s._data||{});
-  d.name=s.name; d.seller=s.seller; d.cat=s.cat; d.category=s.cat; d.region=s.region; d.tier=s.tier; d.wa=s.wa;
+  var baseTier=sellerBaseTier(s);
+  d.name=s.name; d.seller=s.seller; d.cat=s.cat; d.category=s.cat; d.region=s.region; d.tier=baseTier; d.baseTier=baseTier; d.wa=s.wa;
   d.desc=s.desc||''; d.dietary=s.dietary||[]; d.healthTags=s.healthTags||[];
   d.del=!!s.del; d.delivery=!!s.del; d.pu=!!s.pu; d.pickup=!!s.pu; d.fee=parseFloat(s.fee)||0;
   ['minOrder','maxOrder','leadDays','pricingModel','eventTypes','serviceTypes','cookingStyle','setupIncluded','equipmentProvided','depositPct','travelRadius','cancellationPolicy','pickupType'].forEach(function(k){
@@ -2526,7 +2672,7 @@ function persistSellerData(s,cb){
     name:s.name,
     seller:s.seller||s.name,
     category:s.cat,
-    tier:s.tier,
+    tier:sellerBaseTier(s),
     region:s.region,
     wa:s.wa,
     active:ensureSellerCampaign(s).status!=='deleted',
@@ -2555,8 +2701,8 @@ function applyDietLock(arr){
 
 
 const TIERS=[
-  {id:'platinum',l:'Platinum',price:499,icon:'⭐',perks:['Top search placement','Featured carousel on homepage','Platinum border & badge','Priority support','Analytics dashboard','Up to 20 menu items']},
-  {id:'gold',l:'Gold',price:249,icon:'🔥',perks:['Above-fold placement','Highlighted listing card','Up to 12 menu items','Basic analytics','Category featured']},
+  {id:'platinum',l:'Platinum',price:tierMonthlyPrice('platinum'),icon:'⭐',perks:['Top search placement','Featured carousel on homepage','Platinum border & badge','Priority support','Analytics dashboard','Unlimited menu items']},
+  {id:'gold',l:'Gold',price:tierMonthlyPrice('gold'),icon:'🔥',perks:['Above-fold placement','Highlighted listing card','Up to 15 menu items','Basic analytics','Category featured']},
   {id:'standard',l:'Standard',price:0,icon:'✓',perks:['Search results listing','Up to 5 menu items','Basic profile page','Community support']},
 ];
 
@@ -2714,7 +2860,7 @@ function showUpgradeModal(feature,targetTier){
   var copy=UPG_COPY[feature]||UPG_COPY.default;
   var tier=targetTier||copy.targetTier||'gold';
   var tierLabel=tier.charAt(0).toUpperCase()+tier.slice(1);
-  var tierPrice=tier==='platinum'?'R199–R299/mo':'R99–R149/mo';
+  var tierPrice=tierPriceLabel(tier);
 
   var statsHtml=copy.stats.map(function(s){
     return '<div class="upg-stat"><div class="usv">'+s.v+'</div><div class="usl">'+s.l+'</div></div>';
@@ -2979,11 +3125,11 @@ var hmAuth = (function(){
       if(route.ctx) ST.ctx = route.ctx;
     }
     if(opts.preservePage){
-      loadLiveSellers(function(){ try{ renderCurrentPage(); }catch(e){} });
+      loadLiveSellers(function(){ try{ renderCurrentPage(); }catch(e){} maybeShowSellerAdminNotice(p); });
     }else{
       var landed=false;
       function land(){ if(landed) return; landed=true; nav(landing,(route&&route.page===landing)?route.ctx:undefined,{replace:true}); }
-      loadLiveSellers(function(){ land(); });
+      loadLiveSellers(function(){ land(); maybeShowSellerAdminNotice(p); });
       setTimeout(land, 1800);
     }
     /* Show a welcome toast (not for silent guest boot) */
@@ -3956,8 +4102,9 @@ function ic(n,sz=16,c='currentColor'){
 function zar(n){return `R\u202F${Number(n).toFixed(2)}`;}
 function stars(r){return `<span class="sr" role="img" aria-label="Rated ${r} out of 5 stars"><span class="str" aria-hidden="true">★</span><span class="sv" aria-hidden="true">${r}</span></span>`;}
 function tbadge(t){
-  if(t==='platinum') return `<span class="tbadge tbp" role="img" aria-label="Platinum tier seller"><span aria-hidden="true">⭐</span> Platinum</span>`;
-  if(t==='gold')     return `<span class="tbadge tbg" role="img" aria-label="Gold tier seller"><span aria-hidden="true">🔥</span> Gold</span>`;
+  t=String(t||'standard').toLowerCase();
+  if(t==='platinum') return `<span class="tbadge tbp" role="img" aria-label="Platinum tier seller"><span aria-hidden="true">&#9733;</span> Platinum</span>`;
+  if(t==='gold') return `<span class="tbadge tbg" role="img" aria-label="Gold tier seller"><span aria-hidden="true">&#9889;</span> Gold</span>`;
   return '';
 }
 function tg(txt,cls=''){return `<span class="tag ${cls}">${txt}</span>`;}
@@ -4350,11 +4497,14 @@ function updRole(){
   const raw=(prof&&prof.raw)||{};
   const profileData=(raw&&raw.data)||{};
   const avatarUrl=profileData.avatar || profileData.storePic || '';
-  const cls=r==='admin'?'bp':r==='seller'?'bgold':r==='guest'?'bstd':'bstd';
+  const sellerForRole=r==='seller'?SELLERS.find(function(x){return x&&x.id===SELLER_OWN_ID;}):null;
+  const currentTier=sellerForRole?sellerEffectiveTier(sellerForRole):'standard';
+  const roleText=r==='seller'?tierDisplayLabel(currentTier):(r==='admin'?'Admin':r==='guest'?'Guest':'Buyer');
+  const cls=r==='admin'?'bp':r==='seller'?sellerTierClass(currentTier):r==='guest'?'bstd':'bstd';
   var _emo=document.getElementById('sb-emo');   if(_emo)  _emo.innerHTML=avatarUrl?'<img src="'+hmText(avatarUrl)+'" alt=""/>':e;
   var _rnm=document.getElementById('sb-rname'); if(_rnm)  _rnm.textContent=nm;
   var _rsb=document.getElementById('sb-rsub');  if(_rsb)  _rsb.textContent=email || ((r==='admin'?'Admin':r==='seller'?'Seller':'Buyer')+' account');
-  ['sb-rbadge','tb-rbadge'].forEach(id=>{const el=document.getElementById(id);if(el){el.className=`rpill ${cls}${id==='tb-rbadge'?' donly':''}`;el.textContent=r;}});
+  ['sb-rbadge','tb-rbadge'].forEach(id=>{const el=document.getElementById(id);if(el){el.className=`rpill ${cls}${id==='tb-rbadge'?' donly':''}`;el.textContent=roleText;}});
   var admBtn=document.getElementById('sb-admin-btn');
   if(admBtn) admBtn.style.display=(r==='admin')?'':'none';
   // Show/hide seller-only sidebar items
@@ -5059,6 +5209,22 @@ function rHome(){
 
   var _bf=ST.bf||{q:'',cat:'all',region:''};
   var _browseLabel=_bf.q?'results for "'+_bf.q+'"':_bf.cat&&_bf.cat!=='all'?(CATS.find(function(c){return c.id===_bf.cat;})||{l:_bf.cat}).l.toLowerCase()+' sellers':_bf.region?_bf.region+' sellers':'all sellers';
+  var activeFilterLabels=[];
+  if(_homeCat&&_homeCat!=='all') activeFilterLabels.push('Category: '+((CATS.find(function(c){return c.id===_homeCat;})||{l:_homeCat}).l));
+  if(_homeSort&&_homeSort!=='featured'){
+    activeFilterLabels.push('Sort: '+({rating:'Top rated',reviews:'Most reviewed',az:'A-Z',za:'Z-A',price_asc:'Price low-high',price_desc:'Price high-low',newest:'Newly added'}[_homeSort]||_homeSort));
+  }
+  if(ST.dietLock&&ST.userDietary.length) activeFilterLabels.push('Diet: '+ST.userDietary.join(', '));
+  if(ST.healthLock&&ST.healthFilters.length) activeFilterLabels.push('Health: '+ST.healthFilters.join(', '));
+  var totalCurrentAdvertSellers=publicSellers().length;
+  var activeFilterHtml='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:8px 0 10px">'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
+      +(activeFilterLabels.length
+        ? activeFilterLabels.map(function(lbl){return '<span style="font-size:11px;font-weight:800;color:var(--accent);background:var(--accent-l);border:1px solid rgba(229,90,24,.2);border-radius:999px;padding:4px 9px">'+hmText(lbl)+'</span>';}).join('')
+        : '<span style="font-size:11px;font-weight:800;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:4px 9px">No filters active</span>')
+    +'</div>'
+    +'<span style="font-size:11px;font-weight:900;color:var(--lime);background:var(--lime-l);border:1px solid rgba(44,184,80,.2);border-radius:999px;padding:4px 9px">'+totalCurrentAdvertSellers+' active seller'+(totalCurrentAdvertSellers===1?'':'s')+' with current adverts</span>'
+  +'</div>';
   var allGrid;
   if(v==='grid'){
     allGrid='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">'+homeSellers.map(function(s){return sCard(s,allIds,_browseLabel);}).join('')+'</div>';
@@ -5077,7 +5243,7 @@ function rHome(){
             +'<div style="font-size:12px;color:var(--accent);font-weight:700;margin-top:2px">From R'+mp+'</div>'
           +'</div>'
           +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">'
-            +(s.tier!=='standard'?'<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;background:'+(s.tier==='platinum'?'linear-gradient(135deg,var(--plat-a),var(--plat-b))':'linear-gradient(135deg,var(--amber),#F5C840)')+';color:'+(s.tier==='platinum'?'#3A2800':'#3A2800')+'">'+s.tier.charAt(0).toUpperCase()+s.tier.slice(1)+'</span>':'')
+            +'<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;background:'+(s.tier==='platinum'?'linear-gradient(135deg,var(--plat-a),var(--plat-b))':s.tier==='gold'?'linear-gradient(135deg,var(--amber),#F5C840)':'var(--bg)')+';color:'+(s.tier==='standard'?'var(--muted)':'#3A2800')+';border:'+(s.tier==='standard'?'1px solid var(--border)':'0')+'">'+tierDisplayLabel(s.tier)+'</span>'
             +'<button data-save-id="'+s.id+'" data-save-sz="16" onclick="event.stopPropagation();toggleSave('+s.id+')" style="background:none;border:none;cursor:pointer;padding:2px">'
               +(saved2?ic('hrtF',16,'#E02020'):ic('hrt',16,'var(--muted)'))
             +'</button>'
@@ -5140,6 +5306,7 @@ function rHome(){
       +'<option value="price_desc"'+(_homeSort==='price_desc'?'selected':'')+'>💰 Price: High → Low</option>'
       +'</select>'
     +'</div>'
+    +activeFilterHtml
     +'<div class="sx" style="margin-bottom:12px;gap:7px">'
       +'<button onclick="setHomeCat(\'all\')" style="flex-shrink:0;padding:5px 13px;border-radius:100px;border:1.5px solid '+(_homeCat==='all'?'var(--accent)':'var(--border)')+';background:'+(_homeCat==='all'?'var(--accent)':'var(--surface)')+';color:'+(_homeCat==='all'?'#fff':'var(--muted)')+';font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font-body);white-space:nowrap">All</button>'
       +CATS.filter(function(cat){return cat.id!=='all';}).map(function(cat){
@@ -6840,6 +7007,7 @@ function resetPostDraft(){
   ST.postMissing=[];
   ST.postError='';
   ST.postNudge=0;
+  ST.postTierTouched=false;
 }
 
 function postMissingForStep(step){
@@ -6934,6 +7102,8 @@ function buildPublishedSeller(){
   var startIso=new Date().toISOString();
   var campaign={status:'active',timeframe:f.timeframe||'weekly',startsAt:startIso,endsAt:campaignEndForTimeframe(f.timeframe||'weekly')};
   var availability={closed:false,closedReason:'',backAt:'',items:{}};
+  var preservedImg=(f.img||f.imgPath)?(f.img||f.imgPath):((existing&&(existing.img||existing.storePic||existing.store_pic||''))||'');
+  var preservedImgPath=f.imgPath||((existing&&(existing.imgPath||existing.imagePath||''))||'');
   cleanItems.forEach(function(_,idx){ availability.items[String(idx)]={limit:null,pending:0,confirmed:0}; });
   var history=existing&&Array.isArray(existing.adHistory)?existing.adHistory.slice():[];
   if(existing&&existing.name){
@@ -6950,7 +7120,8 @@ function buildPublishedSeller(){
     desc:f.desc||'Fresh homemade food.',
     dietary:f.dietary||[],
     healthTags:f.healthTags||[],
-    tier:ST.pt||ST.tier||(existing&&existing.tier)||'standard',
+    baseTier:ST.pt||ST.tier||(existing&&sellerBaseTier(existing))||'standard',
+    tier:ST.pt||ST.tier||(existing&&sellerBaseTier(existing))||'standard',
     badge:(existing&&existing.badge)||null,
     del:!!f.del,
     fee:parseFloat(f.fee)||0,
@@ -6963,8 +7134,8 @@ function buildPublishedSeller(){
     yr:new Date().getFullYear()+'',
     ord:(existing&&existing.ord)||'0',
     e:catObj.e||'',
-    img:f.img||'',
-    imgPath:f.imgPath||'',
+    img:preservedImg,
+    imgPath:preservedImgPath,
     bg:(existing&&existing.bg)||'linear-gradient(135deg,#FFF0E0,#FFE0C0)',
     ec:(existing&&existing.ec)||'#C44410',
     items:cleanItems,
@@ -6978,6 +7149,7 @@ function buildPublishedSeller(){
     _userCreated:true
   });
   ['minOrder','maxOrder','leadDays','pricingModel','eventTypes','serviceTypes','cookingStyle','setupIncluded','equipmentProvided','depositPct','travelRadius','cancellationPolicy'].forEach(function(k){ s[k]=f[k]; });
+  applySellerComputedAccess(s);
   s._data=sellerDataPayload(s);
   s.data=s._data;
   return s;
@@ -6994,7 +7166,7 @@ function sellerRowForSave(s){
     seller:s.seller,
     region:s.region,
     category:s.cat,
-    tier:s.tier||'standard',
+    tier:sellerBaseTier(s),
     wa:s.wa,
     active:true,
     data:data,
@@ -7196,6 +7368,10 @@ function buildSellerAccessIntro(){
 function rPost(){
   if(!ST.role || ST.role==='guest' || ST.role==='buyer'){document.getElementById('page-post').innerHTML=buildSellerAccessIntro();return;}
   if(ST.pdone){document.getElementById('page-post').innerHTML=`<div style="padding:80px 28px;text-align:center;max-width:480px;margin:0 auto"><div style="width:84px;height:84px;border-radius:50%;background:var(--lime-l);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:36px;border:2px solid var(--lime)">✅</div><div style="font-family:var(--font-head);font-size:28px;color:var(--heading);margin-bottom:10px">You're Live!</div><p style="color:var(--muted);font-size:14px;margin-bottom:26px">Your listing is now visible to buyers across eThekwini.</p><button class="btn btn-a" onclick="ST.pdone=false;ST.ps=1;nav('browse')">${ic('eye',14,'#fff')} Browse Listings</button></div>`;return;}
+  var ownSeller=SELLERS.find(function(x){return x&&x.id===SELLER_OWN_ID;});
+  if(ownSeller && (!ST.pt || (ST.pt==='standard' && sellerEffectiveTier(ownSeller)!=='standard' && !ST.postTierTouched))){
+    ST.pt=sellerEffectiveTier(ownSeller);
+  }
   rPS();
 }
 function uploadListingImg(input){
@@ -7279,6 +7455,37 @@ function uploadMenuItemImg(index,input){
   input.value='';
 }
 
+function buildPostTierGuide(currentTier, selectedTier){
+  currentTier=String(currentTier||'standard').toLowerCase();
+  selectedTier=String(selectedTier||currentTier||'standard').toLowerCase();
+  var next=nextSellerTier(currentTier);
+  var copy={
+    standard:{
+      current:'Standard sellers can publish up to 5 menu items with standard marketplace visibility.',
+      next:'Gold adds up to 15 menu items, above-fold placement, highlighted listing cards, map boost and basic analytics.'
+    },
+    gold:{
+      current:'Gold sellers get stronger placement, 15 menu items, map boost and basic analytics.',
+      next:'Platinum adds unlimited menu items, top search placement, homepage carousel, full analytics and AI pricing tools.'
+    },
+    platinum:{
+      current:'Platinum sellers have unlimited menu items, premium placement, homepage features and full analytics.',
+      next:'You are already on the highest seller tier.'
+    }
+  };
+  var currentCopy=(copy[currentTier]||copy.standard).current;
+  var nextCopy=next?(copy[currentTier]||copy.standard).next:(copy.platinum.next);
+  return '<div style="background:linear-gradient(135deg,rgba(229,90,24,.08),rgba(212,138,0,.06));border:1.5px solid rgba(229,90,24,.2);border-radius:14px;padding:12px 13px;margin:0 0 16px;display:grid;gap:9px">'
+    +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap">'
+      +'<div><div style="font-size:11px;font-weight:900;color:var(--accent);text-transform:uppercase;letter-spacing:.04em">Seller tier</div><div style="font-size:15px;font-weight:900;color:var(--heading);margin-top:2px">'+tierDisplayLabel(currentTier)+'</div></div>'
+      +'<div style="text-align:right"><div style="font-size:11px;color:var(--muted);font-weight:800">Selected advert plan</div><div style="font-size:13px;font-weight:900;color:var(--heading);margin-top:2px">'+tierDisplayLabel(selectedTier)+' · '+tierPriceLabel(selectedTier)+'</div></div>'
+    +'</div>'
+    +'<div style="font-size:12px;color:var(--body);line-height:1.55">'+currentCopy+'</div>'
+    +(next?'<div style="font-size:12px;color:var(--muted);line-height:1.55"><b style="color:var(--heading)">Next up: '+tierDisplayLabel(next)+' ('+tierPriceLabel(next)+').</b> '+nextCopy+'</div>':'')
+    +'<button class="btn btn-ol btn-sm" style="justify-self:start" onclick="nav(\'pricing\')">Compare seller plans</button>'
+  +'</div>';
+}
+
 function menuItemUploadControl(it,index){
   it=it||{};
   var status=it.imgUploading?'Uploading to secure hosting...':(it.imgError?it.imgError:(it.imgPath?'Dish photo hosted securely':(it.imgName||'Dish photo added')));
@@ -7329,6 +7536,10 @@ function prepareListingImage(file, cb, opts){
 
 function rPS(){
   const step=ST.ps,f=ST.pf,items=ST.pi,discs=ST.pd;
+  const postSeller=SELLERS.find(function(x){return x&&x.id===SELLER_OWN_ID;});
+  const accountTier=postSeller?sellerEffectiveTier(postSeller):(ST.pt||'standard');
+  if(!ST.pt) ST.pt=accountTier;
+  const tierGuide=buildPostTierGuide(accountTier,ST.pt);
   const bars=[1,2,3].map(n=>`<div style="flex:1"><div class="pb"><div class="pf" style="width:${step>=n?'100%':'0%'};background:${step>n?'var(--lime)':'var(--accent)'}"></div></div><div style="font-size:10px;color:${step>=n?'var(--accent)':'var(--muted)'};margin-top:4px;text-align:center;font-weight:700">${['Details','Menu & Pricing','Tier'][n-1]}</div></div>`).join('');
 
   let body='';
@@ -7542,7 +7753,7 @@ function rPS(){
       const g=t.id==='platinum'?'linear-gradient(135deg,var(--plat-a),var(--plat-b))':t.id==='gold'?'linear-gradient(135deg,var(--amber),#F5C840)':'linear-gradient(135deg,#E8D8C4,#D4C4B0)';
       // Earnings framing copy per tier
       const earningsCopy=t.id==='platinum'?'Avg seller earns <b style="color:var(--lime)">~R12,000/mo</b>':t.id==='gold'?'Pays for itself with <b style="color:var(--lime)">1–2 extra orders/week</b>':'Getting started — free forever';
-      return `<div class="tc ${sel?'sel':''}" onclick="ST.pt='${t.id}';rPS()">
+      return `<div class="tc ${sel?'sel':''}" onclick="ST.pt='${t.id}';ST.postTierTouched=true;rPS()">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
           <div style="display:flex;align-items:center;gap:12px">
             <div style="width:44px;height:44px;border-radius:14px;background:${g};display:flex;align-items:center;justify-content:center;font-size:20px">${t.icon}</div>
@@ -7604,7 +7815,7 @@ function rPS(){
     <div style="font-family:var(--font-head);font-size:24px;color:var(--heading);margin-bottom:14px">Post Your Listing</div>
     <div style="display:flex;gap:8px;margin-bottom:18px">${bars}</div>
   </div>
-  <div style="padding:22px 26px;max-width:660px">${postFormAlert()+body}</div>`;
+  <div style="padding:22px 26px;max-width:660px">${postFormAlert()+tierGuide+body}</div>`;
 }
 function goPS(n){
   if(n>ST.ps){postNext(n);return;}
@@ -7636,6 +7847,8 @@ var ADMIN_ACCOUNTS_ERROR = '';
 ══════════════════════════════════════════════════ */
 function buildSellerAvailabilityPanel(s){
   var av=ensureSellerAvailability(s);
+  var autoResume=sellerAutoResumeEligible(s);
+  var resumeCopy=autoResume?'Resume time (auto-reactivates ordering)':'Resume reminder (Standard sellers reopen manually)';
   var rows=(s.items||[]).map(function(item,idx){
     var rec=itemAvailability(s,idx);
     return '<div style="background:var(--bg);border:1.5px solid var(--border);border-radius:12px;padding:12px;display:grid;grid-template-columns:minmax(150px,1.4fr) repeat(3,minmax(76px,.6fr));gap:10px;align-items:end;margin-bottom:8px">'
@@ -7649,7 +7862,7 @@ function buildSellerAvailabilityPanel(s){
     +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap"><div><div style="font-size:16px;font-weight:800;color:var(--heading)">Today Menu Availability</div><div style="font-size:12px;color:var(--muted);margin-top:3px">Update limits, pending orders and confirmed orders without editing the whole advert.</div></div><button class="btn btn-a btn-sm" onclick="sellerSaveAvailability('+s.id+')">'+ic('save',14,'#fff')+' Save today</button></div>'
     +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end">'
       +'<label style="display:flex;gap:8px;align-items:center;font-size:13px;font-weight:800;color:var(--heading)"><input id="seller-closed-'+s.id+'" type="checkbox" '+(sellerUnavailable(s)?'checked':'')+'/> Closed / unavailable</label>'
-      +'<div><div class="lsm" style="margin-bottom:5px">Back at</div><input id="seller-back-'+s.id+'" class="inp" type="datetime-local" value="'+hmText(toDatetimeLocalValue(av.backAt||''))+'" style="font-size:12px;padding:9px"/></div>'
+      +'<div><div class="lsm" style="margin-bottom:5px">'+resumeCopy+'</div><input id="seller-back-'+s.id+'" class="inp" type="datetime-local" value="'+hmText(toDatetimeLocalValue(av.backAt||''))+'" style="font-size:12px;padding:9px"/><div style="font-size:10px;color:var(--muted);margin-top:5px">'+(autoResume?'Gold and Platinum sellers reopen automatically at this time.':'Standard sellers must untick Closed / unavailable when ready.')+'</div></div>'
       +'<div style="grid-column:1/-1"><div class="lsm" style="margin-bottom:5px">Reason shown to buyers</div><input id="seller-reason-'+s.id+'" class="inp" value="'+hmText(av.closedReason||av.reason||'On lunch')+'" placeholder="On lunch, sold out, family event..." style="font-size:12px;padding:9px"/></div>'
     +'</div>'
     +(rows||'<div style="font-size:13px;color:var(--muted);padding:14px;border:1px dashed var(--border);border-radius:12px">No menu items yet.</div>')
@@ -7663,6 +7876,13 @@ function sellerSaveAvailability(sid){
   av.status=av.closed?'closed':'open';
   av.closedReason=((document.getElementById('seller-reason-'+sid)||{}).value||'On lunch').trim();
   av.backAt=((document.getElementById('seller-back-'+sid)||{}).value||'').trim();
+  if(av.closed && sellerAutoResumeEligible(s) && !av.backAt){
+    showToast('Add a resume time so ordering can reactivate automatically.');
+    return;
+  }
+  if(av.closed && !sellerAutoResumeEligible(s)){
+    av.status='closed';
+  }
   av.items=av.items||{};
   (s.items||[]).forEach(function(_,idx){
     var noLimit=!!((document.getElementById('avail-nolimit-'+sid+'-'+idx)||{}).checked);
@@ -7691,6 +7911,18 @@ function buildSellerAdLifecyclePanel(s){
   var c=ensureSellerCampaign(s);
   var history=Array.isArray(s.adHistory)?s.adHistory:[];
   var status=sellerCampaignExpired(s)?'expired':(c.status||'active');
+  var currentItems=Array.isArray(s.items)?s.items:[];
+  var currentImg=imageValue(s)||menuItemPhoto(s,currentItems[0]||{},0)||foodPhotoForCategory(s.cat||s.category||'african');
+  var currentHtml='<div style="background:var(--bg);border:1.5px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:14px">'
+    +'<div style="display:grid;grid-template-columns:96px 1fr;gap:0;align-items:stretch">'
+      +'<img src="'+hmText(currentImg)+'" alt="" style="width:96px;height:100%;min-height:96px;object-fit:cover;display:block">'
+      +'<div style="padding:12px;min-width:0">'
+        +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap"><div><div class="lsm" style="margin-bottom:4px">Current advert</div><div style="font-size:15px;font-weight:900;color:var(--heading);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+hmText(s.name||'Current advert')+'</div></div><span style="font-size:10px;font-weight:900;text-transform:uppercase;color:'+(status==='active'?'var(--lime)':status==='expired'?'var(--amber)':'var(--muted)')+'">'+status+'</span></div>'
+        +'<div style="font-size:12px;color:var(--muted);line-height:1.45;margin-top:5px">'+currentItems.length+' menu item'+(currentItems.length===1?'':'s')+' · '+hmText(c.timeframe||'weekly')+' campaign'+(c.endsAt?' · ends '+hmText(formatSellerBackAt(c.endsAt)):'')+'</div>'
+        +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn btn-a btn-sm" onclick="sellerPrefillPost('+s.id+')">Edit advert</button><button class="btn btn-ol btn-sm" onclick="sellerArchiveAd('+s.id+')">Mark past</button></div>'
+      +'</div>'
+    +'</div>'
+  +'</div>';
   var histHtml=history.length?history.slice(0,8).map(function(h,i){
     var itemCount=(h.items||[]).length;
     return '<div style="display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px">'
@@ -7700,6 +7932,7 @@ function buildSellerAdLifecyclePanel(s){
   }).join(''):'<div style="font-size:13px;color:var(--muted);padding:12px;border:1px dashed var(--border);border-radius:12px">Past adverts will appear here after you publish a new campaign or mark one as past.</div>';
   return '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:var(--shadow)">'
     +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap"><div><div style="font-size:16px;font-weight:800;color:var(--heading)">Advert Lifecycle</div><div style="font-size:12px;color:var(--muted);margin-top:3px">Manage the active advert, archive old campaigns, or re-run a past menu.</div></div><span style="font-size:11px;font-weight:900;text-transform:uppercase;color:'+(status==='active'?'var(--lime)':status==='expired'?'var(--amber)':'var(--muted)')+'">'+status+'</span></div>'
+    +currentHtml
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'
       +'<div><div class="lsm" style="margin-bottom:5px">Time frame</div><select id="seller-campaign-frame-'+s.id+'" class="inp" style="font-size:12px;padding:9px"><option value="daily" '+(c.timeframe==='daily'?'selected':'')+'>Daily</option><option value="weekly" '+(c.timeframe!=='daily'?'selected':'')+'>Weekly</option></select></div>'
       +'<div><div class="lsm" style="margin-bottom:5px">Ends at</div><input id="seller-campaign-end-'+s.id+'" class="inp" type="datetime-local" value="'+hmText(toDatetimeLocalValue(c.endsAt||''))+'" style="font-size:12px;padding:9px"/></div>'
@@ -7800,14 +8033,14 @@ function switchTestSeller(profileIdx){
   var nameEl = document.getElementById('sb-rname');
   if(nameEl) nameEl.textContent = p.label;
   var subEl = document.getElementById('sb-rsub');
-  if(subEl) subEl.textContent = p.tier.charAt(0).toUpperCase()+p.tier.slice(1)+' seller';
+  if(subEl) subEl.textContent = tierDisplayLabel(p.tier);
   // Update topbar badge colour to match tier
   ['sb-rbadge','tb-rbadge'].forEach(function(id){
     var el = document.getElementById(id);
     if(!el) return;
     var cls = p.tier==='platinum'?'bp':p.tier==='gold'?'bgold':'bstd';
     el.className = 'rpill ' + cls + (id==='tb-rbadge'?' donly':'');
-    el.textContent = p.tier;
+    el.textContent = tierDisplayLabel(p.tier);
   });
   nav('profile');
 }
@@ -7826,7 +8059,7 @@ function buildSellerDashboard(activeTab){
   var orders   = Math.round(clicks * 0.63);
   var avgOrder = 145;
   var grossRev = orders * avgOrder;
-  var tierFee  = s.tier==='platinum' ? 499 : s.tier==='gold' ? 249 : 0;
+  var tierFee  = tierMonthlyPrice(s.tier);
   var delivFee = s.del ? Math.round(orders * (s.fee||30) * 0.4) : 0;
   var netRev   = grossRev - tierFee - delivFee;
   var selRatings = ADM.getSellerRatings(s.id);
@@ -7984,7 +8217,7 @@ function buildSellerDashboard(activeTab){
       +'</div>'
     +'</div>'
     +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
-      +'<span style="font-size:12px;font-weight:700;color:var(--heading)">'+(s.tier.charAt(0).toUpperCase()+s.tier.slice(1))+' Tier</span>'
+      +'<span style="font-size:12px;font-weight:700;color:var(--heading)">'+tierDisplayLabel(s.tier)+'</span>'
       +(nextTier?'<span style="font-size:11px;color:var(--muted)">'+ordersLeft+' orders to '+nextTier.l+'</span>':'<span style="font-size:11px;color:var(--gold);font-weight:700">⭐ Max Tier!</span>')
     +'</div>'
     +'<div style="height:12px;background:var(--bg);border-radius:100px;overflow:hidden;border:1px solid var(--border);margin-bottom:10px">'
@@ -8328,7 +8561,7 @@ function buildSellerDashboard(activeTab){
     +'<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">'
       +[
         {l:'Gross Revenue',    v:'R'+grossRev.toLocaleString(), c:'var(--heading)', bold:false},
-        {l:'Platform Fee ('+s.tier+')', v:'− R'+tierFee, c:'var(--red)', bold:false},
+        {l:'Platform Fee ('+tierDisplayLabel(s.tier)+')', v:'− R'+tierFee, c:'var(--red)', bold:false},
         {l:'Delivery Costs (est)', v:'− R'+delivFee, c:'var(--amber)', bold:false},
         {l:'Est. Net Earnings', v:'R'+Math.max(0,netRev).toLocaleString(), c:'var(--lime)', bold:true},
       ].map(function(row){
@@ -9093,6 +9326,11 @@ function profileImagePreview(url, fallback, px){
 function profileInput(label, id, value, placeholder, type){
   return '<div><div class="lsm" style="margin-bottom:7px">'+label+'</div><input id="'+id+'" class="inp" type="'+(type||'text')+'" value="'+hmText(value||'')+'" placeholder="'+hmText(placeholder||'')+'"/></div>';
 }
+function profileLockedDateInput(label, id, value, placeholder, lockedOverride){
+  var locked=!!value || !!lockedOverride;
+  return '<div><div class="lsm" style="margin-bottom:7px">'+label+'</div><input id="'+id+'" class="inp" type="date" value="'+hmText(value||'')+'" placeholder="'+hmText(placeholder||'')+'" '+(locked?'disabled aria-describedby="'+id+'-note"':'')+'/>'
+    +'<div id="'+id+'-note" style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.45">'+(locked?'Birthday is locked after first save. Ask admin if this needs correcting.':'Used only for birthday-month seller boosts. This locks after first save.')+'</div></div>';
+}
 function profileTextarea(label, id, value, placeholder, rows){
   return '<div><div class="lsm" style="margin-bottom:7px">'+label+'</div><textarea id="'+id+'" class="inp" rows="'+(rows||3)+'" placeholder="'+hmText(placeholder||'')+'">'+hmText(value||'')+'</textarea></div>';
 }
@@ -9115,6 +9353,7 @@ function buildSellerStorefrontPanel(){
       +profileInput('Owner / Contact Name','seller_contact_name',s.seller||d.contactName||'','Thandi Naidoo')
       +profileInput('Contact Email','seller_contact_email',contactEmail,'orders@example.co.za','email')
       +profileInput('Contact Number','seller_phone',s.wa||d.phone||'','27821234567','tel')
+      +profileLockedDateInput('Date of Birth','seller_dob',d.sellerDob||d.dateOfBirth||'','',d.sellerBirthMonth||d.birthMonth)
       +profileInput('Address / Pickup Area','seller_address',d.address||'','Street, suburb, city')
       +profileInput('Payment Information','seller_payment',d.paymentInfo||'','Cash, EFT, bank details, eWallet')
     +'</div><div style="margin-top:12px">'+profileTextarea('Store Bio','seller_bio',d.bio||s.desc||'','Tell buyers what you make, your style, and collection notes.',4)+'</div></div>';
@@ -9222,7 +9461,16 @@ function saveSellerStorefront(){
   var p=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
   var s=hmOwnSeller();
   if(!p || !s || !s.id){ showToast('Seller profile is not linked yet.'); return; }
-  var data=Object.assign({}, s._data||s.data||{}, {storeName:hmField('seller_store_name'),contactName:hmField('seller_contact_name'),contactEmail:hmField('seller_contact_email'),phone:hmField('seller_phone'),address:hmField('seller_address'),paymentInfo:hmField('seller_payment'),bio:hmField('seller_bio'),storePic:hmField('seller_store_pic'),avatar:hmField('seller_avatar')});
+  var existingData=s._data||s.data||{};
+  var lockedDob=existingData.sellerDob || existingData.dateOfBirth || '';
+  var lockedBirthMonth=existingData.sellerBirthMonth || existingData.birthMonth || (lockedDob&&String(lockedDob).slice(5,7)) || '';
+  var enteredDob=hmField('seller_dob');
+  var newBirthMonth=lockedBirthMonth || (enteredDob&&String(enteredDob).slice(5,7)) || '';
+  var data=Object.assign({}, existingData, {storeName:hmField('seller_store_name'),contactName:hmField('seller_contact_name'),contactEmail:hmField('seller_contact_email'),phone:hmField('seller_phone'),sellerBirthMonth:newBirthMonth,birthMonth:newBirthMonth,birthdayLockedAt:existingData.birthdayLockedAt || (newBirthMonth ? new Date().toISOString() : ''),address:hmField('seller_address'),paymentInfo:hmField('seller_payment'),bio:hmField('seller_bio'),storePic:hmField('seller_store_pic'),avatar:hmField('seller_avatar')});
+  delete data.sellerDob;
+  delete data.dateOfBirth;
+  delete data.dob;
+  delete data.birthDate;
   var values={name:data.storeName || s.name,seller:data.contactName || s.seller,email:data.contactEmail || s.email || p.email,wa:data.phone || s.wa,data:data};
   hmAuth.update('sellers',{id:s.id},values,function(res){
     if(res&&res.error){ showToast('Could not save storefront: '+res.error); return; }
@@ -10209,7 +10457,7 @@ function buildAdminAvailabilityPanel(){
       return '<span style="display:inline-flex;background:var(--bg);border:1px solid var(--border);border-radius:100px;padding:3px 8px;font-size:10px;font-weight:700;color:var(--muted);margin:2px">'+hmText(it.n||('Item '+(idx+1)))+': '+txt+'</span>';
     }).join('');
     return '<div style="background:var(--bg);border:1.5px solid var(--border);border-radius:12px;padding:12px">'
-      +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px"><div><div style="font-size:13px;font-weight:900;color:var(--heading)">'+hmText(s.name||'Seller')+'</div><div style="font-size:11px;color:var(--muted);margin-top:2px">'+hmText(s.region||'')+' - '+hmText(s.tier||'standard')+'</div></div><div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end"><span style="font-size:10px;font-weight:900;text-transform:uppercase;color:'+(state==='active'?'var(--lime)':state==='expired'?'var(--amber)':'var(--muted)')+'">'+state+'</span>'+(closed?'<span style="font-size:10px;font-weight:900;color:var(--red)">closed</span>':'')+'</div></div>'
+      +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px"><div><div style="font-size:13px;font-weight:900;color:var(--heading)">'+hmText(s.name||'Seller')+'</div><div style="font-size:11px;color:var(--muted);margin-top:2px">'+hmText(s.region||'')+' - '+hmText(tierDisplayLabel(s.tier))+'</div></div><div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end"><span style="font-size:10px;font-weight:900;text-transform:uppercase;color:'+(state==='active'?'var(--lime)':state==='expired'?'var(--amber)':'var(--muted)')+'">'+state+'</span>'+(closed?'<span style="font-size:10px;font-weight:900;color:var(--red)">closed</span>':'')+'</div></div>'
       +'<div style="margin-top:8px">'+(itemRows||'<span style="font-size:11px;color:var(--muted)">No menu items</span>')+'</div>'
     +'</div>';
   }).join('');
@@ -10359,7 +10607,7 @@ function buildAdminSellersTab(){
           +'<div style="font-size:13px;font-weight:700;color:var(--heading);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+s.name+'</div>'
           +'<div style="font-size:11px;color:var(--muted)">'+s.region+' · '+(CATS.find(function(c){return c.id===s.cat;})||{l:s.cat}).l+'</div>'
         +'</div>'
-        +'<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1.5px solid '+tc+';color:'+tc+';white-space:nowrap">'+s.tier+'</span>'
+        +'<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1.5px solid '+tc+';color:'+tc+';white-space:nowrap">'+tierDisplayLabel(s.tier)+'</span>'
       +'</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">'
         +'<div style="background:var(--bg);border-radius:10px;padding:8px;text-align:center"><div style="font-size:14px;font-weight:700;color:var(--heading)">'+s.rat+'⭐</div><div style="font-size:10px;color:var(--muted)">Rating</div></div>'
@@ -10407,8 +10655,15 @@ function adminAccountRoleOptions(current){
 function adminAccountTierOptions(current){
   var tier=current||'standard';
   return ['standard','gold','platinum'].map(function(t){
-    return '<option value="'+t+'" '+(t===tier?'selected':'')+'>'+t.charAt(0).toUpperCase()+t.slice(1)+'</option>';
+    return '<option value="'+t+'" '+(t===tier?'selected':'')+'>'+tierDisplayLabel(t)+'</option>';
   }).join('');
+}
+function adminTierPeriodHelp(acc){
+  var d=acc.data||acc.seller_data||{};
+  var until=d.adminTierUntil || d.adminPromotionUntil || '';
+  var permanent=d.adminTierPermanent===true || d.adminTierPermanent==='true' || d.adminPromotionPermanent===true || d.adminPromotionPermanent==='true';
+  var msg=permanent?'Permanent tier change':(until?'Current boost ends '+formatSellerBackAt(until):'Default: 30 days unless permanent is selected');
+  return msg;
 }
 function loadAdminAccounts(force, cb){
   if(ST.role!=='admin'){ if(cb) cb(false); return; }
@@ -10418,7 +10673,7 @@ function loadAdminAccounts(force, cb){
   ADMIN_ACCOUNTS_ERROR='';
   if(!hmAuth || !hmAuth.rpc || (hmAuth.isDemoMode && hmAuth.isDemoMode())){
     ADMIN_ACCOUNTS=SELLERS.map(function(s){
-      return {account_id:'seller-'+s.id,email:s.email||'',display_name:s.name,role:'seller',seller_id:s.id,seller_name:s.name,seller_tier:s.tier,seller_active:s.active!==false,has_seller:true};
+      return {account_id:'seller-'+s.id,email:s.email||'',display_name:s.name,role:'seller',seller_id:s.id,seller_name:s.name,seller_tier:sellerBaseTier(s),seller_active:s.active!==false,has_seller:true,seller_data:s._data||s.data||{}};
     });
     ADMIN_ACCOUNTS_LOADING=false;
     ADMIN_ACCOUNTS_LOADED=true;
@@ -10464,11 +10719,13 @@ function buildAdminAccountsPanel(scope){
   var mode=scope==='sellers'?'sellers':(window._adminAccountFilter||'all');
   var search=(window._adminAccountSearch||'').toLowerCase().trim();
   var rows=(ADMIN_ACCOUNTS||[]).slice();
+  var accountsOnly=rows.filter(function(a){return /^[0-9a-f-]{36}$/i.test(String(a.account_id||''));});
   var counts={
     all:rows.length,
-    buyer:rows.filter(function(a){return String(a.role||'buyer').toLowerCase()==='buyer';}).length,
-    seller:rows.filter(function(a){return String(a.role||'').toLowerCase()==='seller'||a.has_seller||a.seller_id;}).length,
-    admin:rows.filter(function(a){return String(a.role||'').toLowerCase()==='admin';}).length
+    buyer:accountsOnly.filter(function(a){return String(a.role||'buyer').toLowerCase()==='buyer';}).length,
+    seller:accountsOnly.filter(function(a){return String(a.role||'').toLowerCase()==='seller'||a.has_seller||a.seller_id;}).length,
+    admin:accountsOnly.filter(function(a){return String(a.role||'').toLowerCase()==='admin';}).length,
+    unlinked:rows.filter(function(a){return !/^[0-9a-f-]{36}$/i.test(String(a.account_id||'')) && (a.seller_id||a.has_seller);}).length
   };
   var visible=rows.filter(function(a){
     var role=String(a.role||'buyer').toLowerCase();
@@ -10515,6 +10772,15 @@ function buildAdminAccountsPanel(scope){
         +'<div><div class="lsm" style="margin-bottom:6px">Seller tier</div><select id="admin-tier-'+key+'" class="inp">'+adminAccountTierOptions(tier)+'</select></div>'
         +'<label style="display:flex;gap:8px;align-items:center;font-size:12px;font-weight:800;color:var(--heading);background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:11px;margin-top:17px"><input id="admin-active-'+key+'" type="checkbox" '+(acc.seller_active!==false?'checked':'')+'> Seller active</label>'
       +'</div>'
+      +'<div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:11px;margin:-2px 0 10px">'
+        +'<div class="lsm" style="margin-bottom:7px">Tier change period</div>'
+        +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;align-items:end">'
+          +'<label style="display:flex;gap:8px;align-items:center;font-size:12px;font-weight:800;color:var(--heading);padding:9px;background:var(--surface);border:1px solid var(--border);border-radius:10px"><input id="admin-tier-permanent-'+key+'" type="checkbox"> Permanent</label>'
+          +'<div><div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Number of days</div><input id="admin-tier-days-'+key+'" class="inp" type="number" min="1" placeholder="30" value="30" style="font-size:12px;padding:8px"/></div>'
+          +'<div><div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Or exact end date</div><input id="admin-tier-until-'+key+'" class="inp" type="datetime-local" style="font-size:12px;padding:8px"/></div>'
+        +'</div>'
+        +'<div style="font-size:11px;color:var(--muted);margin-top:7px;line-height:1.45">'+hmText(adminTierPeriodHelp(acc))+'</div>'
+      +'</div>'
       +(acc.seller_id?'<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Seller listing #'+hmText(acc.seller_id)+' - '+hmText(acc.seller_name||'Seller')+'</div>':'<div style="font-size:11px;color:var(--muted);margin-bottom:10px">No seller listing is linked yet. Saving as seller will create one.</div>')
       +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
         +'<button id="admin-save-account-'+key+'" class="btn btn-a btn-sm" '+(!isUuid||role==='admin'?'disabled':'')+' onclick="adminSaveAccount(\''+hmJs(acc.account_id)+'\')">Save changes</button>'
@@ -10524,7 +10790,7 @@ function buildAdminAccountsPanel(scope){
     +'</div>';
   }).join('');
   return '<div class="adm-sec">'
-    +'<div class="adm-sec-hd"><div><div class="adm-sec-title">Account Management</div><div style="font-size:11px;color:var(--muted);margin-top:3px">View all users, promote buyers to sellers, change seller tier, or delete an account after typed confirmation.</div></div><button class="btn btn-ol btn-sm" onclick="ADMIN_ACCOUNTS_LOADED=false;loadAdminAccounts(true,function(){refreshAdminAccountsUI();})">Refresh</button></div>'
+    +'<div class="adm-sec-hd"><div><div class="adm-sec-title">Account Management</div><div style="font-size:11px;color:var(--muted);margin-top:3px">View all users, promote buyers to sellers, change seller tier, or delete an account after typed confirmation.'+(counts.unlinked?' '+counts.unlinked+' unlinked seller listing'+(counts.unlinked===1?' is':'s are')+' included for visibility.':'')+'</div></div><button class="btn btn-ol btn-sm" onclick="ADMIN_ACCOUNTS_LOADED=false;loadAdminAccounts(true,function(){refreshAdminAccountsUI();})">Refresh</button></div>'
     +'<input class="inp" placeholder="Search name, email or user id..." value="'+hmText(window._adminAccountSearch||'')+'" oninput="window._adminAccountSearch=this.value;clearTimeout(window._adminAccountSearchTimer);window._adminAccountSearchTimer=setTimeout(refreshAdminAccountsUI,180)" style="margin-bottom:10px;font-size:12px">'
     +filterBar
     +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">'+(cards||'<div style="padding:22px;text-align:center;color:var(--muted);border:1.5px dashed var(--border);border-radius:14px">No matching accounts.</div>')+'</div>'
@@ -10538,15 +10804,25 @@ function adminSaveAccount(accountId){
   var role=(document.getElementById('admin-role-'+key)||{}).value||acc.role||'buyer';
   var tier=(document.getElementById('admin-tier-'+key)||{}).value||acc.seller_tier||'standard';
   var active=!!((document.getElementById('admin-active-'+key)||{}).checked);
+  var permanent=!!((document.getElementById('admin-tier-permanent-'+key)||{}).checked);
+  var exact=((document.getElementById('admin-tier-until-'+key)||{}).value||'').trim();
+  var days=parseInt(((document.getElementById('admin-tier-days-'+key)||{}).value||'30'),10)||30;
+  var promotionUntil=null;
+  if(!permanent){
+    promotionUntil=exact?new Date(exact).toISOString():new Date(Date.now()+Math.max(1,days)*86400000).toISOString();
+  }
   var btn=document.getElementById('admin-save-account-'+key);
   if(btn){btn.disabled=true;btn.textContent='Saving...';}
-  hmAuth.rpc('home_made_admin_update_account',{
+  var payload={
     target_user_id:accountId,
     new_role:role,
     seller_tier:tier,
     target_seller_id:acc.seller_id||null,
-    seller_active:active
-  },function(res){
+    seller_active:active,
+    promotion_until:promotionUntil,
+    promotion_permanent:permanent
+  };
+  function finishSave(res){
     if(res&&res.error){
       showToast('Could not update account: '+res.error);
       if(btn){btn.disabled=false;btn.textContent='Save changes';}
@@ -10557,6 +10833,15 @@ function adminSaveAccount(accountId){
     loadAdminAccounts(true,function(){
       loadLiveSellers(function(){ refreshAdminAccountsUI(); });
     });
+  }
+  hmAuth.rpc('home_made_admin_update_account',payload,function(res){
+    if(res&&res.error&&/promotion_|function|schema|argument|parameter/i.test(String(res.error))){
+      delete payload.promotion_until;
+      delete payload.promotion_permanent;
+      hmAuth.rpc('home_made_admin_update_account',payload,finishSave);
+      return;
+    }
+    finishSave(res);
   });
 }
 function adminDeleteAccount(accountId){
@@ -11629,6 +11914,40 @@ function showToast(msg){
   setTimeout(function(){t.remove();},2200);
 }
 
+function maybeShowSellerAdminNotice(profile){
+  try{
+    if(!profile || profile.role!=='seller') return;
+    var seller=findSellerById(profile.sellerId||SELLER_OWN_ID) || (profile.raw&&profile.raw.id?profile.raw:null);
+    var d=(seller&&(seller.data||seller._data)) || (profile.raw&&profile.raw.data) || {};
+    var notice=d.adminTierNotice || d.adminPromotionNotice || '';
+    var tier=d.adminTier || (seller&&seller.tier) || '';
+    var until=d.adminTierUntil || d.adminPromotionUntil || '';
+    if(!notice && !until) return;
+    var key='hm_admin_notice_ack_'+(profile.authId||profile.sellerId||SELLER_OWN_ID)+'_'+(d.adminAccountUpdatedAt||until||tier||'notice');
+    if(localStorage.getItem(key)==='1') return;
+    var exp=until?new Date(until):null;
+    var daysLeft=exp&&!isNaN(exp.getTime())?Math.ceil((exp.getTime()-Date.now())/86400000):null;
+    var reminder=daysLeft!==null && daysLeft>=0 && daysLeft<=7
+      ? '<div style="margin-top:10px;background:rgba(212,138,0,.1);border:1px solid rgba(212,138,0,.28);border-radius:12px;padding:10px 12px;font-size:12px;color:var(--body);line-height:1.5"><b style="color:var(--amber)">Reminder:</b> this boost reverts '+(daysLeft===0?'today':'in '+daysLeft+' day'+(daysLeft===1?'':'s'))+'. You can opt into a higher tier from Seller Plans when billing is open.</div>'
+      : '';
+    var old=document.getElementById('seller-admin-notice'); if(old) old.remove();
+    var ov=document.createElement('div');
+    ov.id='seller-admin-notice';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(30,14,4,.55);z-index:100005;display:flex;align-items:center;justify-content:center;padding:18px';
+    ov.innerHTML='<div role="dialog" aria-modal="true" aria-labelledby="seller-admin-notice-title" style="width:100%;max-width:460px;background:var(--surface);border:1.5px solid var(--border);border-radius:20px;padding:20px;box-shadow:var(--shadow-lg)">'
+      +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px"><div><div id="seller-admin-notice-title" style="font-family:var(--font-head);font-size:23px;color:var(--heading);font-weight:800">Seller profile update</div><div style="font-size:12px;color:var(--muted);margin-top:3px">A Home-Made admin has updated your seller profile.</div></div><button aria-label="Close" onclick="ackSellerAdminNotice(\''+hmJs(key)+'\')" style="width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--bg);cursor:pointer">x</button></div>'
+      +'<div style="background:var(--accent-l);border:1.5px solid rgba(229,90,24,.22);border-radius:14px;padding:13px 14px;color:var(--body);font-size:13px;line-height:1.55">'+hmText(notice||('Your seller tier is now '+tier+'.'))+(until?'<div style="font-size:11px;color:var(--muted);margin-top:6px">Boost active until '+hmText(formatSellerBackAt(until))+'</div>':'')+'</div>'
+      +reminder
+      +'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px"><button class="btn btn-a" style="flex:1" onclick="ackSellerAdminNotice(\''+hmJs(key)+'\')">Got it</button><button class="btn btn-ol" onclick="ackSellerAdminNotice(\''+hmJs(key)+'\');nav(\'pricing\')">View seller plans</button></div>'
+    +'</div>';
+    document.body.appendChild(ov);
+  }catch(e){ console.warn('[Home-Made] seller notice skipped:', e.message); }
+}
+function ackSellerAdminNotice(key){
+  try{localStorage.setItem(key,'1');}catch(e){}
+  var ov=document.getElementById('seller-admin-notice'); if(ov) ov.remove();
+}
+
 /* ── Admin Analytics Render ── */
 var _admTab='overview';
 var ADMIN_SEARCH_GAPS_SYNCED=false;
@@ -12056,8 +12375,7 @@ function rAdmin(){
     }).join('');
 
     tabContent=
-      buildAdminAccountsPanel('all')
-      +'<div class="g4" style="margin-bottom:20px">'
+      '<div class="g4" style="margin-bottom:20px">'
         +admKPI('💰','This Week','R'+thisWeek.toLocaleString(),'vs R'+lastWeek.toLocaleString()+' last week','up',revChange>0?'+'+revChange+'%':revChange+'%')
         +admKPI('⭐','Platinum Rev','R'+platRevW.toLocaleString(),Math.round((platRevW/thisWeek)*100)+'% of weekly total','up',platSellers+' sellers · R'+Math.round(platRevW/platSellers)+' avg')
         +admKPI('🔥','Gold Rev','R'+goldRevW.toLocaleString(),Math.round((goldRevW/thisWeek)*100)+'% of weekly total','nt',goldSellers+' sellers · R'+Math.round(goldRevW/goldSellers)+' avg')
@@ -12164,7 +12482,8 @@ function rAdmin(){
       }).join('')+'</div>';
 
     tabContent=
-      '<div class="g4" style="margin-bottom:20px">'
+      buildAdminAccountsPanel('all')
+      +'<div class="g4" style="margin-bottom:20px">'
         +admKPI('👥','DAU Today',todayDau,'30-day avg: '+Math.round(d.dauData.reduce(function(a,b){return a+b;},0)/d.dauData.length),'up',dauChange>0?'+'+dauChange+'% vs yesterday':dauChange+'% vs yesterday')
         +admKPI('📈','DAU 7-day trend',d.dauData.slice(-7).reduce(function(a,b){return a+b;},0),'Total sessions this week','up','+'+Math.round(((d.dauData.slice(-7).reduce(function(a,b){return a+b;},0)/d.dauData.slice(-14,-7).reduce(function(a,b){return a+b;},0))-1)*100)+'% vs prev week')
         +admKPI('🔄','Retention Rate',retainRate+'%','Returning vs new users','up','Healthy — industry avg ~45%')
@@ -12223,7 +12542,7 @@ function rAdmin(){
         +'<div style="width:30px;height:30px;border-radius:8px;background:'+s.bg+';display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">'+s.e+'</div>'
         +'<div style="flex:1;min-width:0">'
           +'<div style="font-size:12px;font-weight:700;color:var(--heading);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+s.name+'</div>'
-          +'<div style="font-size:10px;color:var(--muted)">'+s.tier+' · '+s.region+' · ★'+s.rat+' ('+s.rev+' reviews)</div>'
+          +'<div style="font-size:10px;color:var(--muted)">'+tierDisplayLabel(s.tier)+' · '+s.region+' · ★'+s.rat+' ('+s.rev+' reviews)</div>'
           +(s.issues.length?'<div style="font-size:10px;color:'+statusColor+';margin-top:2px">⚠ '+s.issues[0]+'</div>':'')
         +'</div>'
         +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">'
@@ -12266,8 +12585,7 @@ function rAdmin(){
     }).join('');
 
     tabContent=
-      buildAdminAccountsPanel('sellers')
-      +'<div class="g2" style="margin-bottom:16px">'
+      '<div class="g2" style="margin-bottom:16px">'
         +'<div class="adm-sec" style="margin-bottom:0">'
           +'<div class="adm-sec-hd"><div class="adm-sec-title">📊 Seller Retention by Tier</div></div>'
           +'<div style="display:flex;flex-direction:column;gap:10px">'+retHTML+'</div>'
@@ -12819,7 +13137,7 @@ function rAdmin(){
             +'<div style="font-size:13px;font-weight:700;color:var(--heading)">'+s.name+'</div>'
             +'<div style="font-size:11px;color:var(--muted)">'+s.seller+' · '+s.region+'</div>'
           +'</div>'
-          +'<span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:100px;background:var(--bg);border:1.5px solid '+tierColor+';color:'+tierColor+'">'+s.tier.charAt(0).toUpperCase()+s.tier.slice(1)+'</span>'
+          +'<span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:100px;background:var(--bg);border:1.5px solid '+tierColor+';color:'+tierColor+'">'+tierDisplayLabel(s.tier)+'</span>'
           +'<div style="font-size:14px;font-weight:800;color:'+scoreColor+';flex-shrink:0">'+perf.score+'</div>'
         +'</div>'
         +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
@@ -13370,6 +13688,7 @@ function currentSellerForPayment(){
   if(ST.role!=='seller') return null;
   return SELLERS.find(function(x){return x.id===SELLER_OWN_ID;})||null;
 }
+var PAYFAST_PAUSED=true;
 
 function payfastReturnNotice(){
   try{
@@ -13410,6 +13729,10 @@ function submitPayFastForm(endpoint, fields){
 function startPayFastUpgrade(plan){
   var seller=currentSellerForPayment();
   if(!seller){hmAuth.requireLogin(function(){nav('pricing');});return;}
+  if(PAYFAST_PAUSED){
+    showToast('PayFast upgrades are paused while Home-Made finishes launch testing.');
+    return;
+  }
   if(window._payfastBusy){return;}
   var billing=window._pricingBilling||'monthly';
   var planLabel=plan==='platinum'?'Platinum':'Gold';
@@ -15735,7 +16058,7 @@ function renderPassport(){
       .catch(function(){
         /* Fall back to inline blob SW with smart caching */
         var swCode = [
-          'var SV="hm-v62",SH=SV+"-shell",IM=SV+"-img",DT=SV+"-data";',
+          'var SV="hm-v65",SH=SV+"-shell",IM=SV+"-img",DT=SV+"-data";',
           'self.addEventListener("install",function(e){',
           '  e.waitUntil(caches.open(SH).then(function(c){return c.addAll(["./"]);})',
           '    .then(function(){return self.skipWaiting();})',
