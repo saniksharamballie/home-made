@@ -26,7 +26,8 @@ select
     else s.tier
   end as tier,
   s.wa,
-  jsonb_strip_nulls(jsonb_build_object(
+  jsonb_strip_nulls(
+    jsonb_build_object(
     'name', to_jsonb(s.name),
     'seller', to_jsonb(s.seller),
     'cat', coalesce(s.data->'cat', to_jsonb(s.category)),
@@ -66,7 +67,9 @@ select
     'img', s.data->'img',
     'storePic', s.data->'storePic',
     'store_pic', s.data->'store_pic',
-    'image', s.data->'image',
+    'image', s.data->'image'
+    ) ||
+    jsonb_build_object(
     'image_url', s.data->'image_url',
     'photo', s.data->'photo',
     'photoUrl', s.data->'photoUrl',
@@ -117,7 +120,9 @@ select
     'orders', s.data->'orders',
     'e', s.data->'e',
     'emoji', s.data->'emoji',
-    'bg', s.data->'bg',
+    'bg', s.data->'bg'
+    ) ||
+    jsonb_build_object(
     'background', s.data->'background',
     'ec', s.data->'ec',
     'cx', s.data->'cx',
@@ -133,7 +138,8 @@ select
         then extract(month from to_date(coalesce(s.data->>'sellerDob', s.data->>'dateOfBirth', s.data->>'dob', s.data->>'birthDate'), 'YYYY-MM-DD')) = extract(month from now())
       else false
     end
-  )) as data,
+    )
+  ) as data,
   s.active,
   s.updated_at
 from public.sellers s
