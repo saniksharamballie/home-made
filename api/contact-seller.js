@@ -189,7 +189,8 @@ async function checkRateLimit(hash, windowSeconds, maxRequests) {
     body: JSON.stringify({
       input_client_hash: hash,
       input_window_seconds: windowSeconds,
-      input_max_requests: maxRequests
+      input_max_requests: maxRequests,
+      input_now: new Date().toISOString()
     })
   });
   return rows === true;
