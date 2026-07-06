@@ -1480,7 +1480,13 @@ function mergeLiveSellers(rows){
       baseTier:d.baseTier||d.paidTier||row.base_tier||row.tier||d.tier||'standard',
       tier:row.tier||d.tier||'standard',
       region:row.region||d.region||'Durban CBD',
-      wa:row.wa||d.wa||'27000000000',
+      hasWhatsApp:hmBool(
+        row.hasWhatsApp != null ? row.hasWhatsApp :
+        (row.has_whatsapp != null ? row.has_whatsapp :
+        (d.hasWhatsApp != null ? d.hasWhatsApp : !!String(row.wa||'').trim())),
+        false
+      ),
+      wa:(ownRaw&&ownRaw.wa)||'',
       img:imageValue(d.storePic||d.store_pic||d.img||d.image||d.image_url||d.photo||d.photoUrl||d.photo_url||d.heroImage||d.hero_image||row.store_pic||row.image_url||row.photo_url||''),
       storePic:imageValue(d.storePic||d.store_pic||row.store_pic||''),
       avatar:imageValue(d.avatar||d.icon||''),
@@ -2289,11 +2295,6 @@ function submitCateringModal(sid){
   });
 }
 function openWA(s, items, onComplete){
-  /* Gate: guests must log in before ordering */
-  if(!ST.role || ST.role==='guest'){
-    hmAuth.requireLogin(function(){ openWA(s, items, onComplete); });
-    return;
-  }
   // Offline guard — can't open WhatsApp without a connection
   if(sellerUnavailable(s)){
     showToast('Ordering is paused: '+sellerUnavailableMessage(s));
@@ -2317,16 +2318,27 @@ function openWA(s, items, onComplete){
 }
 function _doOpenWA(s,items){
   /* Hard stop — never send WhatsApp order for a guest */
-  if(!ST.role || ST.role==='guest'){
-    hmAuth.requireLogin(function(){ _doOpenWA(s,items); });
-    return;
-  }
   var built = buildWAText(s, items);
-  var num = (s.wa||'').replace(/\D/g,'');
-  var url = (num ? 'https://wa.me/' + num : 'https://wa.me/') + '?text=' + encodeURIComponent(built.text);
-  var a=document.createElement('a');
-  a.href=url;a.target='_blank';a.rel='noopener noreferrer';
-  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  contactSellerViaWhatsApp(s, built.text);
+}
+function contactSellerViaWhatsApp(s,message){
+  if(!s){showToast('Seller not found.');return false;}
+  if(!s.hasWhatsApp || !s.id){showToast('This seller is not available on WhatsApp right now.');return false;}
+  var form=document.getElementById('contact-seller-form');
+  if(!form){
+    form=document.createElement('form');
+    form.id='contact-seller-form';
+    form.method='POST';
+    form.action='/api/contact-seller';
+    form.target='_blank';
+    form.style.display='none';
+    form.innerHTML='<input type="hidden" name="sellerId"/><input type="hidden" name="message"/>';
+    document.body.appendChild(form);
+  }
+  form.elements.sellerId.value=s.id;
+  form.elements.message.value=String(message||'').slice(0,3000);
+  form.submit();
+  return true;
 }
 function showSafetyModal(onContinue){
   // Store callback globally so the inline onclick can reach it without closure serialisation
@@ -13321,8 +13333,7 @@ function admSellerDetail(sid){
 function admMsgSeller(sid){
   var s=SELLERS.find(function(x){return x.id===sid;});
   if(!s)return;
-  var msg=encodeURIComponent('Hi '+s.seller+'! We noticed your listing on Home-Made could perform better. We\'d love to help you boost your visibility with some quick improvements. Can we schedule a 10-min call?');
-  var _a=document.createElement('a');_a.href='https://wa.me/'+s.wa+'?text='+msg;_a.target='_blank';_a.rel='noopener noreferrer';document.body.appendChild(_a);_a.click();document.body.removeChild(_a);
+  contactSellerViaWhatsApp(s,'Hi '+s.seller+'! We noticed your listing on Home-Made could perform better. We\'d love to help you boost your visibility with some quick improvements. Can we schedule a 10-min call?');
 }
 
 function admBroadcastSearch(query){
@@ -15001,10 +15012,8 @@ function sendCartWA(){
   }
   var built=buildWAText(CART.sellerRef, itemsForMsg);
   // Append pricing to the message
-  var num=(CART.sellerRef.wa||'').replace(/\D/g,'');
   var fullText=built.text+priceNote;
-  var url=(num?'https://wa.me/'+num:'https://wa.me/')+'?text='+encodeURIComponent(fullText);
-  var _a=document.createElement('a');_a.href=url;_a.target='_blank';_a.rel='noopener noreferrer';document.body.appendChild(_a);_a.click();document.body.removeChild(_a);
+  contactSellerViaWhatsApp(CART.sellerRef, fullText);
   closeCart();
   // 2F: Post-order upgrade toast — only for Standard sellers, max once per session
   if(ST.role==='seller'&&!sessionStorage.getItem('upg-toast-shown')){

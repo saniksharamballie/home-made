@@ -11,6 +11,17 @@ const FORBIDDEN_JSON_KEYS = [
   "auth_id",
   "email",
   "phone",
+  "phoneNumber",
+  "phone_number",
+  "mobile",
+  "mobileNumber",
+  "whatsapp",
+  "whatsappNumber",
+  "whatsapp_number",
+  "contact",
+  "contactNumber",
+  "contact_number",
+  "telephone",
   "address",
   "street_address",
   "streetAddress",
@@ -259,6 +270,57 @@ async function main() {
       select count(*) from keys where key in (${keys});
     `, projectId);
     assertEqual(out, "0", "forbidden private JSON key count");
+  });
+
+  await test("Phase 1 temporary compatibility: seller_directory still exposes top-level wa", async () => {
+    const out = await runSql(`
+      select exists (
+        select 1
+        from information_schema.columns
+        where table_schema = 'public'
+          and table_name = 'seller_directory'
+          and column_name = 'wa'
+      );
+    `, projectId);
+    assertTrue(out, "temporary top-level wa column for old clients");
+  });
+
+  await test("Phase 1 temporary compatibility: seller_directory.data still exposes wa", async () => {
+    const out = await runSql(`
+      select coalesce(bool_or(data ? 'wa'), false)
+      from public.seller_directory;
+    `, projectId);
+    assertTrue(out, "temporary data.wa for old clients");
+  });
+
+  await test("seller_directory exposes no removed contact identifier column or JSON field", async () => {
+    const out = await runSql(`
+      with columns as (
+        select count(*)::int as found
+        from information_schema.columns
+        where table_schema = 'public'
+          and table_name = 'seller_directory'
+          and lower(column_name) in ('contact' || 'id', 'contact' || '_id')
+      ),
+      json_fields as (
+        select count(*)::int as found
+        from public.seller_directory
+        where data ? ('contact' || 'Id') or data ? ('contact' || '_id')
+      )
+      select (columns.found + json_fields.found)::text
+      from columns, json_fields;
+    `, projectId);
+    assertEqual(out, "0", "removed contact identifier exposure count");
+  });
+
+  await test("seller_directory has boolean hasWhatsApp", async () => {
+    const out = await runSql(`
+      select coalesce(bool_and(
+        jsonb_typeof(to_jsonb("hasWhatsApp")) = 'boolean'
+      ), false)
+      from public.seller_directory;
+    `, projectId);
+    assertTrue(out, "hasWhatsApp projection");
   });
 
   await test("seller_directory returns active sellers", async () => {

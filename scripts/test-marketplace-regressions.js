@@ -14,6 +14,17 @@ const PRIVATE_SELLER_KEYS = [
   "auth_id",
   "email",
   "phone",
+  "phoneNumber",
+  "phone_number",
+  "mobile",
+  "mobileNumber",
+  "whatsapp",
+  "whatsappNumber",
+  "whatsapp_number",
+  "contact",
+  "contactNumber",
+  "contact_number",
+  "telephone",
   "address",
   "street_address",
   "streetAddress",
@@ -329,6 +340,17 @@ function sellerData(ctx, suffix, options = {}) {
     bankAccount: "PRIVATE BANK ACCOUNT",
     idNumber: "PRIVATE ID NUMBER",
     phone: "PRIVATE PHONE",
+    phoneNumber: "PRIVATE PHONE NUMBER",
+    phone_number: "PRIVATE PHONE NUMBER",
+    mobile: "PRIVATE MOBILE",
+    mobileNumber: "PRIVATE MOBILE NUMBER",
+    whatsapp: "PRIVATE WHATSAPP",
+    whatsappNumber: "PRIVATE WHATSAPP NUMBER",
+    whatsapp_number: "PRIVATE WHATSAPP NUMBER",
+    contact: "PRIVATE CONTACT",
+    contactNumber: "PRIVATE CONTACT NUMBER",
+    contact_number: "PRIVATE CONTACT NUMBER",
+    telephone: "PRIVATE TELEPHONE",
     ...imageStructures,
     items: [publicItem(`${suffix} Bunny Chow`, 85, "1 person", `${suffix}-current-1`)],
     dailyMenus: {
@@ -354,7 +376,7 @@ function createSellerSql(ctx, fixture) {
       ${sqlString(fixture.region)},
       ${sqlString(fixture.category)},
       ${sqlString(fixture.tier)},
-      '27820005555',
+      ${fixture.wa === null ? "null" : sqlString(fixture.wa || "27820005555")},
       -29.8587000,
       31.0218000,
       ${fixture.active ? "true" : "false"},
@@ -413,6 +435,23 @@ async function insertFixtures(ctx) {
         fee: 20,
         birthMonth: futureMonthNumber(),
         discounts: [{ qty: 4, pct: 8 }]
+      })
+    },
+    {
+      slug: "no-wa",
+      name: `HM Marketplace No WA ${ctx.runId}`,
+      seller: "Marketplace No WA Kitchen",
+      region: "Berea",
+      category: "street",
+      tier: "standard",
+      active: true,
+      wa: null,
+      data: sellerData(ctx, "No WA", {
+        delivery: false,
+        pickup: true,
+        fee: 0,
+        birthMonth: futureMonthNumber(),
+        discounts: [{ qty: 3, pct: 5 }]
       })
     }
   ];
@@ -540,7 +579,7 @@ async function main() {
 
   await test("public directory returns expected active fixture count", async () => {
     rows = await directoryRows(ctx);
-    assertEqual(rows.length, 2, "active fixture row count");
+    assertEqual(rows.length, 3, "active fixture row count");
   });
 
   await test("category values are projected correctly", async () => {
@@ -659,6 +698,46 @@ async function main() {
     for (const row of rows) {
       assertNoForbiddenKeys(row, PRIVATE_SELLER_KEYS, `seller_directory row ${row.id}`);
     }
+  });
+
+  await test("Phase 1 temporary compatibility: seller_directory exposes top-level wa values", async () => {
+    const birthday = rowBySlug(rows, fixtures, "birthday");
+    const birthdayFixture = fixtures.find((item) => item.slug === "birthday");
+    const expectedBirthdayWa = birthdayFixture.wa || "27820005555";
+    const noWa = rowBySlug(rows, fixtures, "no-wa");
+    assert(Object.prototype.hasOwnProperty.call(birthday, "wa"), "birthday row should temporarily include top-level wa");
+    assertEqual(String(birthday.wa || "").replace(/\D/g, ""), expectedBirthdayWa, "birthday temporary wa value");
+    assert(Object.prototype.hasOwnProperty.call(noWa, "wa"), "no-wa row should temporarily include top-level wa");
+  });
+
+  await test("Phase 1 temporary compatibility: seller_directory.data exposes wa values", async () => {
+    const birthday = rowBySlug(rows, fixtures, "birthday");
+    const birthdayFixture = fixtures.find((item) => item.slug === "birthday");
+    const expectedBirthdayWa = birthdayFixture.wa || "27820005555";
+    const noWa = rowBySlug(rows, fixtures, "no-wa");
+    assert(Object.prototype.hasOwnProperty.call(birthday.data, "wa"), "birthday data should temporarily include wa");
+    assertEqual(String(birthday.data.wa || "").replace(/\D/g, ""), expectedBirthdayWa, "birthday temporary data.wa value");
+    assert(!Object.prototype.hasOwnProperty.call(noWa.data, "wa"), "null wa should be stripped from data");
+  });
+
+  await test("seller_directory exposes no removed contact identifier values", async () => {
+    const camel = "contact" + "Id";
+    const snake = "contact" + "_id";
+    for (const row of rows) {
+      assert(!Object.prototype.hasOwnProperty.call(row, camel), `seller_directory row ${row.id} should not include removed contact identifier`);
+      assert(!Object.prototype.hasOwnProperty.call(row, snake), `seller_directory row ${row.id} should not include removed contact identifier`);
+      assert(!Object.prototype.hasOwnProperty.call(row.data || {}, camel), `seller_directory data ${row.id} should not include removed contact identifier`);
+      assert(!Object.prototype.hasOwnProperty.call(row.data || {}, snake), `seller_directory data ${row.id} should not include removed contact identifier`);
+    }
+  });
+
+  await test("seller_directory exposes boolean hasWhatsApp", async () => {
+    const birthday = rowBySlug(rows, fixtures, "birthday");
+    const noWa = rowBySlug(rows, fixtures, "no-wa");
+    assertEqual(typeof birthday.hasWhatsApp, "boolean", "birthday hasWhatsApp type");
+    assertEqual(typeof birthday.data.hasWhatsApp, "boolean", "birthday data.hasWhatsApp type");
+    assertEqual(birthday.hasWhatsApp, true, "birthday hasWhatsApp");
+    assertEqual(noWa.hasWhatsApp, false, "no-wa hasWhatsApp");
   });
 
   await test("private data remains absent after advert/data updates", async () => {

@@ -192,7 +192,7 @@ async function sqlRows(ctx, selectSql) {
 
 async function sellerById(ctx, sellerId) {
   const rows = await sqlRows(ctx, `
-    select id, auth_id, email, name, seller, region, category, tier, active, data
+    select id, auth_id, email, name, seller, region, category, tier, wa, active, data
     from public.sellers
     where id = ${Number(sellerId)}
   `);
@@ -582,6 +582,26 @@ async function main() {
     const res = await anonRequest(ctx, `/rest/v1/seller_directory?select=id&id=eq.${state.sellerA.id}`);
     assertOk(res, "anon seller_directory active seller A");
     assertEqual(res.data.length, 1, "active seller A directory row count");
+  });
+
+  await test("seller owner can still read own wa through protected sellers access", async () => {
+    const res = await userRequest(ctx, accounts.sellerA, `/rest/v1/sellers?select=id,wa&id=eq.${state.sellerA.id}`);
+    assertOk(res, "seller owner protected wa read");
+    assertEqual(res.data.length, 1, "seller owner wa row count");
+    assertEqual(res.data[0].wa, "27820009999", "seller owner wa value");
+  });
+
+  await test("unrelated authenticated user cannot read another seller wa", async () => {
+    const res = await userRequest(ctx, accounts.normal, `/rest/v1/sellers?select=id,wa&id=eq.${state.sellerA.id}`);
+    assertOk(res, "unrelated user protected seller read");
+    assertEqual(res.data.length, 0, "unrelated user seller row count");
+  });
+
+  await test("admin can still read seller wa through protected sellers access", async () => {
+    const res = await userRequest(ctx, accounts.admin, `/rest/v1/sellers?select=id,wa&id=eq.${state.sellerA.id}`);
+    assertOk(res, "admin protected wa read");
+    assertEqual(res.data.length, 1, "admin wa row count");
+    assertEqual(res.data[0].wa, "27820009999", "admin wa value");
   });
 
   await test("public seller_directory excludes inactive workflow sellers", async () => {

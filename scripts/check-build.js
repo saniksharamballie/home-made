@@ -47,6 +47,8 @@ for (const page of legalPages) {
 
 const html = fs.readFileSync(htmlPath, "utf8");
 const env = fs.readFileSync(envPath, "utf8");
+const sourceHtml = fs.readFileSync(path.join(root, "src", "homemade-map-cleaned-1.html"), "utf8");
+const removedContactFieldPattern = new RegExp(`contact(?:${"I"}d|_${"i"}d)`, "i");
 
 for (const needle of required) {
   if (!html.includes(needle) && !env.includes(needle)) {
@@ -85,6 +87,15 @@ for (const page of sellerPages) {
   }
   if (!sellerHtml.includes("100% of the food payment goes to the seller")) {
     throw new Error(`Build check failed. Seller page missing seller payment wording: ${path.basename(page)}`);
+  }
+  if (/https:\/\/wa\.me\/\d/i.test(sellerHtml)) {
+    throw new Error(`Build check failed. Public seller page contains direct WhatsApp number: ${path.basename(page)}`);
+  }
+  if (/"telephone"\s*:/i.test(sellerHtml)) {
+    throw new Error(`Build check failed. Public seller page contains schema telephone: ${path.basename(page)}`);
+  }
+  if (removedContactFieldPattern.test(sellerHtml)) {
+    throw new Error(`Build check failed. Public seller page contains removed contact identifier field: ${path.basename(page)}`);
   }
   if (sellerHtml.includes('"@type":"AggregateRating"')) aggregateRatingPages += 1;
 }
@@ -128,6 +139,30 @@ for (const needle of ["Strict-Transport-Security", "home-made.co.za", "/durban/:
 }
 if (html.includes("/rest/v1/sellers?select=*")) {
   throw new Error("Build check failed. Public seller API request exposes private seller fields.");
+}
+if (removedContactFieldPattern.test(sourceHtml) || removedContactFieldPattern.test(html)) {
+  throw new Error("Build check failed. Frontend contains removed contact identifier field.");
+}
+if (/wa\s*:\s*row\.wa/i.test(sourceHtml) || /wa\s*:\s*d\.wa/i.test(sourceHtml)) {
+  throw new Error("Build check failed. Public frontend seller state retains directory wa.");
+}
+for (const [label, text] of [
+  ["public/index.html", html],
+  ["public/browse-sellers.html", fs.readFileSync(path.join(root, "public", "browse-sellers.html"), "utf8")],
+  ["scripts/build-seo-pages.js", fs.readFileSync(path.join(root, "scripts", "build-seo-pages.js"), "utf8")]
+]) {
+  if (/SUPABASE_SERVICE_ROLE_KEY|SUPABASE_SECRET_KEY/.test(text)) {
+    throw new Error(`Build check failed. ${label} contains service-role key names.`);
+  }
+  if (/https:\/\/wa\.me\/\d/i.test(text)) {
+    throw new Error(`Build check failed. ${label} contains a direct WhatsApp number.`);
+  }
+  if (/"telephone"\s*:/i.test(text)) {
+    throw new Error(`Build check failed. ${label} contains schema telephone.`);
+  }
+  if (removedContactFieldPattern.test(text)) {
+    throw new Error(`Build check failed. ${label} contains removed contact identifier field.`);
+  }
 }
 
 console.log(`Build check passed with ${sellerPages.length} privacy-safe seller pages, ${durbanPages.length} Durban pages and ${cuisinePages.length} cuisine pages.`);

@@ -1,6 +1,7 @@
 const base = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://yemdirpmtqzzduxtgfqh.supabase.co";
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const demoPassword = process.env.HM_DEMO_PASSWORD || "HomeMadeDemo!2026";
+const demoSellerWhatsApp = String(process.env.DEMO_SELLER_WHATSAPP || "").replace(/\D/g, "");
 
 if (!key) {
   console.error("Missing SUPABASE_SERVICE_ROLE_KEY");
@@ -30,7 +31,7 @@ const sellers = [
     region: "Chatsworth",
     category: "indian",
     tier: "platinum",
-    wa: "27820002001",
+    wa: demoSellerWhatsApp,
     lat: -29.9061,
     lng: 30.9402,
     data: {
@@ -63,7 +64,7 @@ const sellers = [
     region: "Umhlanga",
     category: "african",
     tier: "gold",
-    wa: "27820002002",
+    wa: demoSellerWhatsApp,
     lat: -29.73,
     lng: 31.08,
     data: {
@@ -96,7 +97,7 @@ const sellers = [
     region: "Durban CBD",
     category: "seafood",
     tier: "standard",
-    wa: "27820002003",
+    wa: demoSellerWhatsApp,
     lat: -29.862,
     lng: 31.02,
     data: {
@@ -129,7 +130,7 @@ const sellers = [
     region: "Westville",
     category: "street",
     tier: "gold",
-    wa: "27820002004",
+    wa: demoSellerWhatsApp,
     lat: -29.833,
     lng: 30.922,
     data: {
@@ -162,7 +163,7 @@ const sellers = [
     region: "Pinetown",
     category: "bbq",
     tier: "platinum",
-    wa: "27820002005",
+    wa: demoSellerWhatsApp,
     lat: -29.819,
     lng: 30.867,
     data: {

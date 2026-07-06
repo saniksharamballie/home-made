@@ -6,7 +6,7 @@
     "region": "Chatsworth",
     "category": "indian",
     "tier": "platinum",
-    "wa": "27820002001",
+    "hasWhatsApp": true,
     "updated_at": "2026-05-22T00:00:00.000Z",
     "data": {
       "desc": "Durban curries, bunny chow and breyani cooked from a family spice blend.",
@@ -29,7 +29,7 @@
     "region": "Umhlanga",
     "category": "african",
     "tier": "gold",
-    "wa": "27820002002",
+    "hasWhatsApp": true,
     "updated_at": "2026-05-22T00:00:00.000Z",
     "data": {
       "desc": "Comforting Sunday plates with samp, beans, chakalaka and slow-cooked stews.",
@@ -52,7 +52,7 @@
     "region": "Durban CBD",
     "category": "seafood",
     "tier": "standard",
-    "wa": "27820002003",
+    "hasWhatsApp": true,
     "updated_at": "2026-05-22T00:00:00.000Z",
     "data": {
       "desc": "Seafood curry trays, soft rotis and beach-day family portions.",
@@ -75,7 +75,7 @@
     "region": "Westville",
     "category": "street",
     "tier": "gold",
-    "wa": "27820002004",
+    "hasWhatsApp": true,
     "updated_at": "2026-05-22T00:00:00.000Z",
     "data": {
       "desc": "Weekday lunch packs, school boxes and family-friendly heat-and-eat meals.",
@@ -98,7 +98,7 @@
     "region": "Pinetown",
     "category": "bbq",
     "tier": "platinum",
-    "wa": "27820002005",
+    "hasWhatsApp": true,
     "updated_at": "2026-05-22T00:00:00.000Z",
     "data": {
       "desc": "Low-and-slow shisa nyama, sticky ribs and weekend braai packs.",

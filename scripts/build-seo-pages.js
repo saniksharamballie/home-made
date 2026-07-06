@@ -292,8 +292,12 @@ function sellerPage(seller) {
   const tags = [...(data.dietary || []), ...(data.healthTags || [])];
   const items = Array.isArray(data.items) ? data.items : [];
   const faqs = sellerFaqs(seller);
-  const whatsApp = String(seller.wa || "").replace(/\D/g, "");
+  const sellerId = String(seller.id || "").trim();
+  const hasWhatsApp = Boolean(seller.hasWhatsApp || data.hasWhatsApp) && sellerId;
   const url = sellerUrl(seller);
+  const contactForm = hasWhatsApp
+    ? `<form class="actions" action="/api/contact-seller" method="post" target="_blank"><input type="hidden" name="sellerId" value="${esc(sellerId)}"/><input type="hidden" name="message" value="${esc(`Hi ${seller.seller || seller.name}! I found your listing on Home-Made and would like to enquire.`)}"/><button class="btn" type="submit">Chat on WhatsApp</button><a class="btn alt" href="/">Open marketplace</a></form>`
+    : `<div class="actions"><a class="btn alt" href="/">Open marketplace</a></div>`;
   const body = `<main>
     <div class="crumbs"><a href="/">Home</a> / <a href="/browse-sellers">Browse sellers</a> / ${esc(seller.name)}</div>
     <div class="profile">
@@ -313,7 +317,7 @@ function sellerPage(seller) {
         <p>Based in ${esc(seller.region)}, Durban. Exact collection details are shared privately when needed.</p>
         <p class="meta">Independent seller listing. Food payments are arranged directly with the seller, and 100% of the food payment goes to the seller. Confirm ingredients and allergens directly with the seller. <a href="/legal">Read notices</a>.</p>
         ${data.rat ? `<p><strong>${esc(data.rat)} / 5</strong> from ${esc(data.rev || 0)} reviews</p>` : ""}
-        <div class="actions">${whatsApp ? `<a class="btn" href="https://wa.me/${esc(whatsApp)}" rel="nofollow">Chat on WhatsApp</a>` : ""}<a class="btn alt" href="/">Open marketplace</a></div>
+        ${contactForm}
         <div class="links"><a href="/durban/${esc(slugify(seller.region))}">More in ${esc(seller.region)}</a><a href="/cuisine/${esc(slugify(seller.category))}">More ${esc(categoryLabel(seller.category))}</a></div>
       </aside>
     </div>
@@ -333,7 +337,6 @@ function sellerPage(seller) {
       addressCountry: "ZA"
     }
   };
-  if (whatsApp) localBusiness.telephone = `+${whatsApp}`;
   const prices = items.map((item) => Number(item.p)).filter((price) => Number.isFinite(price));
   if (prices.length) {
     localBusiness.priceRange = `R${Math.min(...prices)}-R${Math.max(...prices)}`;
