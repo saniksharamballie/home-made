@@ -18,17 +18,103 @@ function httpError(message, status) {
 }
 
 function isProduction() {
-  return process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
+  return process.env.VERCEL_ENV === "production";
+}
+
+function isVercelRuntime() {
+  return process.env.VERCEL === "1";
+}
+
+function singleHeaderValue(value) {
+  if (Array.isArray(value)) return "";
+  const raw = String(value || "").trim();
+  if (!raw || raw.includes(",")) return "";
+  return raw;
+}
+
+function normaliseHostname(value) {
+  return String(value || "").trim().toLowerCase().replace(/\.$/, "");
+}
+
+function parseHttpsOrigin(value) {
+  const raw = singleHeaderValue(value);
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:") return null;
+    if (url.username || url.password) return null;
+    if (url.pathname !== "/" || url.search || url.hash) return null;
+    if (url.port && url.port !== "443") return null;
+    const hostname = normaliseHostname(url.hostname);
+    if (!hostname) return null;
+    return `https://${hostname}`;
+  } catch {
+    return null;
+  }
+}
+
+function parseHeaderHost(value) {
+  const raw = singleHeaderValue(value);
+  if (!raw) return "";
+  try {
+    const url = new URL(`https://${raw}`);
+    if (url.username || url.password) return "";
+    if (url.pathname !== "/" || url.search || url.hash) return "";
+    if (url.port && url.port !== "443") return "";
+    return normaliseHostname(url.hostname);
+  } catch {
+    return "";
+  }
+}
+
+function parseVercelDeploymentHost(value) {
+  const raw = singleHeaderValue(value);
+  if (!raw) return "";
+  const candidate = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    const url = new URL(candidate);
+    if (url.protocol !== "https:") return "";
+    if (url.username || url.password) return "";
+    if (url.pathname !== "/" || url.search || url.hash) return "";
+    if (url.port && url.port !== "443") return "";
+    return normaliseHostname(url.hostname);
+  } catch {
+    return "";
+  }
+}
+
+function isVercelAppHost(hostname) {
+  return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.vercel\.app$/.test(hostname);
+}
+
+function requestHost(req) {
+  if (Object.prototype.hasOwnProperty.call(req.headers, "x-forwarded-host")) {
+    return parseHeaderHost(req.headers["x-forwarded-host"]);
+  }
+  return parseHeaderHost(req.headers.host);
+}
+
+function previewOriginAllowed(req, origin) {
+  if (!isVercelRuntime() || process.env.VERCEL_ENV !== "preview") return false;
+  const parsedOrigin = parseHttpsOrigin(origin);
+  if (!parsedOrigin) return false;
+  const currentHost = requestHost(req);
+  if (!currentHost || !isVercelAppHost(currentHost)) return false;
+  const deploymentHost = parseVercelDeploymentHost(req.headers["x-vercel-deployment-url"]);
+  if (!deploymentHost || !isVercelAppHost(deploymentHost)) return false;
+  if (deploymentHost !== currentHost) return false;
+  return parsedOrigin === `https://${currentHost}`;
 }
 
 function validateOrigin(req) {
-  const origin = String(req.headers.origin || "").trim();
+  const origin = singleHeaderValue(req.headers.origin);
   if (!origin) {
-    if (isProduction()) throw httpError("Forbidden", 403);
+    if (isProduction() || isVercelRuntime()) throw httpError("Forbidden", 403);
     return true;
   }
   if (PROD_ORIGINS.has(origin)) return true;
-  if (!isProduction() && LOCAL_ORIGIN_RE.test(origin)) return true;
+  if (previewOriginAllowed(req, origin)) return true;
+  if (!isProduction() && !isVercelRuntime() && LOCAL_ORIGIN_RE.test(origin)) return true;
   throw httpError("Forbidden", 403);
 }
 
@@ -158,6 +244,7 @@ contactSellerHandler._test = {
   encodeWaUrl,
   configuredOverrideNumber,
   normaliseWhatsapp,
+  previewOriginAllowed,
   trustedClientIp,
   validateOrigin,
   setSupabaseFetch(fn) {

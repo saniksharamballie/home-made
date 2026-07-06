@@ -79,9 +79,29 @@ Optional rate-limit tuning:
 
 ## Origin Behaviour
 
-Production accepts only Home-Made production origins. Localhost and
-`127.0.0.1` origins are accepted only outside production. Missing production
-origins are rejected.
+Production accepts only the approved Home-Made production origins:
+
+- `https://home-made.co.za`
+- `https://www.home-made.co.za`
+
+Vercel Preview deployments accept only an exact same-origin browser request for
+the currently executing protected Preview deployment. The endpoint checks that
+it is running on Vercel Preview, that the `Origin` is HTTPS, that the Origin
+hostname exactly matches the request host, and that Vercel deployment metadata
+identifies the same `*.vercel.app` deployment host.
+
+Arbitrary `*.vercel.app` origins are still rejected. A request from one Preview
+deployment to another Preview deployment is rejected because the Origin does not
+match the current request host. No fixed Preview hostname or
+`ALLOWED_PREVIEW_ORIGIN` environment variable should be configured.
+
+Localhost and `127.0.0.1` origins are accepted only in local non-Vercel
+development. Missing origins are rejected in Vercel environments.
+
+Preview testing can use an authenticated browser session or `vercel curl`
+targeted at the exact Preview deployment. `vercel curl` can handle protected
+Preview access for the authenticated Vercel project without making the Preview
+public.
 
 ## Local Tests
 

@@ -21,6 +21,15 @@ console.error = (...args) => {
 
 let failures = 0;
 
+function restoreEnv(snapshot) {
+  for (const key of Object.keys(process.env)) {
+    if (!Object.prototype.hasOwnProperty.call(snapshot, key)) {
+      delete process.env[key];
+    }
+  }
+  Object.assign(process.env, snapshot);
+}
+
 function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
@@ -30,6 +39,7 @@ function assertEqual(actual, expected, message) {
 }
 
 async function test(name, fn) {
+  const envBefore = { ...process.env };
   try {
     await fn();
     console.log(`PASS ${name}`);
@@ -37,6 +47,8 @@ async function test(name, fn) {
     failures += 1;
     console.error(`FAIL ${name}`);
     console.error(`  ${error.message}`);
+  } finally {
+    restoreEnv(envBefore);
   }
 }
 
@@ -53,17 +65,29 @@ function assertLocalOnlyEnv() {
   }
 }
 
-function makeReq({ method = "POST", origin = "http://localhost:5173", ip = "203.0.113.10", body = {}, type = "json" } = {}) {
+function makeReq({
+  method = "POST",
+  origin = "http://localhost:5173",
+  ip = "203.0.113.10",
+  body = {},
+  type = "json",
+  host,
+  forwardedHost,
+  deploymentUrl
+} = {}) {
   const encoded = type === "form"
     ? new URLSearchParams(body).toString()
     : JSON.stringify(body);
   const req = Readable.from(encoded ? [encoded] : []);
   req.method = method;
   req.headers = {
-    origin,
     "x-forwarded-for": ip,
     "content-type": type === "form" ? "application/x-www-form-urlencoded" : "application/json"
   };
+  if (origin !== undefined) req.headers.origin = origin;
+  if (host !== undefined) req.headers.host = host;
+  if (forwardedHost !== undefined) req.headers["x-forwarded-host"] = forwardedHost;
+  if (deploymentUrl !== undefined) req.headers["x-vercel-deployment-url"] = deploymentUrl;
   req.socket = { remoteAddress: ip };
   return req;
 }
@@ -120,6 +144,7 @@ function installMockSupabase() {
 }
 
 function resetEnv() {
+  delete process.env.VERCEL;
   process.env.NODE_ENV = "test";
   process.env.VERCEL_ENV = "development";
   process.env.CONTACT_RATE_LIMIT_SECRET = "local-contact-test-secret-000000";
@@ -142,6 +167,30 @@ function redirectUses(res, number) {
   return url.host === "wa.me" && url.pathname === `/${number}`;
 }
 
+function setProductionEnv() {
+  process.env.VERCEL = "1";
+  process.env.VERCEL_ENV = "production";
+  process.env.NODE_ENV = "production";
+}
+
+function setPreviewEnv() {
+  process.env.VERCEL = "1";
+  process.env.VERCEL_ENV = "preview";
+  process.env.NODE_ENV = "production";
+}
+
+function previewRequestOptions(overrides = {}) {
+  const host = "home-made-preview-abc123-saniksha-s-projects.vercel.app";
+  return {
+    origin: `https://${host}`,
+    host,
+    forwardedHost: host,
+    deploymentUrl: host,
+    body: { sellerId: SELLER_A, message: "Hello from preview" },
+    ...overrides
+  };
+}
+
 async function main() {
   assertLocalOnlyEnv();
   resetEnv();
@@ -155,6 +204,131 @@ async function main() {
   await test("Invalid origin is rejected", async () => {
     const res = await call({ origin: "https://evil.example", body: { sellerId: SELLER_A } });
     assertEqual(res.statusCode, 403, "invalid origin status");
+  });
+
+  await test("Production accepts the canonical approved Production origin", async () => {
+    setProductionEnv();
+    const res = await call({
+      origin: "https://www.home-made.co.za",
+      host: "www.home-made.co.za",
+      body: { sellerId: SELLER_A }
+    });
+    assertEqual(res.statusCode, 303, "production origin status");
+  });
+
+  await test("Production rejects a Vercel Preview origin", async () => {
+    setProductionEnv();
+    const res = await call(previewRequestOptions({ body: { sellerId: SELLER_A } }));
+    assertEqual(res.statusCode, 403, "production preview-origin status");
+  });
+
+  await test("Preview accepts an exact HTTPS Origin matching the request host", async () => {
+    setPreviewEnv();
+    const res = await call(previewRequestOptions({ ip: "203.0.113.32" }));
+    assertEqual(res.statusCode, 303, "preview exact origin status");
+  });
+
+  await test("Preview accepts the exact current deployment domain with Vercel metadata", async () => {
+    setPreviewEnv();
+    const host = "home-made-git-codex-whatsapp-saniksha-s-projects.vercel.app";
+    const res = await call(previewRequestOptions({
+      ip: "203.0.113.33",
+      origin: `https://${host}`,
+      host,
+      forwardedHost: host,
+      deploymentUrl: `https://${host}`
+    }));
+    assertEqual(res.statusCode, 303, "preview deployment-domain status");
+  });
+
+  await test("Preview rejects a different Vercel Preview Origin", async () => {
+    setPreviewEnv();
+    const host = "home-made-preview-abc123-saniksha-s-projects.vercel.app";
+    const res = await call(previewRequestOptions({
+      origin: "https://home-made-other-preview-saniksha-s-projects.vercel.app",
+      host,
+      forwardedHost: host,
+      deploymentUrl: host,
+      body: { sellerId: SELLER_A }
+    }));
+    assertEqual(res.statusCode, 403, "different preview origin status");
+  });
+
+  await test("Preview rejects a broad arbitrary Vercel app Origin", async () => {
+    setPreviewEnv();
+    const res = await call(previewRequestOptions({
+      origin: "https://anything.vercel.app",
+      body: { sellerId: SELLER_A }
+    }));
+    assertEqual(res.statusCode, 403, "arbitrary vercel app origin status");
+  });
+
+  await test("Preview rejects when Origin and Host differ", async () => {
+    setPreviewEnv();
+    const res = await call(previewRequestOptions({
+      host: "home-made-preview-abc123-saniksha-s-projects.vercel.app",
+      forwardedHost: "home-made-preview-abc123-saniksha-s-projects.vercel.app",
+      deploymentUrl: "home-made-preview-abc123-saniksha-s-projects.vercel.app",
+      origin: "https://home-made-preview-other-saniksha-s-projects.vercel.app",
+      body: { sellerId: SELLER_A }
+    }));
+    assertEqual(res.statusCode, 403, "origin host mismatch status");
+  });
+
+  await test("Preview rejects when Vercel deployment metadata is absent", async () => {
+    setPreviewEnv();
+    const res = await call(previewRequestOptions({
+      deploymentUrl: undefined,
+      body: { sellerId: SELLER_A }
+    }));
+    assertEqual(res.statusCode, 403, "missing deployment metadata status");
+  });
+
+  await test("Preview rejects malformed or comma-injected Host headers", async () => {
+    setPreviewEnv();
+    const res = await call(previewRequestOptions({
+      forwardedHost: "home-made-preview-abc123-saniksha-s-projects.vercel.app, evil.example",
+      body: { sellerId: SELLER_A }
+    }));
+    assertEqual(res.statusCode, 403, "comma injected host status");
+  });
+
+  await test("Preview rejects HTTP origins", async () => {
+    setPreviewEnv();
+    const host = "home-made-preview-abc123-saniksha-s-projects.vercel.app";
+    const res = await call(previewRequestOptions({
+      origin: `http://${host}`,
+      host,
+      forwardedHost: host,
+      deploymentUrl: host,
+      body: { sellerId: SELLER_A }
+    }));
+    assertEqual(res.statusCode, 403, "http preview origin status");
+  });
+
+  await test("Preview rejects malformed Origin values", async () => {
+    setPreviewEnv();
+    const res = await call(previewRequestOptions({
+      origin: "https://good.example, https://evil.example",
+      body: { sellerId: SELLER_A }
+    }));
+    assertEqual(res.statusCode, 403, "malformed origin status");
+  });
+
+  await test("Local development origin behaviour remains intact", async () => {
+    const res = await call({
+      origin: "http://127.0.0.1:5173",
+      body: { sellerId: SELLER_A }
+    });
+    assertEqual(res.statusCode, 303, "local origin status");
+  });
+
+  await test("Successful Preview-shaped request reaches 303 handoff logic safely", async () => {
+    setPreviewEnv();
+    const res = await call(previewRequestOptions({ ip: "203.0.113.34" }));
+    assertEqual(res.statusCode, 303, "preview handoff status");
+    assertEqual(new URL(res.headers.location).host, "wa.me", "preview redirect host");
+    assertNoSensitiveBody(res);
   });
 
   await test("Invalid sellerId is rejected", async () => {
