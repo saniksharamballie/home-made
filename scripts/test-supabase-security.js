@@ -40,6 +40,21 @@ const FORBIDDEN_JSON_KEYS = [
   "payfastMerchantId",
   "payfastPassphrase"
 ];
+const CONTACT_ALIAS_KEYS = [
+  "wa",
+  "phone",
+  "phoneNumber",
+  "phone_number",
+  "mobile",
+  "mobileNumber",
+  "whatsapp",
+  "whatsappNumber",
+  "whatsapp_number",
+  "contact",
+  "contactNumber",
+  "contact_number",
+  "telephone"
+];
 
 let failures = 0;
 
@@ -272,9 +287,9 @@ async function main() {
     assertEqual(out, "0", "forbidden private JSON key count");
   });
 
-  await test("Phase 1 temporary compatibility: seller_directory still exposes top-level wa", async () => {
+  await test("Phase 2 privacy: seller_directory has no top-level wa column", async () => {
     const out = await runSql(`
-      select exists (
+      select not exists (
         select 1
         from information_schema.columns
         where table_schema = 'public'
@@ -282,15 +297,51 @@ async function main() {
           and column_name = 'wa'
       );
     `, projectId);
-    assertTrue(out, "temporary top-level wa column for old clients");
+    assertTrue(out, "top-level wa column removed from seller_directory");
   });
 
-  await test("Phase 1 temporary compatibility: seller_directory.data still exposes wa", async () => {
+  await test("Phase 2 privacy: seller_directory.data has no wa key", async () => {
     const out = await runSql(`
-      select coalesce(bool_or(data ? 'wa'), false)
+      select not coalesce(bool_or(data ? 'wa'), false)
       from public.seller_directory;
     `, projectId);
-    assertTrue(out, "temporary data.wa for old clients");
+    assertTrue(out, "data.wa removed from seller_directory");
+  });
+
+  await test("Phase 2 privacy: seller_directory exposes no contact aliases recursively", async () => {
+    const keys = CONTACT_ALIAS_KEYS.map((keyName) => sqlString(keyName.toLowerCase())).join(",");
+    const out = await runSql(`
+      with recursive directory_rows as (
+        select to_jsonb(sd) as value
+        from public.seller_directory sd
+      ),
+      recursive_walk(value) as (
+        select value from directory_rows
+        union all
+        select child.value
+        from recursive_walk
+        cross join lateral (
+          select array_item.value
+          from jsonb_array_elements(
+            case when jsonb_typeof(recursive_walk.value) = 'array' then recursive_walk.value else '[]'::jsonb end
+          ) array_item
+          union all
+          select object_item.value
+          from jsonb_each(
+            case when jsonb_typeof(recursive_walk.value) = 'object' then recursive_walk.value else '{}'::jsonb end
+          ) object_item
+        ) child
+      ),
+      keys as (
+        select lower(object_key.key) as key
+        from recursive_walk
+        cross join lateral jsonb_each(
+          case when jsonb_typeof(recursive_walk.value) = 'object' then recursive_walk.value else '{}'::jsonb end
+        ) object_key
+      )
+      select count(*) from keys where key in (${keys});
+    `, projectId);
+    assertEqual(out, "0", "recursive contact alias key count");
   });
 
   await test("seller_directory exposes no removed contact identifier column or JSON field", async () => {

@@ -43,6 +43,21 @@ const PRIVATE_SELLER_KEYS = [
   "payfastMerchantId",
   "payfastPassphrase"
 ];
+const CONTACT_ALIAS_KEYS = [
+  "wa",
+  "phone",
+  "phoneNumber",
+  "phone_number",
+  "mobile",
+  "mobileNumber",
+  "whatsapp",
+  "whatsappNumber",
+  "whatsapp_number",
+  "contact",
+  "contactNumber",
+  "contact_number",
+  "telephone"
+];
 const IMAGE_PRIVATE_KEYS = [
   "imgPath",
   "imgName",
@@ -700,24 +715,24 @@ async function main() {
     }
   });
 
-  await test("Phase 1 temporary compatibility: seller_directory exposes top-level wa values", async () => {
+  await test("Phase 2 privacy: seller_directory exposes no top-level wa values", async () => {
     const birthday = rowBySlug(rows, fixtures, "birthday");
-    const birthdayFixture = fixtures.find((item) => item.slug === "birthday");
-    const expectedBirthdayWa = birthdayFixture.wa || "27820005555";
     const noWa = rowBySlug(rows, fixtures, "no-wa");
-    assert(Object.prototype.hasOwnProperty.call(birthday, "wa"), "birthday row should temporarily include top-level wa");
-    assertEqual(String(birthday.wa || "").replace(/\D/g, ""), expectedBirthdayWa, "birthday temporary wa value");
-    assert(Object.prototype.hasOwnProperty.call(noWa, "wa"), "no-wa row should temporarily include top-level wa");
+    assert(!Object.prototype.hasOwnProperty.call(birthday, "wa"), "contactable row should not include top-level wa");
+    assert(!Object.prototype.hasOwnProperty.call(noWa, "wa"), "no-wa row should not include top-level wa");
   });
 
-  await test("Phase 1 temporary compatibility: seller_directory.data exposes wa values", async () => {
+  await test("Phase 2 privacy: seller_directory.data exposes no wa values", async () => {
     const birthday = rowBySlug(rows, fixtures, "birthday");
-    const birthdayFixture = fixtures.find((item) => item.slug === "birthday");
-    const expectedBirthdayWa = birthdayFixture.wa || "27820005555";
     const noWa = rowBySlug(rows, fixtures, "no-wa");
-    assert(Object.prototype.hasOwnProperty.call(birthday.data, "wa"), "birthday data should temporarily include wa");
-    assertEqual(String(birthday.data.wa || "").replace(/\D/g, ""), expectedBirthdayWa, "birthday temporary data.wa value");
-    assert(!Object.prototype.hasOwnProperty.call(noWa.data, "wa"), "null wa should be stripped from data");
+    assert(!Object.prototype.hasOwnProperty.call(birthday.data, "wa"), "contactable data should not include wa");
+    assert(!Object.prototype.hasOwnProperty.call(noWa.data, "wa"), "no-wa data should not include wa");
+  });
+
+  await test("Phase 2 privacy: seller_directory exposes no contact aliases recursively", async () => {
+    for (const row of rows) {
+      assertNoForbiddenKeys(row, CONTACT_ALIAS_KEYS, `seller_directory row ${row.id}`);
+    }
   });
 
   await test("seller_directory exposes no removed contact identifier values", async () => {

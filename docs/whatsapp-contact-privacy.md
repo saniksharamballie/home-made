@@ -3,35 +3,36 @@
 ## Two-Phase Rollout
 
 Home-Made uses a two-phase rollout so the private server-side WhatsApp handoff
-can be deployed without breaking the currently deployed frontend.
+can be deployed without breaking the previously deployed frontend.
 
-Phase 1 is intentionally additive. It adds `/api/contact-seller`,
-`hasWhatsApp`, and private rate-limit infrastructure, but keeps
+Phase 1 is complete. It was intentionally additive: it added `/api/contact-seller`,
+`hasWhatsApp`, and private rate-limit infrastructure, and it kept
 `seller_directory.wa` and `seller_directory.data.wa` temporarily for old-client
 compatibility.
 
-Phase 2 is a later separate branch and forward-only migration. It removes the
-temporary public contact-number projections after the new frontend/API has been
-verified live in production.
+Phase 2 is implemented locally on the Phase 2 branch as one forward-only
+migration. It removes the temporary public contact-number projections from
+anonymous `seller_directory` responses after the new frontend/API has been
+verified compatible.
 
 The previously proposed extra public contact identifier was removed. The
 handoff uses the already-public `seller_directory.id`; rate limiting and
 server-side validation are the privacy controls.
 
-## Phase 1 Boundary
+## Public Directory Boundary
 
-`public.seller_directory` remains the anonymous marketplace boundary. In Phase
-1 it exposes:
+`public.seller_directory` remains the anonymous marketplace boundary. After
+Phase 2 it exposes:
 
 - `id`: the existing public seller id used by the handoff form.
 - `hasWhatsApp`: a boolean capability flag calculated from the stored seller
   WhatsApp value.
-- `wa` and `data.wa`: temporary compatibility fields for old production
-  clients only.
 
-New frontend code must not retain, render, log, or use public `wa` to construct
-WhatsApp URLs. It may use a transient `Boolean(row.wa)` fallback only when
-`hasWhatsApp` is missing during an unexpected transition.
+Anonymous responses no longer expose top-level `wa`, `data.wa`, or phone/contact
+aliases such as `phone`, `mobile`, `whatsapp`, `contactNumber`, or `telephone`.
+Frontend code must use `hasWhatsApp` as a capability flag and `/api/contact-seller`
+as the handoff path. It must not retain, render, log, or use public `wa` to
+construct WhatsApp URLs.
 
 Seller owners and admins keep protected access to stored contact values through
 authorised `public.sellers` reads.
@@ -69,6 +70,9 @@ Optional server-only override:
   validated handoffs redirect to that number instead of each seller row's
   stored number. It does not affect `hasWhatsApp` and does not make sellers
   without stored WhatsApp numbers contactable.
+
+Phase 2 does not remove, rename, inspect, or change
+`CONTACT_SELLER_WHATSAPP_OVERRIDE`.
 
 Optional rate-limit tuning:
 
@@ -119,7 +123,7 @@ npm.cmd run check
 git --no-pager diff --check
 ```
 
-## Phase 1 Rollout
+## Phase 1 Rollout Complete
 
 1. Configure `CONTACT_RATE_LIMIT_SECRET`.
 2. Optionally configure `CONTACT_SELLER_WHATSAPP_OVERRIDE`.
@@ -131,31 +135,38 @@ git --no-pager diff --check
 8. Confirm the new frontend does not use public `wa`.
 9. Leave Phase 1 running briefly for production verification.
 
-Phase 1 does not yet remove numbers from anonymous `seller_directory`. That is
-an intentional temporary compatibility state, not the final privacy boundary.
+Phase 1 did not remove numbers from anonymous `seller_directory`. That was an
+intentional temporary compatibility state, not the final privacy boundary.
 
-## Phase 2 Rollout
+## Phase 2 Local Implementation
 
-A later separate branch must:
+The Phase 2 branch adds one forward-only migration that:
 
-- Add one forward-only migration.
-- Remove top-level `wa`.
-- Remove `data.wa`.
-- Retain `hasWhatsApp`.
-- Change database tests from temporary compatibility assertions to final privacy
-  assertions.
-- Apply the migration only after the new frontend/API is confirmed live.
+- Removes top-level `seller_directory.wa`.
+- Removes nested `seller_directory.data.wa`.
+- Retains `seller_directory.id`.
+- Retains boolean `hasWhatsApp`.
+- Retains active seller filtering, public marketplace fields, image
+  sanitisation, menu sanitisation, tier projection, availability, discounts,
+  delivery, pickup, category, and region.
+- Preserves protected seller-owner/admin access to stored `public.sellers.wa`.
+- Leaves `/api/contact-seller`, rate-limit infrastructure, WhatsApp redirect
+  behaviour, and the temporary override unchanged.
+
+Do not apply the Phase 2 migration remotely until local reset/tests pass and a
+production rollout has been explicitly approved.
 
 ## Rollback Considerations
 
-During Phase 1, the old frontend can still operate because public `wa` remains.
-After Phase 2, rolling back the frontend without restoring the old public
-projection would break direct WhatsApp links, so Phase 2 must be treated as a
-separate verified rollout.
+After Phase 2, rolling back to a frontend that requires anonymous `wa` would
+break direct WhatsApp links. The safe rollback approach is to keep the
+server-side handoff frontend/API deployed, or apply a new forward migration that
+temporarily restores the Phase 1 public compatibility projection while a fixed
+frontend is redeployed. Do not rewrite migration history.
 
 ## Residual Limitation
 
-This design prevents bulk directory/static-page harvesting by the new frontend
-and generated pages. It does not make seller contact numbers permanently
-undiscoverable: a determined user can still learn the number after a valid
-explicit handoff to WhatsApp.
+Phase 2 removes public bulk contact exposure from anonymous directory and
+generated-page surfaces. It does not prevent a user from learning the destination
+number after a valid explicit WhatsApp handoff, because WhatsApp receives the
+redirect destination by design.

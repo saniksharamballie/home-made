@@ -597,6 +597,12 @@ async function main() {
     assertEqual(res.data.length, 0, "unrelated user seller row count");
   });
 
+  await test("seller owner cannot read another seller wa", async () => {
+    const res = await userRequest(ctx, accounts.sellerA, `/rest/v1/sellers?select=id,wa&id=eq.${state.sellerB.id}`);
+    assertOk(res, "seller owner protected other-seller wa read");
+    assertEqual(res.data.length, 0, "other seller wa row count");
+  });
+
   await test("admin can still read seller wa through protected sellers access", async () => {
     const res = await userRequest(ctx, accounts.admin, `/rest/v1/sellers?select=id,wa&id=eq.${state.sellerA.id}`);
     assertOk(res, "admin protected wa read");
