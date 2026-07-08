@@ -3383,7 +3383,7 @@ var hmAuth = (function(){
   };
   /* Guest is a special transient role — not in DEMO_USERS (no login required) */
   var DEMO_PW = '1234';
-  var REMEMBER_EMAIL_KEY = 'hm_remember_email';
+  /* @include src/helpers/storage-key-constants.js */
 
   function rememberedEmail(){
     try{return localStorage.getItem(REMEMBER_EMAIL_KEY)||'';}catch(e){return '';}
@@ -4847,10 +4847,10 @@ function homeHeroImage(){
   if(!HOME_HERO_GALLERY.length) return '';
   if(HOME_HERO_GALLERY.includes(HOME_HERO_ACTIVE_URL)) return HOME_HERO_ACTIVE_URL;
   var previous='';
-  try{previous=localStorage.getItem('hm_home_hero_last')||'';}catch(e){}
+  try{previous=localStorage.getItem(HM_HOME_HERO_LAST_KEY)||'';}catch(e){}
   var choices=HOME_HERO_GALLERY.length>1?HOME_HERO_GALLERY.filter(function(url){return url!==previous;}):HOME_HERO_GALLERY;
   HOME_HERO_ACTIVE_URL=choices[Math.floor(Math.random()*choices.length)]||HOME_HERO_GALLERY[0];
-  try{localStorage.setItem('hm_home_hero_last',HOME_HERO_ACTIVE_URL);}catch(e){}
+  try{localStorage.setItem(HM_HOME_HERO_LAST_KEY,HOME_HERO_ACTIVE_URL);}catch(e){}
   return HOME_HERO_ACTIVE_URL;
 }
 function loadHomeHeroGallery(){
@@ -5739,8 +5739,8 @@ function mapPan(dx,dy){if(window._leafMap)window._leafMap.panBy([dx*100,dy*100])
 
 
 function showMapWelcome(){
-  if(typeof sessionStorage!=='undefined'&&sessionStorage.getItem('hm_map_welcome_seen')) return;
-  try{sessionStorage.setItem('hm_map_welcome_seen','1');}catch(e){}
+  if(typeof sessionStorage!=='undefined'&&sessionStorage.getItem(HM_MAP_WELCOME_SEEN_KEY)) return;
+  try{sessionStorage.setItem(HM_MAP_WELCOME_SEEN_KEY,'1');}catch(e){}
   var ov=document.createElement('div');
   ov.id='map-welcome';
   ov.style.cssText='position:fixed;inset:0;z-index:10010;background:rgba(10,5,0,.72);'+
@@ -15990,7 +15990,7 @@ function renderPassport(){
     deferredPrompt = e;
 
     /* Only show if not already dismissed this session */
-    if(sessionStorage.getItem('pwa-dismissed')) return;
+    if(sessionStorage.getItem(HM_PWA_DISMISSED_KEY)) return;
 
     var banner = document.createElement('div');
     banner.id = 'pwa-install-banner';
@@ -16028,7 +16028,7 @@ function renderPassport(){
     document.getElementById('pwa-install-btn').addEventListener('click', window.installHomeMadeApp);
 
     document.getElementById('pwa-dismiss-btn').addEventListener('click', function(){
-      sessionStorage.setItem('pwa-dismissed','1');
+      sessionStorage.setItem(HM_PWA_DISMISSED_KEY,'1');
       banner.style.animation = 'pwaSlideUp .25s cubic-bezier(.36,.07,.19,.97) reverse both';
       setTimeout(function(){ banner.remove(); }, 260);
     });

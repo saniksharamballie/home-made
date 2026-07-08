@@ -38,6 +38,11 @@ const sourcePartials = [
     label: "category catalog constants",
     marker: "/* @include src/helpers/category-catalog-constants.js */",
     path: path.join(root, "src", "helpers", "category-catalog-constants.js")
+  },
+  {
+    label: "storage key constants",
+    marker: "/* @include src/helpers/storage-key-constants.js */",
+    path: path.join(root, "src", "helpers", "storage-key-constants.js")
   }
 ];
 

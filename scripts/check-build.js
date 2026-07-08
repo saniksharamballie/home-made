@@ -55,6 +55,7 @@ const dateTimeHelperIncludeMarker = "/* @include src/helpers/date-time-helpers.j
 const currencyHelperIncludeMarker = "/* @include src/helpers/currency-format-helpers.js */";
 const filterRegionIncludeMarker = "/* @include src/helpers/filter-region-constants.js */";
 const categoryCatalogIncludeMarker = "/* @include src/helpers/category-catalog-constants.js */";
+const storageKeyIncludeMarker = "/* @include src/helpers/storage-key-constants.js */";
 const helperDeclarations = [
   "function hmNumber",
   "function tierRank",
@@ -90,6 +91,18 @@ const filterRegionDeclarations = [
   "const REGIONS"
 ];
 const categoryCatalogDeclaration = "const CATS";
+const storageKeyDeclarations = [
+  "var REMEMBER_EMAIL_KEY",
+  "var HM_HOME_HERO_LAST_KEY",
+  "var HM_MAP_WELCOME_SEEN_KEY",
+  "var HM_PWA_DISMISSED_KEY"
+];
+const storageKeyRawValues = [
+  "hm_remember_email",
+  "hm_home_hero_last",
+  "hm_map_welcome_seen",
+  "pwa-dismissed"
+];
 
 function occurrenceCount(text, needle) {
   return text.split(needle).length - 1;
@@ -118,6 +131,9 @@ if (occurrenceCount(sourceHtml, filterRegionIncludeMarker) !== 1) {
 if (occurrenceCount(sourceHtml, categoryCatalogIncludeMarker) !== 1) {
   throw new Error("Build check failed. Source category catalog constants include marker must exist exactly once.");
 }
+if (occurrenceCount(sourceHtml, storageKeyIncludeMarker) !== 1) {
+  throw new Error("Build check failed. Source storage key constants include marker must exist exactly once.");
+}
 if (html.includes(helperIncludeMarker) || /@include\s+src\/helpers\/formatting-tier-helpers\.js/.test(html)) {
   throw new Error("Build check failed. Generated app still contains the formatting/tier helper include marker.");
 }
@@ -135,6 +151,9 @@ if (html.includes(filterRegionIncludeMarker) || /@include\s+src\/helpers\/filter
 }
 if (html.includes(categoryCatalogIncludeMarker) || /@include\s+src\/helpers\/category-catalog-constants\.js/.test(html)) {
   throw new Error("Build check failed. Generated app still contains the category catalog constants include marker.");
+}
+if (html.includes(storageKeyIncludeMarker) || /@include\s+src\/helpers\/storage-key-constants\.js/.test(html)) {
+  throw new Error("Build check failed. Generated app still contains the storage key constants include marker.");
 }
 let previousHelperIndex = -1;
 for (const declaration of helperDeclarations) {
@@ -192,6 +211,28 @@ const categoryCatalogCount = occurrenceCount(html, categoryCatalogDeclaration);
 if (categoryCatalogCount !== 1) {
   throw new Error(`Build check failed. Expected one generated category catalog declaration for ${categoryCatalogDeclaration}, found ${categoryCatalogCount}.`);
 }
+for (const declaration of storageKeyDeclarations) {
+  const count = occurrenceCount(html, declaration);
+  if (count !== 1) {
+    throw new Error(`Build check failed. Expected one generated storage key declaration for ${declaration}, found ${count}.`);
+  }
+}
+for (const value of storageKeyRawValues) {
+  const count = occurrenceCount(html, value);
+  if (count !== 1) {
+    throw new Error(`Build check failed. Expected storage key literal ${value} only in its generated constant declaration, found ${count}.`);
+  }
+}
+for (const [declaration, firstUse] of [
+  ["var REMEMBER_EMAIL_KEY", "localStorage.getItem(REMEMBER_EMAIL_KEY)"],
+  ["var HM_HOME_HERO_LAST_KEY", "localStorage.getItem(HM_HOME_HERO_LAST_KEY)"],
+  ["var HM_MAP_WELCOME_SEEN_KEY", "sessionStorage.getItem(HM_MAP_WELCOME_SEEN_KEY)"],
+  ["var HM_PWA_DISMISSED_KEY", "sessionStorage.getItem(HM_PWA_DISMISSED_KEY)"]
+]) {
+  if (html.indexOf(declaration) < 0 || html.indexOf(firstUse) < 0 || html.indexOf(declaration) > html.indexOf(firstUse)) {
+    throw new Error(`Build check failed. Storage key declaration ${declaration} must appear before first use ${firstUse}.`);
+  }
+}
 const helperScriptMatches = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].filter((match) => match[2].includes("function hmNumber"));
 if (helperScriptMatches.length !== 1) {
   throw new Error(`Build check failed. Expected one classic inline application script containing helpers, found ${helperScriptMatches.length}.`);
@@ -233,6 +274,13 @@ if (categoryCatalogScriptMatches.length !== 1) {
 }
 if (/src\s*=|type\s*=\s*["']module["']/i.test(categoryCatalogScriptMatches[0][1])) {
   throw new Error("Build check failed. Category catalog constants moved out of the classic inline application script.");
+}
+const storageKeyScriptMatches = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].filter((match) => storageKeyDeclarations.every((declaration) => match[2].includes(declaration)));
+if (storageKeyScriptMatches.length !== 1) {
+  throw new Error(`Build check failed. Expected one classic inline application script containing storage key constants, found ${storageKeyScriptMatches.length}.`);
+}
+if (/src\s*=|type\s*=\s*["']module["']/i.test(storageKeyScriptMatches[0][1])) {
+  throw new Error("Build check failed. Storage key constants moved out of the classic inline application script.");
 }
 if (!html.includes('src="/icons/icon-192.png"')) {
   throw new Error("Build check failed. PWA install prompt missing square app icon.");

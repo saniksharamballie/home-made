@@ -14,6 +14,7 @@
     "test:currency-format-helpers": "node scripts/test-currency-format-helpers.js",
     "test:filter-region-constants": "node scripts/test-filter-region-constants.js",
     "test:category-catalog": "node scripts/test-category-catalog-constants.js",
+    "test:storage-keys": "node scripts/test-storage-key-constants.js",
     "test:marketplace": "node scripts/test-marketplace-regressions.js",
     "test:supabase-security": "node scripts/test-supabase-security.js",
     "test:supabase-workflows": "node scripts/test-seller-admin-workflows.js",
