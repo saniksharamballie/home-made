@@ -9196,12 +9196,7 @@ function swR(r){
   }, 120);
 }
 /* ── refreshDashContent: swap only #prof-dash-content, never touch the tab bar ── */
-function hmText(v){
-  return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
-function hmJs(v){
-  return String(v==null?'':v).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\r?\n/g,' ');
-}
+/* @include src/helpers/text-escape-helpers.js */
 function hmField(id){
   var el=document.getElementById(id);
   return el ? el.value.trim() : '';

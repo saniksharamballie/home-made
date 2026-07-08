@@ -50,6 +50,7 @@ const env = fs.readFileSync(envPath, "utf8");
 const sourceHtml = fs.readFileSync(path.join(root, "src", "homemade-map-cleaned-1.html"), "utf8");
 const removedContactFieldPattern = new RegExp(`contact(?:${"I"}d|_${"i"}d)`, "i");
 const helperIncludeMarker = "/* @include src/helpers/formatting-tier-helpers.js */";
+const textHelperIncludeMarker = "/* @include src/helpers/text-escape-helpers.js */";
 const helperDeclarations = [
   "function hmNumber",
   "function tierRank",
@@ -69,6 +70,10 @@ const helperDeclarations = [
   "function hmBool",
   "function hmTagArray"
 ];
+const textHelperDeclarations = [
+  "function hmText",
+  "function hmJs"
+];
 
 function occurrenceCount(text, needle) {
   return text.split(needle).length - 1;
@@ -82,8 +87,14 @@ for (const needle of required) {
 if (occurrenceCount(sourceHtml, helperIncludeMarker) !== 1) {
   throw new Error("Build check failed. Source formatting/tier helper include marker must exist exactly once.");
 }
+if (occurrenceCount(sourceHtml, textHelperIncludeMarker) !== 1) {
+  throw new Error("Build check failed. Source text escape helper include marker must exist exactly once.");
+}
 if (html.includes(helperIncludeMarker) || /@include\s+src\/helpers\/formatting-tier-helpers\.js/.test(html)) {
   throw new Error("Build check failed. Generated app still contains the formatting/tier helper include marker.");
+}
+if (html.includes(textHelperIncludeMarker) || /@include\s+src\/helpers\/text-escape-helpers\.js/.test(html)) {
+  throw new Error("Build check failed. Generated app still contains the text escape helper include marker.");
 }
 let previousHelperIndex = -1;
 for (const declaration of helperDeclarations) {
@@ -97,12 +108,31 @@ for (const declaration of helperDeclarations) {
   }
   previousHelperIndex = index;
 }
+let previousTextHelperIndex = -1;
+for (const declaration of textHelperDeclarations) {
+  const count = occurrenceCount(html, declaration);
+  if (count !== 1) {
+    throw new Error(`Build check failed. Expected one generated text escape helper declaration for ${declaration}, found ${count}.`);
+  }
+  const index = html.indexOf(declaration);
+  if (index <= previousTextHelperIndex) {
+    throw new Error(`Build check failed. Text escape helper declaration ordering changed at ${declaration}.`);
+  }
+  previousTextHelperIndex = index;
+}
 const helperScriptMatches = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].filter((match) => match[2].includes("function hmNumber"));
 if (helperScriptMatches.length !== 1) {
   throw new Error(`Build check failed. Expected one classic inline application script containing helpers, found ${helperScriptMatches.length}.`);
 }
 if (/src\s*=|type\s*=\s*["']module["']/i.test(helperScriptMatches[0][1])) {
   throw new Error("Build check failed. Formatting/tier helpers moved out of the classic inline application script.");
+}
+const textHelperScriptMatches = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].filter((match) => match[2].includes("function hmText") || match[2].includes("function hmJs"));
+if (textHelperScriptMatches.length !== 1) {
+  throw new Error(`Build check failed. Expected one classic inline application script containing text escape helpers, found ${textHelperScriptMatches.length}.`);
+}
+if (/src\s*=|type\s*=\s*["']module["']/i.test(textHelperScriptMatches[0][1])) {
+  throw new Error("Build check failed. Text escape helpers moved out of the classic inline application script.");
 }
 if (!html.includes('src="/icons/icon-192.png"')) {
   throw new Error("Build check failed. PWA install prompt missing square app icon.");

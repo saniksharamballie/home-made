@@ -8,19 +8,32 @@ const out = path.join(outDir, "index.html");
 const envOut = path.join(outDir, "env.js");
 const { buildSeoPages } = require("./build-seo-pages");
 const { buildLegalPages } = require("./build-legal-pages");
-const helperIncludeMarker = "/* @include src/helpers/formatting-tier-helpers.js */";
-const helperIncludePath = path.join(root, "src", "helpers", "formatting-tier-helpers.js");
+const sourcePartials = [
+  {
+    label: "formatting/tier helper",
+    marker: "/* @include src/helpers/formatting-tier-helpers.js */",
+    path: path.join(root, "src", "helpers", "formatting-tier-helpers.js")
+  },
+  {
+    label: "text escape helper",
+    marker: "/* @include src/helpers/text-escape-helpers.js */",
+    path: path.join(root, "src", "helpers", "text-escape-helpers.js")
+  }
+];
 
 function includeSourcePartials(html) {
-  const markerCount = html.split(helperIncludeMarker).length - 1;
-  if (markerCount !== 1) {
-    throw new Error(`Expected exactly one formatting/tier helper include marker, found ${markerCount}.`);
+  for (const partial of sourcePartials) {
+    const markerCount = html.split(partial.marker).length - 1;
+    if (markerCount !== 1) {
+      throw new Error(`Expected exactly one ${partial.label} include marker, found ${markerCount}.`);
+    }
+    if (!fs.existsSync(partial.path)) {
+      throw new Error(`Missing ${partial.label} source: ${path.relative(root, partial.path)}`);
+    }
+    const helpers = fs.readFileSync(partial.path, "utf8").trim();
+    html = html.replace(partial.marker, helpers);
   }
-  if (!fs.existsSync(helperIncludePath)) {
-    throw new Error(`Missing formatting/tier helper source: ${path.relative(root, helperIncludePath)}`);
-  }
-  const helpers = fs.readFileSync(helperIncludePath, "utf8").trim();
-  return html.replace(helperIncludeMarker, helpers);
+  return html;
 }
 
 function jsString(value) {
@@ -79,6 +92,8 @@ build().catch((error) => {
 
 if (process.argv.includes("--watch")) {
   fs.watchFile(src, { interval: 500 }, () => build().catch(console.error));
-  fs.watchFile(helperIncludePath, { interval: 500 }, () => build().catch(console.error));
+  for (const partial of sourcePartials) {
+    fs.watchFile(partial.path, { interval: 500 }, () => build().catch(console.error));
+  }
   console.log("Watching source HTML...");
 }
