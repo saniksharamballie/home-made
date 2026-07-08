@@ -54,6 +54,7 @@ const textHelperIncludeMarker = "/* @include src/helpers/text-escape-helpers.js 
 const dateTimeHelperIncludeMarker = "/* @include src/helpers/date-time-helpers.js */";
 const currencyHelperIncludeMarker = "/* @include src/helpers/currency-format-helpers.js */";
 const filterRegionIncludeMarker = "/* @include src/helpers/filter-region-constants.js */";
+const categoryCatalogIncludeMarker = "/* @include src/helpers/category-catalog-constants.js */";
 const helperDeclarations = [
   "function hmNumber",
   "function tierRank",
@@ -88,6 +89,7 @@ const filterRegionDeclarations = [
   "const ALL_FILTERS",
   "const REGIONS"
 ];
+const categoryCatalogDeclaration = "const CATS";
 
 function occurrenceCount(text, needle) {
   return text.split(needle).length - 1;
@@ -113,6 +115,9 @@ if (occurrenceCount(sourceHtml, currencyHelperIncludeMarker) !== 1) {
 if (occurrenceCount(sourceHtml, filterRegionIncludeMarker) !== 1) {
   throw new Error("Build check failed. Source filter/region constants include marker must exist exactly once.");
 }
+if (occurrenceCount(sourceHtml, categoryCatalogIncludeMarker) !== 1) {
+  throw new Error("Build check failed. Source category catalog constants include marker must exist exactly once.");
+}
 if (html.includes(helperIncludeMarker) || /@include\s+src\/helpers\/formatting-tier-helpers\.js/.test(html)) {
   throw new Error("Build check failed. Generated app still contains the formatting/tier helper include marker.");
 }
@@ -127,6 +132,9 @@ if (html.includes(currencyHelperIncludeMarker) || /@include\s+src\/helpers\/curr
 }
 if (html.includes(filterRegionIncludeMarker) || /@include\s+src\/helpers\/filter-region-constants\.js/.test(html)) {
   throw new Error("Build check failed. Generated app still contains the filter/region constants include marker.");
+}
+if (html.includes(categoryCatalogIncludeMarker) || /@include\s+src\/helpers\/category-catalog-constants\.js/.test(html)) {
+  throw new Error("Build check failed. Generated app still contains the category catalog constants include marker.");
 }
 let previousHelperIndex = -1;
 for (const declaration of helperDeclarations) {
@@ -180,6 +188,10 @@ for (const declaration of filterRegionDeclarations) {
   }
   previousFilterRegionIndex = index;
 }
+const categoryCatalogCount = occurrenceCount(html, categoryCatalogDeclaration);
+if (categoryCatalogCount !== 1) {
+  throw new Error(`Build check failed. Expected one generated category catalog declaration for ${categoryCatalogDeclaration}, found ${categoryCatalogCount}.`);
+}
 const helperScriptMatches = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].filter((match) => match[2].includes("function hmNumber"));
 if (helperScriptMatches.length !== 1) {
   throw new Error(`Build check failed. Expected one classic inline application script containing helpers, found ${helperScriptMatches.length}.`);
@@ -214,6 +226,13 @@ if (filterRegionScriptMatches.length !== 1) {
 }
 if (/src\s*=|type\s*=\s*["']module["']/i.test(filterRegionScriptMatches[0][1])) {
   throw new Error("Build check failed. Filter/region constants moved out of the classic inline application script.");
+}
+const categoryCatalogScriptMatches = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].filter((match) => match[2].includes(categoryCatalogDeclaration));
+if (categoryCatalogScriptMatches.length !== 1) {
+  throw new Error(`Build check failed. Expected one classic inline application script containing category catalog constants, found ${categoryCatalogScriptMatches.length}.`);
+}
+if (/src\s*=|type\s*=\s*["']module["']/i.test(categoryCatalogScriptMatches[0][1])) {
+  throw new Error("Build check failed. Category catalog constants moved out of the classic inline application script.");
 }
 if (!html.includes('src="/icons/icon-192.png"')) {
   throw new Error("Build check failed. PWA install prompt missing square app icon.");

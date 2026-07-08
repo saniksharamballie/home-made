@@ -33,6 +33,11 @@ const sourcePartials = [
     label: "filter/region constants",
     marker: "/* @include src/helpers/filter-region-constants.js */",
     path: path.join(root, "src", "helpers", "filter-region-constants.js")
+  },
+  {
+    label: "category catalog constants",
+    marker: "/* @include src/helpers/category-catalog-constants.js */",
+    path: path.join(root, "src", "helpers", "category-catalog-constants.js")
   }
 ];
 
