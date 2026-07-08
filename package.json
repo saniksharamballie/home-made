@@ -15,6 +15,7 @@
     "test:filter-region-constants": "node scripts/test-filter-region-constants.js",
     "test:category-catalog": "node scripts/test-category-catalog-constants.js",
     "test:storage-keys": "node scripts/test-storage-key-constants.js",
+    "test:input-normalization": "node scripts/test-input-normalization-helpers.js",
     "test:marketplace": "node scripts/test-marketplace-regressions.js",
     "test:supabase-security": "node scripts/test-supabase-security.js",
     "test:supabase-workflows": "node scripts/test-seller-admin-workflows.js",

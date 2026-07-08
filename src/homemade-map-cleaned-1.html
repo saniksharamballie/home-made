@@ -6851,9 +6851,7 @@ function toggleSave(id){
 }
 
 /* ══════════════ POST AD ══════════════ */
-function normalizePhoneNumber(v){
-  return String(v||'').replace(/[^\d+]/g,'').replace(/^\+/, '');
-}
+/* @include src/helpers/input-normalization-helpers.js */
 function cleanPostItem(it){
   it=it||{};
   return {

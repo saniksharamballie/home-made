@@ -56,6 +56,7 @@ const currencyHelperIncludeMarker = "/* @include src/helpers/currency-format-hel
 const filterRegionIncludeMarker = "/* @include src/helpers/filter-region-constants.js */";
 const categoryCatalogIncludeMarker = "/* @include src/helpers/category-catalog-constants.js */";
 const storageKeyIncludeMarker = "/* @include src/helpers/storage-key-constants.js */";
+const inputNormalizationIncludeMarker = "/* @include src/helpers/input-normalization-helpers.js */";
 const helperDeclarations = [
   "function hmNumber",
   "function tierRank",
@@ -103,6 +104,7 @@ const storageKeyRawValues = [
   "hm_map_welcome_seen",
   "pwa-dismissed"
 ];
+const inputNormalizationDeclaration = "function normalizePhoneNumber";
 
 function occurrenceCount(text, needle) {
   return text.split(needle).length - 1;
@@ -134,6 +136,9 @@ if (occurrenceCount(sourceHtml, categoryCatalogIncludeMarker) !== 1) {
 if (occurrenceCount(sourceHtml, storageKeyIncludeMarker) !== 1) {
   throw new Error("Build check failed. Source storage key constants include marker must exist exactly once.");
 }
+if (occurrenceCount(sourceHtml, inputNormalizationIncludeMarker) !== 1) {
+  throw new Error("Build check failed. Source input normalization helper include marker must exist exactly once.");
+}
 if (html.includes(helperIncludeMarker) || /@include\s+src\/helpers\/formatting-tier-helpers\.js/.test(html)) {
   throw new Error("Build check failed. Generated app still contains the formatting/tier helper include marker.");
 }
@@ -154,6 +159,9 @@ if (html.includes(categoryCatalogIncludeMarker) || /@include\s+src\/helpers\/cat
 }
 if (html.includes(storageKeyIncludeMarker) || /@include\s+src\/helpers\/storage-key-constants\.js/.test(html)) {
   throw new Error("Build check failed. Generated app still contains the storage key constants include marker.");
+}
+if (html.includes(inputNormalizationIncludeMarker) || /@include\s+src\/helpers\/input-normalization-helpers\.js/.test(html)) {
+  throw new Error("Build check failed. Generated app still contains the input normalization helper include marker.");
 }
 let previousHelperIndex = -1;
 for (const declaration of helperDeclarations) {
@@ -210,6 +218,10 @@ for (const declaration of filterRegionDeclarations) {
 const categoryCatalogCount = occurrenceCount(html, categoryCatalogDeclaration);
 if (categoryCatalogCount !== 1) {
   throw new Error(`Build check failed. Expected one generated category catalog declaration for ${categoryCatalogDeclaration}, found ${categoryCatalogCount}.`);
+}
+const inputNormalizationCount = occurrenceCount(html, inputNormalizationDeclaration);
+if (inputNormalizationCount !== 1) {
+  throw new Error(`Build check failed. Expected one generated input normalization helper declaration for ${inputNormalizationDeclaration}, found ${inputNormalizationCount}.`);
 }
 for (const declaration of storageKeyDeclarations) {
   const count = occurrenceCount(html, declaration);
@@ -281,6 +293,13 @@ if (storageKeyScriptMatches.length !== 1) {
 }
 if (/src\s*=|type\s*=\s*["']module["']/i.test(storageKeyScriptMatches[0][1])) {
   throw new Error("Build check failed. Storage key constants moved out of the classic inline application script.");
+}
+const inputNormalizationScriptMatches = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].filter((match) => match[2].includes(inputNormalizationDeclaration));
+if (inputNormalizationScriptMatches.length !== 1) {
+  throw new Error(`Build check failed. Expected one classic inline application script containing the input normalization helper, found ${inputNormalizationScriptMatches.length}.`);
+}
+if (/src\s*=|type\s*=\s*["']module["']/i.test(inputNormalizationScriptMatches[0][1])) {
+  throw new Error("Build check failed. Input normalization helper moved out of the classic inline application script.");
 }
 if (!html.includes('src="/icons/icon-192.png"')) {
   throw new Error("Build check failed. PWA install prompt missing square app icon.");

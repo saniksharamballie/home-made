@@ -43,6 +43,11 @@ const sourcePartials = [
     label: "storage key constants",
     marker: "/* @include src/helpers/storage-key-constants.js */",
     path: path.join(root, "src", "helpers", "storage-key-constants.js")
+  },
+  {
+    label: "input normalization helper",
+    marker: "/* @include src/helpers/input-normalization-helpers.js */",
+    path: path.join(root, "src", "helpers", "input-normalization-helpers.js")
   }
 ];
 
