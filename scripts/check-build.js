@@ -51,6 +51,7 @@ const sourceHtml = fs.readFileSync(path.join(root, "src", "homemade-map-cleaned-
 const removedContactFieldPattern = new RegExp(`contact(?:${"I"}d|_${"i"}d)`, "i");
 const helperIncludeMarker = "/* @include src/helpers/formatting-tier-helpers.js */";
 const textHelperIncludeMarker = "/* @include src/helpers/text-escape-helpers.js */";
+const dateTimeHelperIncludeMarker = "/* @include src/helpers/date-time-helpers.js */";
 const helperDeclarations = [
   "function hmNumber",
   "function tierRank",
@@ -74,6 +75,10 @@ const textHelperDeclarations = [
   "function hmText",
   "function hmJs"
 ];
+const dateTimeHelperDeclarations = [
+  "function formatSellerBackAt",
+  "function toDatetimeLocalValue"
+];
 
 function occurrenceCount(text, needle) {
   return text.split(needle).length - 1;
@@ -90,11 +95,17 @@ if (occurrenceCount(sourceHtml, helperIncludeMarker) !== 1) {
 if (occurrenceCount(sourceHtml, textHelperIncludeMarker) !== 1) {
   throw new Error("Build check failed. Source text escape helper include marker must exist exactly once.");
 }
+if (occurrenceCount(sourceHtml, dateTimeHelperIncludeMarker) !== 1) {
+  throw new Error("Build check failed. Source date/time helper include marker must exist exactly once.");
+}
 if (html.includes(helperIncludeMarker) || /@include\s+src\/helpers\/formatting-tier-helpers\.js/.test(html)) {
   throw new Error("Build check failed. Generated app still contains the formatting/tier helper include marker.");
 }
 if (html.includes(textHelperIncludeMarker) || /@include\s+src\/helpers\/text-escape-helpers\.js/.test(html)) {
   throw new Error("Build check failed. Generated app still contains the text escape helper include marker.");
+}
+if (html.includes(dateTimeHelperIncludeMarker) || /@include\s+src\/helpers\/date-time-helpers\.js/.test(html)) {
+  throw new Error("Build check failed. Generated app still contains the date/time helper include marker.");
 }
 let previousHelperIndex = -1;
 for (const declaration of helperDeclarations) {
@@ -120,6 +131,18 @@ for (const declaration of textHelperDeclarations) {
   }
   previousTextHelperIndex = index;
 }
+let previousDateTimeHelperIndex = -1;
+for (const declaration of dateTimeHelperDeclarations) {
+  const count = occurrenceCount(html, declaration);
+  if (count !== 1) {
+    throw new Error(`Build check failed. Expected one generated date/time helper declaration for ${declaration}, found ${count}.`);
+  }
+  const index = html.indexOf(declaration);
+  if (index <= previousDateTimeHelperIndex) {
+    throw new Error(`Build check failed. Date/time helper declaration ordering changed at ${declaration}.`);
+  }
+  previousDateTimeHelperIndex = index;
+}
 const helperScriptMatches = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].filter((match) => match[2].includes("function hmNumber"));
 if (helperScriptMatches.length !== 1) {
   throw new Error(`Build check failed. Expected one classic inline application script containing helpers, found ${helperScriptMatches.length}.`);
@@ -133,6 +156,13 @@ if (textHelperScriptMatches.length !== 1) {
 }
 if (/src\s*=|type\s*=\s*["']module["']/i.test(textHelperScriptMatches[0][1])) {
   throw new Error("Build check failed. Text escape helpers moved out of the classic inline application script.");
+}
+const dateTimeHelperScriptMatches = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].filter((match) => match[2].includes("function formatSellerBackAt") || match[2].includes("function toDatetimeLocalValue"));
+if (dateTimeHelperScriptMatches.length !== 1) {
+  throw new Error(`Build check failed. Expected one classic inline application script containing date/time helpers, found ${dateTimeHelperScriptMatches.length}.`);
+}
+if (/src\s*=|type\s*=\s*["']module["']/i.test(dateTimeHelperScriptMatches[0][1])) {
+  throw new Error("Build check failed. Date/time helpers moved out of the classic inline application script.");
 }
 if (!html.includes('src="/icons/icon-192.png"')) {
   throw new Error("Build check failed. PWA install prompt missing square app icon.");

@@ -18,6 +18,11 @@ const sourcePartials = [
     label: "text escape helper",
     marker: "/* @include src/helpers/text-escape-helpers.js */",
     path: path.join(root, "src", "helpers", "text-escape-helpers.js")
+  },
+  {
+    label: "date/time helper",
+    marker: "/* @include src/helpers/date-time-helpers.js */",
+    path: path.join(root, "src", "helpers", "date-time-helpers.js")
   }
 ];
 
