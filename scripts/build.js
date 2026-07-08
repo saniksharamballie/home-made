@@ -8,6 +8,20 @@ const out = path.join(outDir, "index.html");
 const envOut = path.join(outDir, "env.js");
 const { buildSeoPages } = require("./build-seo-pages");
 const { buildLegalPages } = require("./build-legal-pages");
+const helperIncludeMarker = "/* @include src/helpers/formatting-tier-helpers.js */";
+const helperIncludePath = path.join(root, "src", "helpers", "formatting-tier-helpers.js");
+
+function includeSourcePartials(html) {
+  const markerCount = html.split(helperIncludeMarker).length - 1;
+  if (markerCount !== 1) {
+    throw new Error(`Expected exactly one formatting/tier helper include marker, found ${markerCount}.`);
+  }
+  if (!fs.existsSync(helperIncludePath)) {
+    throw new Error(`Missing formatting/tier helper source: ${path.relative(root, helperIncludePath)}`);
+  }
+  const helpers = fs.readFileSync(helperIncludePath, "utf8").trim();
+  return html.replace(helperIncludeMarker, helpers);
+}
 
 function jsString(value) {
   return JSON.stringify(value || "");
@@ -18,6 +32,7 @@ async function build() {
 
   let html = fs.readFileSync(src, "utf8");
   html = html.replace(/^\s*\+''/, "");
+  html = includeSourcePartials(html);
 
   if (!html.includes("/env.js")) {
     html = html.replace(
@@ -64,5 +79,6 @@ build().catch((error) => {
 
 if (process.argv.includes("--watch")) {
   fs.watchFile(src, { interval: 500 }, () => build().catch(console.error));
+  fs.watchFile(helperIncludePath, { interval: 500 }, () => build().catch(console.error));
   console.log("Watching source HTML...");
 }

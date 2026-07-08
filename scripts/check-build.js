@@ -49,11 +49,60 @@ const html = fs.readFileSync(htmlPath, "utf8");
 const env = fs.readFileSync(envPath, "utf8");
 const sourceHtml = fs.readFileSync(path.join(root, "src", "homemade-map-cleaned-1.html"), "utf8");
 const removedContactFieldPattern = new RegExp(`contact(?:${"I"}d|_${"i"}d)`, "i");
+const helperIncludeMarker = "/* @include src/helpers/formatting-tier-helpers.js */";
+const helperDeclarations = [
+  "function hmNumber",
+  "function tierRank",
+  "function tierDisplayLabel",
+  "var TIER_PRICES",
+  "var TIER_TRIAL_DAYS",
+  "function tierMonthlyPrice",
+  "function tierTrialDays",
+  "function tierPriceLabel",
+  "function nextSellerTier",
+  "function sellerTierClass",
+  "function sellerBirthdayValue",
+  "function isBirthdayMonth",
+  "function sellerBaseTier",
+  "function sellerEffectiveTier",
+  "function applySellerComputedAccess",
+  "function hmBool",
+  "function hmTagArray"
+];
+
+function occurrenceCount(text, needle) {
+  return text.split(needle).length - 1;
+}
 
 for (const needle of required) {
   if (!html.includes(needle) && !env.includes(needle)) {
     throw new Error(`Build check failed. Missing: ${needle}`);
   }
+}
+if (occurrenceCount(sourceHtml, helperIncludeMarker) !== 1) {
+  throw new Error("Build check failed. Source formatting/tier helper include marker must exist exactly once.");
+}
+if (html.includes(helperIncludeMarker) || /@include\s+src\/helpers\/formatting-tier-helpers\.js/.test(html)) {
+  throw new Error("Build check failed. Generated app still contains the formatting/tier helper include marker.");
+}
+let previousHelperIndex = -1;
+for (const declaration of helperDeclarations) {
+  const count = occurrenceCount(html, declaration);
+  if (count !== 1) {
+    throw new Error(`Build check failed. Expected one generated helper declaration for ${declaration}, found ${count}.`);
+  }
+  const index = html.indexOf(declaration);
+  if (index <= previousHelperIndex) {
+    throw new Error(`Build check failed. Helper declaration ordering changed at ${declaration}.`);
+  }
+  previousHelperIndex = index;
+}
+const helperScriptMatches = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].filter((match) => match[2].includes("function hmNumber"));
+if (helperScriptMatches.length !== 1) {
+  throw new Error(`Build check failed. Expected one classic inline application script containing helpers, found ${helperScriptMatches.length}.`);
+}
+if (/src\s*=|type\s*=\s*["']module["']/i.test(helperScriptMatches[0][1])) {
+  throw new Error("Build check failed. Formatting/tier helpers moved out of the classic inline application script.");
 }
 if (!html.includes('src="/icons/icon-192.png"')) {
   throw new Error("Build check failed. PWA install prompt missing square app icon.");
