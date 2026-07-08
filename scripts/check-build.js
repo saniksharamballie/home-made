@@ -107,9 +107,144 @@ const storageKeyRawValues = [
 ];
 const inputNormalizationDeclaration = "function normalizePhoneNumber";
 const sellerPostItemDeclaration = "function cleanPostItem";
+const sourcePartials = [
+  {
+    label: "formatting/tier helper",
+    marker: helperIncludeMarker,
+    generatedMarkerPattern: /@include\s+src\/helpers\/formatting-tier-helpers\.js/,
+    declarations: helperDeclarations,
+    declarationLabel: "helper",
+    declarationOrder: true,
+    orderLabel: "Helper",
+    classicScriptLabel: "helpers",
+    classicMovedLabel: "Formatting/tier helpers",
+    classicScriptDeclarations: ["function hmNumber"]
+  },
+  {
+    label: "text escape helper",
+    marker: textHelperIncludeMarker,
+    generatedMarkerPattern: /@include\s+src\/helpers\/text-escape-helpers\.js/,
+    declarations: textHelperDeclarations,
+    declarationLabel: "text escape helper",
+    declarationOrder: true,
+    orderLabel: "Text escape helper",
+    classicScriptLabel: "text escape helpers",
+    classicMovedLabel: "Text escape helpers",
+    classicScriptDeclarations: textHelperDeclarations,
+    classicMatch: "any"
+  },
+  {
+    label: "date/time helper",
+    marker: dateTimeHelperIncludeMarker,
+    generatedMarkerPattern: /@include\s+src\/helpers\/date-time-helpers\.js/,
+    declarations: dateTimeHelperDeclarations,
+    declarationLabel: "date/time helper",
+    declarationOrder: true,
+    orderLabel: "Date/time helper",
+    classicScriptLabel: "date/time helpers",
+    classicMovedLabel: "Date/time helpers",
+    classicScriptDeclarations: dateTimeHelperDeclarations,
+    classicMatch: "any"
+  },
+  {
+    label: "currency format helper",
+    marker: currencyHelperIncludeMarker,
+    generatedMarkerPattern: /@include\s+src\/helpers\/currency-format-helpers\.js/,
+    declarations: [currencyHelperDeclaration],
+    declarationLabel: "currency format helper",
+    classicScriptLabel: "the currency format helper",
+    classicMovedLabel: "Currency format helper"
+  },
+  {
+    label: "filter/region constants",
+    marker: filterRegionIncludeMarker,
+    generatedMarkerPattern: /@include\s+src\/helpers\/filter-region-constants\.js/,
+    declarations: filterRegionDeclarations,
+    declarationLabel: "filter/region declaration",
+    declarationOrder: true,
+    orderLabel: "Filter/region declaration",
+    classicScriptLabel: "filter/region constants",
+    classicMovedLabel: "Filter/region constants"
+  },
+  {
+    label: "category catalog constants",
+    marker: categoryCatalogIncludeMarker,
+    generatedMarkerPattern: /@include\s+src\/helpers\/category-catalog-constants\.js/,
+    declarations: [categoryCatalogDeclaration],
+    declarationLabel: "category catalog declaration",
+    classicScriptLabel: "category catalog constants",
+    classicMovedLabel: "Category catalog constants"
+  },
+  {
+    label: "storage key constants",
+    marker: storageKeyIncludeMarker,
+    generatedMarkerPattern: /@include\s+src\/helpers\/storage-key-constants\.js/,
+    declarations: storageKeyDeclarations,
+    declarationLabel: "storage key declaration",
+    classicScriptLabel: "storage key constants",
+    classicMovedLabel: "Storage key constants"
+  },
+  {
+    label: "input normalization helper",
+    marker: inputNormalizationIncludeMarker,
+    generatedMarkerPattern: /@include\s+src\/helpers\/input-normalization-helpers\.js/,
+    declarations: [inputNormalizationDeclaration],
+    declarationLabel: "input normalization helper",
+    classicScriptLabel: "the input normalization helper",
+    classicMovedLabel: "Input normalization helper"
+  },
+  {
+    label: "seller-post item helper",
+    marker: sellerPostItemIncludeMarker,
+    generatedMarkerPattern: /@include\s+src\/helpers\/seller-post-item-helpers\.js/,
+    declarations: [sellerPostItemDeclaration],
+    declarationLabel: "seller-post item helper",
+    classicScriptLabel: "the seller-post item helper",
+    classicMovedLabel: "Seller-post item helper"
+  }
+];
 
 function occurrenceCount(text, needle) {
   return text.split(needle).length - 1;
+}
+
+function declarationMatches(script, declarations, matchMode) {
+  if (matchMode === "any") return declarations.some((declaration) => script.includes(declaration));
+  return declarations.every((declaration) => script.includes(declaration));
+}
+
+function checkSourcePartial(partial) {
+  if (occurrenceCount(sourceHtml, partial.marker) !== 1) {
+    throw new Error(`Build check failed. Source ${partial.label} include marker must exist exactly once.`);
+  }
+  if (html.includes(partial.marker) || partial.generatedMarkerPattern.test(html)) {
+    throw new Error(`Build check failed. Generated app still contains the ${partial.label} include marker.`);
+  }
+
+  let previousDeclarationIndex = -1;
+  for (const declaration of partial.declarations) {
+    const count = occurrenceCount(html, declaration);
+    if (count !== 1) {
+      throw new Error(`Build check failed. Expected one generated ${partial.declarationLabel} declaration for ${declaration}, found ${count}.`);
+    }
+    if (partial.declarationOrder) {
+      const index = html.indexOf(declaration);
+      if (index <= previousDeclarationIndex) {
+        throw new Error(`Build check failed. ${partial.orderLabel} ordering changed at ${declaration}.`);
+      }
+      previousDeclarationIndex = index;
+    }
+  }
+
+  const classicDeclarations = partial.classicScriptDeclarations || partial.declarations;
+  const scriptMatches = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)]
+    .filter((match) => declarationMatches(match[2], classicDeclarations, partial.classicMatch));
+  if (scriptMatches.length !== 1) {
+    throw new Error(`Build check failed. Expected one classic inline application script containing ${partial.classicScriptLabel}, found ${scriptMatches.length}.`);
+  }
+  if (/src\s*=|type\s*=\s*["']module["']/i.test(scriptMatches[0][1])) {
+    throw new Error(`Build check failed. ${partial.classicMovedLabel} moved out of the classic inline application script.`);
+  }
 }
 
 for (const needle of required) {
@@ -117,129 +252,8 @@ for (const needle of required) {
     throw new Error(`Build check failed. Missing: ${needle}`);
   }
 }
-if (occurrenceCount(sourceHtml, helperIncludeMarker) !== 1) {
-  throw new Error("Build check failed. Source formatting/tier helper include marker must exist exactly once.");
-}
-if (occurrenceCount(sourceHtml, textHelperIncludeMarker) !== 1) {
-  throw new Error("Build check failed. Source text escape helper include marker must exist exactly once.");
-}
-if (occurrenceCount(sourceHtml, dateTimeHelperIncludeMarker) !== 1) {
-  throw new Error("Build check failed. Source date/time helper include marker must exist exactly once.");
-}
-if (occurrenceCount(sourceHtml, currencyHelperIncludeMarker) !== 1) {
-  throw new Error("Build check failed. Source currency format helper include marker must exist exactly once.");
-}
-if (occurrenceCount(sourceHtml, filterRegionIncludeMarker) !== 1) {
-  throw new Error("Build check failed. Source filter/region constants include marker must exist exactly once.");
-}
-if (occurrenceCount(sourceHtml, categoryCatalogIncludeMarker) !== 1) {
-  throw new Error("Build check failed. Source category catalog constants include marker must exist exactly once.");
-}
-if (occurrenceCount(sourceHtml, storageKeyIncludeMarker) !== 1) {
-  throw new Error("Build check failed. Source storage key constants include marker must exist exactly once.");
-}
-if (occurrenceCount(sourceHtml, inputNormalizationIncludeMarker) !== 1) {
-  throw new Error("Build check failed. Source input normalization helper include marker must exist exactly once.");
-}
-if (occurrenceCount(sourceHtml, sellerPostItemIncludeMarker) !== 1) {
-  throw new Error("Build check failed. Source seller-post item helper include marker must exist exactly once.");
-}
-if (html.includes(helperIncludeMarker) || /@include\s+src\/helpers\/formatting-tier-helpers\.js/.test(html)) {
-  throw new Error("Build check failed. Generated app still contains the formatting/tier helper include marker.");
-}
-if (html.includes(textHelperIncludeMarker) || /@include\s+src\/helpers\/text-escape-helpers\.js/.test(html)) {
-  throw new Error("Build check failed. Generated app still contains the text escape helper include marker.");
-}
-if (html.includes(dateTimeHelperIncludeMarker) || /@include\s+src\/helpers\/date-time-helpers\.js/.test(html)) {
-  throw new Error("Build check failed. Generated app still contains the date/time helper include marker.");
-}
-if (html.includes(currencyHelperIncludeMarker) || /@include\s+src\/helpers\/currency-format-helpers\.js/.test(html)) {
-  throw new Error("Build check failed. Generated app still contains the currency format helper include marker.");
-}
-if (html.includes(filterRegionIncludeMarker) || /@include\s+src\/helpers\/filter-region-constants\.js/.test(html)) {
-  throw new Error("Build check failed. Generated app still contains the filter/region constants include marker.");
-}
-if (html.includes(categoryCatalogIncludeMarker) || /@include\s+src\/helpers\/category-catalog-constants\.js/.test(html)) {
-  throw new Error("Build check failed. Generated app still contains the category catalog constants include marker.");
-}
-if (html.includes(storageKeyIncludeMarker) || /@include\s+src\/helpers\/storage-key-constants\.js/.test(html)) {
-  throw new Error("Build check failed. Generated app still contains the storage key constants include marker.");
-}
-if (html.includes(inputNormalizationIncludeMarker) || /@include\s+src\/helpers\/input-normalization-helpers\.js/.test(html)) {
-  throw new Error("Build check failed. Generated app still contains the input normalization helper include marker.");
-}
-if (html.includes(sellerPostItemIncludeMarker) || /@include\s+src\/helpers\/seller-post-item-helpers\.js/.test(html)) {
-  throw new Error("Build check failed. Generated app still contains the seller-post item helper include marker.");
-}
-let previousHelperIndex = -1;
-for (const declaration of helperDeclarations) {
-  const count = occurrenceCount(html, declaration);
-  if (count !== 1) {
-    throw new Error(`Build check failed. Expected one generated helper declaration for ${declaration}, found ${count}.`);
-  }
-  const index = html.indexOf(declaration);
-  if (index <= previousHelperIndex) {
-    throw new Error(`Build check failed. Helper declaration ordering changed at ${declaration}.`);
-  }
-  previousHelperIndex = index;
-}
-let previousTextHelperIndex = -1;
-for (const declaration of textHelperDeclarations) {
-  const count = occurrenceCount(html, declaration);
-  if (count !== 1) {
-    throw new Error(`Build check failed. Expected one generated text escape helper declaration for ${declaration}, found ${count}.`);
-  }
-  const index = html.indexOf(declaration);
-  if (index <= previousTextHelperIndex) {
-    throw new Error(`Build check failed. Text escape helper declaration ordering changed at ${declaration}.`);
-  }
-  previousTextHelperIndex = index;
-}
-let previousDateTimeHelperIndex = -1;
-for (const declaration of dateTimeHelperDeclarations) {
-  const count = occurrenceCount(html, declaration);
-  if (count !== 1) {
-    throw new Error(`Build check failed. Expected one generated date/time helper declaration for ${declaration}, found ${count}.`);
-  }
-  const index = html.indexOf(declaration);
-  if (index <= previousDateTimeHelperIndex) {
-    throw new Error(`Build check failed. Date/time helper declaration ordering changed at ${declaration}.`);
-  }
-  previousDateTimeHelperIndex = index;
-}
-const currencyHelperCount = occurrenceCount(html, currencyHelperDeclaration);
-if (currencyHelperCount !== 1) {
-  throw new Error(`Build check failed. Expected one generated currency format helper declaration for ${currencyHelperDeclaration}, found ${currencyHelperCount}.`);
-}
-let previousFilterRegionIndex = -1;
-for (const declaration of filterRegionDeclarations) {
-  const count = occurrenceCount(html, declaration);
-  if (count !== 1) {
-    throw new Error(`Build check failed. Expected one generated filter/region declaration for ${declaration}, found ${count}.`);
-  }
-  const index = html.indexOf(declaration);
-  if (index <= previousFilterRegionIndex) {
-    throw new Error(`Build check failed. Filter/region declaration ordering changed at ${declaration}.`);
-  }
-  previousFilterRegionIndex = index;
-}
-const categoryCatalogCount = occurrenceCount(html, categoryCatalogDeclaration);
-if (categoryCatalogCount !== 1) {
-  throw new Error(`Build check failed. Expected one generated category catalog declaration for ${categoryCatalogDeclaration}, found ${categoryCatalogCount}.`);
-}
-const inputNormalizationCount = occurrenceCount(html, inputNormalizationDeclaration);
-if (inputNormalizationCount !== 1) {
-  throw new Error(`Build check failed. Expected one generated input normalization helper declaration for ${inputNormalizationDeclaration}, found ${inputNormalizationCount}.`);
-}
-const sellerPostItemCount = occurrenceCount(html, sellerPostItemDeclaration);
-if (sellerPostItemCount !== 1) {
-  throw new Error(`Build check failed. Expected one generated seller-post item helper declaration for ${sellerPostItemDeclaration}, found ${sellerPostItemCount}.`);
-}
-for (const declaration of storageKeyDeclarations) {
-  const count = occurrenceCount(html, declaration);
-  if (count !== 1) {
-    throw new Error(`Build check failed. Expected one generated storage key declaration for ${declaration}, found ${count}.`);
-  }
+for (const partial of sourcePartials) {
+  checkSourcePartial(partial);
 }
 for (const value of storageKeyRawValues) {
   const count = occurrenceCount(html, value);
@@ -256,69 +270,6 @@ for (const [declaration, firstUse] of [
   if (html.indexOf(declaration) < 0 || html.indexOf(firstUse) < 0 || html.indexOf(declaration) > html.indexOf(firstUse)) {
     throw new Error(`Build check failed. Storage key declaration ${declaration} must appear before first use ${firstUse}.`);
   }
-}
-const helperScriptMatches = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].filter((match) => match[2].includes("function hmNumber"));
-if (helperScriptMatches.length !== 1) {
-  throw new Error(`Build check failed. Expected one classic inline application script containing helpers, found ${helperScriptMatches.length}.`);
-}
-if (/src\s*=|type\s*=\s*["']module["']/i.test(helperScriptMatches[0][1])) {
-  throw new Error("Build check failed. Formatting/tier helpers moved out of the classic inline application script.");
-}
-const textHelperScriptMatches = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].filter((match) => match[2].includes("function hmText") || match[2].includes("function hmJs"));
-if (textHelperScriptMatches.length !== 1) {
-  throw new Error(`Build check failed. Expected one classic inline application script containing text escape helpers, found ${textHelperScriptMatches.length}.`);
-}
-if (/src\s*=|type\s*=\s*["']module["']/i.test(textHelperScriptMatches[0][1])) {
-  throw new Error("Build check failed. Text escape helpers moved out of the classic inline application script.");
-}
-const dateTimeHelperScriptMatches = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].filter((match) => match[2].includes("function formatSellerBackAt") || match[2].includes("function toDatetimeLocalValue"));
-if (dateTimeHelperScriptMatches.length !== 1) {
-  throw new Error(`Build check failed. Expected one classic inline application script containing date/time helpers, found ${dateTimeHelperScriptMatches.length}.`);
-}
-if (/src\s*=|type\s*=\s*["']module["']/i.test(dateTimeHelperScriptMatches[0][1])) {
-  throw new Error("Build check failed. Date/time helpers moved out of the classic inline application script.");
-}
-const currencyHelperScriptMatches = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].filter((match) => match[2].includes("function zar"));
-if (currencyHelperScriptMatches.length !== 1) {
-  throw new Error(`Build check failed. Expected one classic inline application script containing the currency format helper, found ${currencyHelperScriptMatches.length}.`);
-}
-if (/src\s*=|type\s*=\s*["']module["']/i.test(currencyHelperScriptMatches[0][1])) {
-  throw new Error("Build check failed. Currency format helper moved out of the classic inline application script.");
-}
-const filterRegionScriptMatches = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].filter((match) => filterRegionDeclarations.every((declaration) => match[2].includes(declaration)));
-if (filterRegionScriptMatches.length !== 1) {
-  throw new Error(`Build check failed. Expected one classic inline application script containing filter/region constants, found ${filterRegionScriptMatches.length}.`);
-}
-if (/src\s*=|type\s*=\s*["']module["']/i.test(filterRegionScriptMatches[0][1])) {
-  throw new Error("Build check failed. Filter/region constants moved out of the classic inline application script.");
-}
-const categoryCatalogScriptMatches = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].filter((match) => match[2].includes(categoryCatalogDeclaration));
-if (categoryCatalogScriptMatches.length !== 1) {
-  throw new Error(`Build check failed. Expected one classic inline application script containing category catalog constants, found ${categoryCatalogScriptMatches.length}.`);
-}
-if (/src\s*=|type\s*=\s*["']module["']/i.test(categoryCatalogScriptMatches[0][1])) {
-  throw new Error("Build check failed. Category catalog constants moved out of the classic inline application script.");
-}
-const storageKeyScriptMatches = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].filter((match) => storageKeyDeclarations.every((declaration) => match[2].includes(declaration)));
-if (storageKeyScriptMatches.length !== 1) {
-  throw new Error(`Build check failed. Expected one classic inline application script containing storage key constants, found ${storageKeyScriptMatches.length}.`);
-}
-if (/src\s*=|type\s*=\s*["']module["']/i.test(storageKeyScriptMatches[0][1])) {
-  throw new Error("Build check failed. Storage key constants moved out of the classic inline application script.");
-}
-const inputNormalizationScriptMatches = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].filter((match) => match[2].includes(inputNormalizationDeclaration));
-if (inputNormalizationScriptMatches.length !== 1) {
-  throw new Error(`Build check failed. Expected one classic inline application script containing the input normalization helper, found ${inputNormalizationScriptMatches.length}.`);
-}
-if (/src\s*=|type\s*=\s*["']module["']/i.test(inputNormalizationScriptMatches[0][1])) {
-  throw new Error("Build check failed. Input normalization helper moved out of the classic inline application script.");
-}
-const sellerPostItemScriptMatches = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].filter((match) => match[2].includes(sellerPostItemDeclaration));
-if (sellerPostItemScriptMatches.length !== 1) {
-  throw new Error(`Build check failed. Expected one classic inline application script containing the seller-post item helper, found ${sellerPostItemScriptMatches.length}.`);
-}
-if (/src\s*=|type\s*=\s*["']module["']/i.test(sellerPostItemScriptMatches[0][1])) {
-  throw new Error("Build check failed. Seller-post item helper moved out of the classic inline application script.");
 }
 if (!html.includes('src="/icons/icon-192.png"')) {
   throw new Error("Build check failed. PWA install prompt missing square app icon.");
