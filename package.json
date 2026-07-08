@@ -11,6 +11,7 @@
     "test:formatting-helpers": "node scripts/test-formatting-tier-helpers.js",
     "test:text-helpers": "node scripts/test-text-escape-helpers.js",
     "test:date-time-helpers": "node scripts/test-date-time-helpers.js",
+    "test:currency-format-helpers": "node scripts/test-currency-format-helpers.js",
     "test:marketplace": "node scripts/test-marketplace-regressions.js",
     "test:supabase-security": "node scripts/test-supabase-security.js",
     "test:supabase-workflows": "node scripts/test-seller-admin-workflows.js",

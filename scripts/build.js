@@ -23,6 +23,11 @@ const sourcePartials = [
     label: "date/time helper",
     marker: "/* @include src/helpers/date-time-helpers.js */",
     path: path.join(root, "src", "helpers", "date-time-helpers.js")
+  },
+  {
+    label: "currency format helper",
+    marker: "/* @include src/helpers/currency-format-helpers.js */",
+    path: path.join(root, "src", "helpers", "currency-format-helpers.js")
   }
 ];
 

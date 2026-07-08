@@ -3992,7 +3992,7 @@ function ic(n,sz=16,c='currentColor'){
   };
   return m[n]||'';
 }
-function zar(n){return `R\u202F${Number(n).toFixed(2)}`;}
+/* @include src/helpers/currency-format-helpers.js */
 function stars(r){return `<span class="sr" role="img" aria-label="Rated ${r} out of 5 stars"><span class="str" aria-hidden="true">★</span><span class="sv" aria-hidden="true">${r}</span></span>`;}
 function tbadge(t){
   t=String(t||'standard').toLowerCase();
