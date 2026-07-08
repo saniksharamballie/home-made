@@ -28,6 +28,11 @@ const sourcePartials = [
     label: "currency format helper",
     marker: "/* @include src/helpers/currency-format-helpers.js */",
     path: path.join(root, "src", "helpers", "currency-format-helpers.js")
+  },
+  {
+    label: "filter/region constants",
+    marker: "/* @include src/helpers/filter-region-constants.js */",
+    path: path.join(root, "src", "helpers", "filter-region-constants.js")
   }
 ];
 

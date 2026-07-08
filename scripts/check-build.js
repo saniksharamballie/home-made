@@ -53,6 +53,7 @@ const helperIncludeMarker = "/* @include src/helpers/formatting-tier-helpers.js 
 const textHelperIncludeMarker = "/* @include src/helpers/text-escape-helpers.js */";
 const dateTimeHelperIncludeMarker = "/* @include src/helpers/date-time-helpers.js */";
 const currencyHelperIncludeMarker = "/* @include src/helpers/currency-format-helpers.js */";
+const filterRegionIncludeMarker = "/* @include src/helpers/filter-region-constants.js */";
 const helperDeclarations = [
   "function hmNumber",
   "function tierRank",
@@ -81,6 +82,12 @@ const dateTimeHelperDeclarations = [
   "function toDatetimeLocalValue"
 ];
 const currencyHelperDeclaration = "function zar";
+const filterRegionDeclarations = [
+  "const DIETARY",
+  "const HEALTH_FILTERS",
+  "const ALL_FILTERS",
+  "const REGIONS"
+];
 
 function occurrenceCount(text, needle) {
   return text.split(needle).length - 1;
@@ -103,6 +110,9 @@ if (occurrenceCount(sourceHtml, dateTimeHelperIncludeMarker) !== 1) {
 if (occurrenceCount(sourceHtml, currencyHelperIncludeMarker) !== 1) {
   throw new Error("Build check failed. Source currency format helper include marker must exist exactly once.");
 }
+if (occurrenceCount(sourceHtml, filterRegionIncludeMarker) !== 1) {
+  throw new Error("Build check failed. Source filter/region constants include marker must exist exactly once.");
+}
 if (html.includes(helperIncludeMarker) || /@include\s+src\/helpers\/formatting-tier-helpers\.js/.test(html)) {
   throw new Error("Build check failed. Generated app still contains the formatting/tier helper include marker.");
 }
@@ -114,6 +124,9 @@ if (html.includes(dateTimeHelperIncludeMarker) || /@include\s+src\/helpers\/date
 }
 if (html.includes(currencyHelperIncludeMarker) || /@include\s+src\/helpers\/currency-format-helpers\.js/.test(html)) {
   throw new Error("Build check failed. Generated app still contains the currency format helper include marker.");
+}
+if (html.includes(filterRegionIncludeMarker) || /@include\s+src\/helpers\/filter-region-constants\.js/.test(html)) {
+  throw new Error("Build check failed. Generated app still contains the filter/region constants include marker.");
 }
 let previousHelperIndex = -1;
 for (const declaration of helperDeclarations) {
@@ -155,6 +168,18 @@ const currencyHelperCount = occurrenceCount(html, currencyHelperDeclaration);
 if (currencyHelperCount !== 1) {
   throw new Error(`Build check failed. Expected one generated currency format helper declaration for ${currencyHelperDeclaration}, found ${currencyHelperCount}.`);
 }
+let previousFilterRegionIndex = -1;
+for (const declaration of filterRegionDeclarations) {
+  const count = occurrenceCount(html, declaration);
+  if (count !== 1) {
+    throw new Error(`Build check failed. Expected one generated filter/region declaration for ${declaration}, found ${count}.`);
+  }
+  const index = html.indexOf(declaration);
+  if (index <= previousFilterRegionIndex) {
+    throw new Error(`Build check failed. Filter/region declaration ordering changed at ${declaration}.`);
+  }
+  previousFilterRegionIndex = index;
+}
 const helperScriptMatches = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].filter((match) => match[2].includes("function hmNumber"));
 if (helperScriptMatches.length !== 1) {
   throw new Error(`Build check failed. Expected one classic inline application script containing helpers, found ${helperScriptMatches.length}.`);
@@ -182,6 +207,13 @@ if (currencyHelperScriptMatches.length !== 1) {
 }
 if (/src\s*=|type\s*=\s*["']module["']/i.test(currencyHelperScriptMatches[0][1])) {
   throw new Error("Build check failed. Currency format helper moved out of the classic inline application script.");
+}
+const filterRegionScriptMatches = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].filter((match) => filterRegionDeclarations.every((declaration) => match[2].includes(declaration)));
+if (filterRegionScriptMatches.length !== 1) {
+  throw new Error(`Build check failed. Expected one classic inline application script containing filter/region constants, found ${filterRegionScriptMatches.length}.`);
+}
+if (/src\s*=|type\s*=\s*["']module["']/i.test(filterRegionScriptMatches[0][1])) {
+  throw new Error("Build check failed. Filter/region constants moved out of the classic inline application script.");
 }
 if (!html.includes('src="/icons/icon-192.png"')) {
   throw new Error("Build check failed. PWA install prompt missing square app icon.");
