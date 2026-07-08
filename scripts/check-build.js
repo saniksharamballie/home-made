@@ -57,6 +57,7 @@ const filterRegionIncludeMarker = "/* @include src/helpers/filter-region-constan
 const categoryCatalogIncludeMarker = "/* @include src/helpers/category-catalog-constants.js */";
 const storageKeyIncludeMarker = "/* @include src/helpers/storage-key-constants.js */";
 const inputNormalizationIncludeMarker = "/* @include src/helpers/input-normalization-helpers.js */";
+const sellerPostItemIncludeMarker = "/* @include src/helpers/seller-post-item-helpers.js */";
 const helperDeclarations = [
   "function hmNumber",
   "function tierRank",
@@ -105,6 +106,7 @@ const storageKeyRawValues = [
   "pwa-dismissed"
 ];
 const inputNormalizationDeclaration = "function normalizePhoneNumber";
+const sellerPostItemDeclaration = "function cleanPostItem";
 
 function occurrenceCount(text, needle) {
   return text.split(needle).length - 1;
@@ -139,6 +141,9 @@ if (occurrenceCount(sourceHtml, storageKeyIncludeMarker) !== 1) {
 if (occurrenceCount(sourceHtml, inputNormalizationIncludeMarker) !== 1) {
   throw new Error("Build check failed. Source input normalization helper include marker must exist exactly once.");
 }
+if (occurrenceCount(sourceHtml, sellerPostItemIncludeMarker) !== 1) {
+  throw new Error("Build check failed. Source seller-post item helper include marker must exist exactly once.");
+}
 if (html.includes(helperIncludeMarker) || /@include\s+src\/helpers\/formatting-tier-helpers\.js/.test(html)) {
   throw new Error("Build check failed. Generated app still contains the formatting/tier helper include marker.");
 }
@@ -162,6 +167,9 @@ if (html.includes(storageKeyIncludeMarker) || /@include\s+src\/helpers\/storage-
 }
 if (html.includes(inputNormalizationIncludeMarker) || /@include\s+src\/helpers\/input-normalization-helpers\.js/.test(html)) {
   throw new Error("Build check failed. Generated app still contains the input normalization helper include marker.");
+}
+if (html.includes(sellerPostItemIncludeMarker) || /@include\s+src\/helpers\/seller-post-item-helpers\.js/.test(html)) {
+  throw new Error("Build check failed. Generated app still contains the seller-post item helper include marker.");
 }
 let previousHelperIndex = -1;
 for (const declaration of helperDeclarations) {
@@ -222,6 +230,10 @@ if (categoryCatalogCount !== 1) {
 const inputNormalizationCount = occurrenceCount(html, inputNormalizationDeclaration);
 if (inputNormalizationCount !== 1) {
   throw new Error(`Build check failed. Expected one generated input normalization helper declaration for ${inputNormalizationDeclaration}, found ${inputNormalizationCount}.`);
+}
+const sellerPostItemCount = occurrenceCount(html, sellerPostItemDeclaration);
+if (sellerPostItemCount !== 1) {
+  throw new Error(`Build check failed. Expected one generated seller-post item helper declaration for ${sellerPostItemDeclaration}, found ${sellerPostItemCount}.`);
 }
 for (const declaration of storageKeyDeclarations) {
   const count = occurrenceCount(html, declaration);
@@ -300,6 +312,13 @@ if (inputNormalizationScriptMatches.length !== 1) {
 }
 if (/src\s*=|type\s*=\s*["']module["']/i.test(inputNormalizationScriptMatches[0][1])) {
   throw new Error("Build check failed. Input normalization helper moved out of the classic inline application script.");
+}
+const sellerPostItemScriptMatches = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].filter((match) => match[2].includes(sellerPostItemDeclaration));
+if (sellerPostItemScriptMatches.length !== 1) {
+  throw new Error(`Build check failed. Expected one classic inline application script containing the seller-post item helper, found ${sellerPostItemScriptMatches.length}.`);
+}
+if (/src\s*=|type\s*=\s*["']module["']/i.test(sellerPostItemScriptMatches[0][1])) {
+  throw new Error("Build check failed. Seller-post item helper moved out of the classic inline application script.");
 }
 if (!html.includes('src="/icons/icon-192.png"')) {
   throw new Error("Build check failed. PWA install prompt missing square app icon.");

@@ -6852,18 +6852,7 @@ function toggleSave(id){
 
 /* ══════════════ POST AD ══════════════ */
 /* @include src/helpers/input-normalization-helpers.js */
-function cleanPostItem(it){
-  it=it||{};
-  return {
-    n:it.n||'',
-    p:parseFloat(it.p)||0,
-    svs:it.svs||'',
-    hot:!!it.hot,
-    img:it.img||'',
-    imgPath:it.imgPath||'',
-    imgName:it.imgName||''
-  };
-}
+/* @include src/helpers/seller-post-item-helpers.js */
 
 function defaultPostForm(){
   return {name:'',desc:'',region:'',cat:'african',dietary:[],healthTags:[],del:false,fee:'',pu:true,minOrder:10,maxOrder:100,leadDays:3,pricingModel:'per_person',eventTypes:[],serviceTypes:[],cookingStyle:'pre-cooked',setupIncluded:false,equipmentProvided:[],depositPct:0,travelRadius:30,cancellationPolicy:'',pickupType:'gate',timeframe:'weekly',wa:'',waConfirm:'',img:'',imgPath:'',imgName:'',imgUploading:false,imgError:'',legalAccepted:false};

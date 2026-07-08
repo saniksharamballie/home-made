@@ -48,6 +48,11 @@ const sourcePartials = [
     label: "input normalization helper",
     marker: "/* @include src/helpers/input-normalization-helpers.js */",
     path: path.join(root, "src", "helpers", "input-normalization-helpers.js")
+  },
+  {
+    label: "seller post item helper",
+    marker: "/* @include src/helpers/seller-post-item-helpers.js */",
+    path: path.join(root, "src", "helpers", "seller-post-item-helpers.js")
   }
 ];
 
