@@ -17,6 +17,7 @@
     "test:storage-keys": "node scripts/test-storage-key-constants.js",
     "test:input-normalization": "node scripts/test-input-normalization-helpers.js",
     "test:seller-post-item-helpers": "node scripts/test-seller-post-item-helpers.js",
+    "test:seller-post-validation": "node scripts/test-seller-post-validation-current.js",
     "test:marketplace": "node scripts/test-marketplace-regressions.js",
     "test:supabase-security": "node scripts/test-supabase-security.js",
     "test:supabase-workflows": "node scripts/test-seller-admin-workflows.js",
