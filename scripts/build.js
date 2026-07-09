@@ -53,6 +53,11 @@ const sourcePartials = [
     label: "seller post item helper",
     marker: "/* @include src/helpers/seller-post-item-helpers.js */",
     path: path.join(root, "src", "helpers", "seller-post-item-helpers.js")
+  },
+  {
+    label: "seller post validation helper",
+    marker: "/* @include src/helpers/seller-post-validation-helpers.js */",
+    path: path.join(root, "src", "helpers", "seller-post-validation-helpers.js")
   }
 ];
 

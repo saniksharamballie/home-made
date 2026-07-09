@@ -6,10 +6,11 @@ const vm = require("node:vm");
 const root = path.resolve(__dirname, "..");
 const sourcePath = path.join(root, "src", "homemade-map-cleaned-1.html");
 const normalizePath = path.join(root, "src", "helpers", "input-normalization-helpers.js");
+const validationHelperPath = path.join(root, "src", "helpers", "seller-post-validation-helpers.js");
 const sourceHtml = fs.readFileSync(sourcePath, "utf8");
 const normalizeSource = fs.readFileSync(normalizePath, "utf8");
+const validationHelperSource = fs.readFileSync(validationHelperPath, "utf8");
 const functionNames = [
-  "postMissingForStep",
   "postMissingAll",
   "postFirstMissingStep",
   "postCanContinue"
@@ -98,7 +99,7 @@ function extractFunction(source, name) {
 }
 
 const validationSource = functionNames.map((name) => extractFunction(sourceHtml, name)).join("\n\n");
-const evaluatedSource = `${normalizeSource}\n\n${validationSource}`;
+const evaluatedSource = `${normalizeSource}\n\n${validationHelperSource}\n\n${validationSource}`;
 
 check("evaluated validation functions avoid forbidden browser/backend dependencies", () => {
   for (const dependency of forbiddenDependencies) {

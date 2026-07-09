@@ -58,6 +58,7 @@ const categoryCatalogIncludeMarker = "/* @include src/helpers/category-catalog-c
 const storageKeyIncludeMarker = "/* @include src/helpers/storage-key-constants.js */";
 const inputNormalizationIncludeMarker = "/* @include src/helpers/input-normalization-helpers.js */";
 const sellerPostItemIncludeMarker = "/* @include src/helpers/seller-post-item-helpers.js */";
+const sellerPostValidationIncludeMarker = "/* @include src/helpers/seller-post-validation-helpers.js */";
 const helperDeclarations = [
   "function hmNumber",
   "function tierRank",
@@ -107,6 +108,7 @@ const storageKeyRawValues = [
 ];
 const inputNormalizationDeclaration = "function normalizePhoneNumber";
 const sellerPostItemDeclaration = "function cleanPostItem";
+const sellerPostValidationDeclaration = "function postMissingForStep";
 const sourcePartials = [
   {
     label: "formatting/tier helper",
@@ -201,6 +203,15 @@ const sourcePartials = [
     declarationLabel: "seller-post item helper",
     classicScriptLabel: "the seller-post item helper",
     classicMovedLabel: "Seller-post item helper"
+  },
+  {
+    label: "seller-post validation helper",
+    marker: sellerPostValidationIncludeMarker,
+    generatedMarkerPattern: /@include\s+src\/helpers\/seller-post-validation-helpers\.js/,
+    declarations: [sellerPostValidationDeclaration],
+    declarationLabel: "seller-post validation helper",
+    classicScriptLabel: "the seller-post validation helper",
+    classicMovedLabel: "Seller-post validation helper"
   }
 ];
 
