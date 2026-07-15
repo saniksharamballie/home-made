@@ -282,6 +282,15 @@ for (const [declaration, firstUse] of [
     throw new Error(`Build check failed. Storage key declaration ${declaration} must appear before first use ${firstUse}.`);
   }
 }
+const hmAuthWrapperIndex = html.indexOf("var hmAuth = (function(){");
+if (hmAuthWrapperIndex < 0) {
+  throw new Error("Build check failed. Could not locate hmAuth wrapper.");
+}
+for (const declaration of storageKeyDeclarations) {
+  if (html.indexOf(declaration) > hmAuthWrapperIndex) {
+    throw new Error(`Build check failed. Storage key declaration ${declaration} must stay in app-level scope before hmAuth.`);
+  }
+}
 if (!html.includes('src="/icons/icon-192.png"')) {
   throw new Error("Build check failed. PWA install prompt missing square app icon.");
 }

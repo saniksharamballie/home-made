@@ -2854,6 +2854,7 @@ document.addEventListener('DOMContentLoaded',function(){
 var SUPABASE_URL  = 'YOUR_SUPABASE_URL';   // e.g. https://xyzxyz.supabase.co
 var SUPABASE_ANON = 'YOUR_SUPABASE_ANON_KEY';
 var ADMIN_EMAIL   = 'admin@yourdomain.com'; // comma-separated admin emails get the admin role
+/* @include src/helpers/storage-key-constants.js */
 
 /* ══════════════════════════════════════════════════════════════
    hmAuth — Supabase auth wrapper
@@ -2914,7 +2915,7 @@ var hmAuth = (function(){
     /* Live auth state changes (tab refocus, token refresh, sign-out) */
     _sb.auth.onAuthStateChange(function(event, session){
       _session = session;
-      if(event==='SIGNED_OUT'){ _profile=null; _applyProfile({role:'guest', displayName:'Guest', emoji:'👤'}); }
+      if(event==='SIGNED_OUT'){ _profile=null; _applyProfile({role:'guest', displayName:'Guest', emoji:'👤'},{forceLanding:'home'}); }
       if(event==='SIGNED_IN' && session){
         var preservePage = !!(_profile && _profile.authId === session.user.id && ST && ST.page);
         _loadProfile(session.user, function(p){ if(p) _applyProfile(p,{preservePage:preservePage,silent:preservePage}); });
@@ -2990,9 +2991,9 @@ var hmAuth = (function(){
     if(typeof loadBackendWantList==='function') setTimeout(loadBackendWantList, 50);
     if(window.ADM && typeof ADM.loadBackendRatings==='function') setTimeout(ADM.loadBackendRatings, 80);
     /* Role-appropriate landing page. Load seller rows first so live-only pages do not render empty. */
-    var landing = p.role==='admin' ? 'admin' : p.role==='seller' ? 'profile' : p.role==='buyer' ? 'profile' : 'home';
+    var landing = opts.forceLanding || (p.role==='admin' ? 'admin' : p.role==='seller' ? 'profile' : p.role==='buyer' ? 'profile' : 'home');
     var route = (typeof hmRouteFromLocation==='function') ? hmRouteFromLocation() : null;
-    if(route && route.page && (route.page!=='admin' || p.role==='admin')){
+    if(!opts.forceLanding && route && route.page && (route.page!=='admin' || p.role==='admin')){
       landing = route.page;
       if(route.ctx) ST.ctx = route.ctx;
     }
@@ -3231,12 +3232,12 @@ var hmAuth = (function(){
   function signOut(){
     clearSignedOutState();
     if(_demoMode || !_sb){
-      _applyProfile({role:'guest', displayName:'Guest', emoji:'👤'});
+      _applyProfile({role:'guest', displayName:'Guest', emoji:'👤'},{forceLanding:'home'});
       return;
     }
     _sb.auth.signOut().then(function(){
       clearSignedOutState();
-      _applyProfile({role:'guest', displayName:'Guest', emoji:'👤'});
+      _applyProfile({role:'guest', displayName:'Guest', emoji:'👤'},{forceLanding:'home'});
     });
   }
 
@@ -3383,8 +3384,6 @@ var hmAuth = (function(){
   };
   /* Guest is a special transient role — not in DEMO_USERS (no login required) */
   var DEMO_PW = '1234';
-  /* @include src/helpers/storage-key-constants.js */
-
   function rememberedEmail(){
     try{return localStorage.getItem(REMEMBER_EMAIL_KEY)||'';}catch(e){return '';}
   }
