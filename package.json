@@ -16,6 +16,7 @@
     "test:filter-region-constants": "node scripts/test-filter-region-constants.js",
     "test:category-catalog": "node scripts/test-category-catalog-constants.js",
     "test:storage-keys": "node scripts/test-storage-key-constants.js",
+    "test:seller-guardrails": "node scripts/test-seller-guardrails.js",
     "test:input-normalization": "node scripts/test-input-normalization-helpers.js",
     "test:seller-post-item-helpers": "node scripts/test-seller-post-item-helpers.js",
     "test:seller-post-validation": "node scripts/test-seller-post-validation-current.js",

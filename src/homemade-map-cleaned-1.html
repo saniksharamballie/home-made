@@ -7178,9 +7178,6 @@ function submitSellerRequest(){
     leads.unshift(lead);
     localStorage.setItem('hm_seller_requests',JSON.stringify(leads.slice(0,100)));
   }catch(e){}
-  if(typeof sendMessage==='function'){
-    sendMessage(ST.role||'buyer',(ST.bp&&ST.bp.displayName)||'Buyer','admin','Home-Made Admin',null,'Seller access request','Store / kitchen: '+name+'\n\nDetails: '+(notes||'No extra details provided.')+'\n\nCurrent role remains: '+(ST.role||'buyer'),null);
-  }
   if(hmAuth&&hmAuth.insert){
     hmAuth.insert('seller_access_requests',lead,function(res){
       if(res&&res.error){
