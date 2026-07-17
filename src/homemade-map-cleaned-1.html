@@ -3235,6 +3235,9 @@ var hmAuth = (function(){
       _applyProfile({role:'guest', displayName:'Guest', emoji:'👤'},{forceLanding:'home'});
       return;
     }
+    _profile=null;
+    _session=null;
+    _applyProfile({role:'guest', displayName:'Guest', emoji:'👤'},{forceLanding:'home',silent:true});
     _sb.auth.signOut().then(function(){
       clearSignedOutState();
       _applyProfile({role:'guest', displayName:'Guest', emoji:'👤'},{forceLanding:'home'});
@@ -4277,7 +4280,7 @@ function nav(page,ctx,opts){
   opts=opts||{};
   page=HM_ROUTE_PAGES[page]?page:'home';
   // Clean up fullscreen map overlay when leaving map
-  if(page!=='map'){var _mo=document.getElementById('map-overlay');if(_mo)_mo.remove();document.body.classList.remove('map-fs');}
+  if(page!=='map'){destroyLeafMap();var _mo=document.getElementById('map-overlay');if(_mo)_mo.remove();document.body.classList.remove('map-fs');}
   if(page!=='events'){destroyEventsLeafMap();document.body.classList.remove('events-map-fs');}
   // Reset any scroll locks from modals/panels on navigation
   document.body.style.overflow='';
@@ -5735,6 +5738,20 @@ const MAREAS=[
 
 function mapPan(dx,dy){if(window._leafMap)window._leafMap.panBy([dx*100,dy*100]);}
 /* mapReset defined after initLeafMap */
+window._leafMap=null;
+window._leafMapRenderId=0;
+
+function destroyLeafMap(){
+  window._leafMapRenderId=(window._leafMapRenderId||0)+1;
+  if(window._leafMap){
+    try{window._leafMap.remove();}catch(e){}
+    window._leafMap=null;
+  }
+  var el=document.getElementById('leaf-map');
+  if(el&&el._leaflet_id){
+    try{delete el._leaflet_id;}catch(e){el._leaflet_id=null;}
+  }
+}
 
 
 function showMapWelcome(){
@@ -6218,6 +6235,7 @@ function rMap(){
   }).join('');
 
   /* Remove any existing overlay */
+  destroyLeafMap();
   var existing=document.getElementById('map-overlay');
   if(existing)existing.remove();
   document.body.classList.add('map-fs');
@@ -6308,6 +6326,7 @@ function rMap(){
     </div>`;
 
   document.body.appendChild(overlay);
+  var renderId=window._leafMapRenderId;
 
   /* init top-bar gesture (swipe down from very top shows it) */
   overlay.addEventListener('touchstart',function(e){overlay._tsY=e.touches[0].clientY;},{passive:true});
@@ -6346,6 +6365,7 @@ function rMap(){
   },3200);
 
   requestAnimationFrame(function(){
+    if(renderId!==window._leafMapRenderId||!document.getElementById('map-overlay'))return;
     initLeafMap(mf,mTag);
     showMapWelcome();
     if(ST.pendingMapOrder){
@@ -6354,8 +6374,6 @@ function rMap(){
     }
   });
 }
-
-window._leafMap=null;
 
 function _tagFilter(s,tag){
   if(!tag) return true;
@@ -6370,6 +6388,13 @@ function _tagFilter(s,tag){
 function initLeafMap(mf,tag){
   var el=document.getElementById('leaf-map');
   if(!el||typeof L==='undefined')return;
+  if(window._leafMap){
+    try{window._leafMap.remove();}catch(e){}
+    window._leafMap=null;
+  }
+  if(el._leaflet_id){
+    try{delete el._leaflet_id;}catch(e){el._leaflet_id=null;}
+  }
   var center=mf&&REGION_CENTERS[mf]?REGION_CENTERS[mf].ll:[-29.858,31.010];
   var zoom=mf&&REGION_CENTERS[mf]?REGION_CENTERS[mf].z:13;
   var map=L.map('leaf-map',{center:center,zoom:zoom,zoomControl:false,attributionControl:true});
