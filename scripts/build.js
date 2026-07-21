@@ -45,6 +45,11 @@ const sourcePartials = [
     path: path.join(root, "src", "helpers", "storage-key-constants.js")
   },
   {
+    label: "seller owner hydration helper",
+    marker: "/* @include src/helpers/seller-owner-hydration-helpers.js */",
+    path: path.join(root, "src", "helpers", "seller-owner-hydration-helpers.js")
+  },
+  {
     label: "input normalization helper",
     marker: "/* @include src/helpers/input-normalization-helpers.js */",
     path: path.join(root, "src", "helpers", "input-normalization-helpers.js")

@@ -56,6 +56,7 @@ const currencyHelperIncludeMarker = "/* @include src/helpers/currency-format-hel
 const filterRegionIncludeMarker = "/* @include src/helpers/filter-region-constants.js */";
 const categoryCatalogIncludeMarker = "/* @include src/helpers/category-catalog-constants.js */";
 const storageKeyIncludeMarker = "/* @include src/helpers/storage-key-constants.js */";
+const sellerOwnerHydrationIncludeMarker = "/* @include src/helpers/seller-owner-hydration-helpers.js */";
 const inputNormalizationIncludeMarker = "/* @include src/helpers/input-normalization-helpers.js */";
 const sellerPostItemIncludeMarker = "/* @include src/helpers/seller-post-item-helpers.js */";
 const sellerPostValidationIncludeMarker = "/* @include src/helpers/seller-post-validation-helpers.js */";
@@ -111,6 +112,10 @@ const inputNormalizationDeclaration = "function normalizePhoneNumber";
 const sellerPostItemDeclaration = "function cleanPostItem";
 const sellerPostValidationDeclaration = "function postMissingForStep";
 const sellerStorefrontSelectiveSaveDeclaration = "function buildSellerStorefrontSelectivePatch";
+const sellerOwnerHydrationDeclarations = [
+  "function normalizePrivateOwnerSeller",
+  "function resolveOwnerSellerState"
+];
 const sourcePartials = [
   {
     label: "formatting/tier helper",
@@ -187,6 +192,17 @@ const sourcePartials = [
     declarationLabel: "storage key declaration",
     classicScriptLabel: "storage key constants",
     classicMovedLabel: "Storage key constants"
+  },
+  {
+    label: "seller owner hydration helper",
+    marker: sellerOwnerHydrationIncludeMarker,
+    generatedMarkerPattern: /@include\s+src\/helpers\/seller-owner-hydration-helpers\.js/,
+    declarations: sellerOwnerHydrationDeclarations,
+    declarationLabel: "seller owner hydration declaration",
+    declarationOrder: true,
+    orderLabel: "Seller owner hydration declaration",
+    classicScriptLabel: "seller owner hydration helpers",
+    classicMovedLabel: "Seller owner hydration helpers"
   },
   {
     label: "input normalization helper",
@@ -300,6 +316,11 @@ if (hmAuthWrapperIndex < 0) {
 for (const declaration of storageKeyDeclarations) {
   if (html.indexOf(declaration) > hmAuthWrapperIndex) {
     throw new Error(`Build check failed. Storage key declaration ${declaration} must stay in app-level scope before hmAuth.`);
+  }
+}
+for (const declaration of sellerOwnerHydrationDeclarations) {
+  if (html.indexOf(declaration) > hmAuthWrapperIndex) {
+    throw new Error(`Build check failed. Seller owner hydration declaration ${declaration} must stay in app-level scope before hmAuth.`);
   }
 }
 if (!html.includes('src="/icons/icon-192.png"')) {

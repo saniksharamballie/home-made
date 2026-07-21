@@ -7,7 +7,9 @@ const appPath = path.join(root, "src", "homemade-map-cleaned-1.html");
 const migrationPath = path.join(root, "supabase", "migrations", "20260718120000_phase1_seller_test_guardrails.sql");
 const latestDirectoryMigrationPath = path.join(root, "supabase", "migrations", "20260707134842_remove_public_whatsapp_fields_from_seller_directory.sql");
 const selectiveSaveHelperPath = path.join(root, "src", "helpers", "seller-storefront-selective-save-helpers.js");
+const ownerHydrationHelperPath = path.join(root, "src", "helpers", "seller-owner-hydration-helpers.js");
 const { buildSellerStorefrontSelectivePatch } = require(selectiveSaveHelperPath);
+const { normalizePrivateOwnerSeller, resolveOwnerSellerState } = require(ownerHydrationHelperPath);
 
 const app = fs.readFileSync(appPath, "utf8");
 const migration = fs.readFileSync(migrationPath, "utf8");
@@ -45,6 +47,9 @@ const sellerRequestBody = functionBody(app, "submitSellerRequest");
 const migrationSql = normaliseSql(migration);
 const directorySql = normaliseSql(latestDirectoryMigration);
 const storefrontSaveBody = functionBody(app, "saveSellerStorefront");
+const ownerSellerBody = functionBody(app, "hmOwnSeller");
+const storefrontPanelBody = functionBody(app, "buildSellerStorefrontPanel");
+const loadProfileBody = functionBody(app, "_loadProfile");
 
 const storefrontBaseline = {
   storeName: "Original Store",
@@ -143,6 +148,76 @@ check("storage key constants remain wired into the app build source", () => {
 check("map lifecycle guard remains present", () => {
   assert.match(app, /\bfunction\s+destroyLeafMap\s*\(/, "destroyLeafMap missing");
   assert.match(app, /\b_leafMapRenderId\b/, "stale map render guard missing");
+});
+
+const ownerAuthId = "owner-auth-id";
+const privateInactiveSeller = {
+  id: 901,
+  auth_id: ownerAuthId,
+  name: "Private Store",
+  active: false,
+  data: { bio: "Private bio" }
+};
+const sellerProfile = {
+  role: "seller",
+  authId: ownerAuthId,
+  sellerId: privateInactiveSeller.id,
+  sellerLookupStatus: "loaded",
+  raw: privateInactiveSeller,
+  ownerSeller: normalizePrivateOwnerSeller(privateInactiveSeller)
+};
+
+check("linked inactive seller resolves privately without entering the public catalogue", () => {
+  const publicSellers = [];
+  const state = resolveOwnerSellerState(sellerProfile, publicSellers, sellerProfile.sellerId);
+  assert.equal(state.status, "loaded");
+  assert.equal(state.source, "private");
+  assert.equal(state.seller.active, false);
+  assert.deepEqual(publicSellers, []);
+  assert.equal(/SELLERS\.(?:push|unshift|splice)\s*\(/.test(ownerSellerBody), false, "owner resolver must not add private sellers to SELLERS");
+});
+
+check("linked active seller preserves the existing public resolution path", () => {
+  const publicSeller = { id: privateInactiveSeller.id, active: true };
+  const state = resolveOwnerSellerState(sellerProfile, [publicSeller], sellerProfile.sellerId);
+  assert.equal(state.status, "loaded");
+  assert.equal(state.source, "public");
+  assert.equal(state.seller, publicSeller);
+});
+
+check("missing seller linkage remains unlinked", () => {
+  const stalePublicSeller = { id: privateInactiveSeller.id, active: true };
+  const state = resolveOwnerSellerState(
+    { role: "seller", authId: ownerAuthId, sellerId: null, sellerLookupStatus: "unlinked" },
+    [stalePublicSeller],
+    stalePublicSeller.id
+  );
+  assert.equal(state.status, "unlinked");
+  assert.equal(state.seller, null);
+});
+
+check("seller lookup errors and loading stay distinct from unlinked", () => {
+  const errorState = resolveOwnerSellerState({ role: "seller", authId: ownerAuthId, sellerLookupStatus: "error" }, [], null);
+  const loadingState = resolveOwnerSellerState({ role: "seller", authId: ownerAuthId, sellerLookupStatus: "loading" }, [], null);
+  assert.equal(errorState.status, "error");
+  assert.equal(loadingState.status, "loading");
+  assert.match(storefrontPanelBody, /ownerState\.status==='loading'/);
+  assert.match(storefrontPanelBody, /ownerState\.status==='error'/);
+  assert.match(app, /Unable to load seller profile/);
+  assert.match(loadProfileBody, /res\.error\s*&&\s*hasSellerRole/);
+  assert.match(loadProfileBody, /sellerLookupStatus:'error'/);
+  assert.equal(/res\.error\.message/.test(loadProfileBody), false, "seller hydration must not log raw query errors");
+});
+
+check("mismatched private seller ownership is rejected without name or email matching", () => {
+  const mismatched = Object.assign({}, sellerProfile, {
+    ownerSeller: Object.assign({}, sellerProfile.ownerSeller, { auth_id: "different-owner" })
+  });
+  const state = resolveOwnerSellerState(mismatched, [], sellerProfile.sellerId);
+  assert.equal(state.status, "unlinked");
+  assert.equal(state.seller, null);
+  const resolverSource = fs.readFileSync(ownerHydrationHelperPath, "utf8");
+  assert.equal(/displayName|\.email\b/.test(functionBody(resolverSource, "resolveOwnerSellerState")), false, "owner resolver must not match on display name or email");
 });
 
 check("name-only storefront edit writes only name and storeName", () => {

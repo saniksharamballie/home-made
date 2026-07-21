@@ -2855,6 +2855,7 @@ var SUPABASE_URL  = 'YOUR_SUPABASE_URL';   // e.g. https://xyzxyz.supabase.co
 var SUPABASE_ANON = 'YOUR_SUPABASE_ANON_KEY';
 var ADMIN_EMAIL   = 'admin@yourdomain.com'; // comma-separated admin emails get the admin role
 /* @include src/helpers/storage-key-constants.js */
+/* @include src/helpers/seller-owner-hydration-helpers.js */
 
 /* ══════════════════════════════════════════════════════════════
    hmAuth — Supabase auth wrapper
@@ -2935,11 +2936,22 @@ var hmAuth = (function(){
         cb(_profile); return;
       }
 
+      var hasSellerRole=!!(profileRow && profileRow.role === 'seller');
+      if(hasSellerRole){
+        _profile={role:'seller',displayName:profileRow.display_name||fallbackName,sellerId:null,authId:user.id,email:user.email,loginEmail:user.email,raw:null,ownerSeller:null,sellerLookupStatus:'loading',needsSellerLink:false};
+      }
+
       _sb.from('sellers').select('*').eq('auth_id', user.id).maybeSingle()
       .then(function(res){
-        if(res.data || (profileRow && profileRow.role === 'seller')){
+        if(res.error && hasSellerRole){
+          console.warn('[hmAuth] Seller profile lookup failed.');
+          _profile={role:'seller',displayName:profileRow.display_name||fallbackName,sellerId:null,authId:user.id,email:user.email,loginEmail:user.email,raw:null,ownerSeller:null,sellerLookupStatus:'error',needsSellerLink:false};
+          cb(_profile); return;
+        }
+        if(res.error) console.warn('[hmAuth] Seller lookup failed while resolving account role.');
+        if(res.data || hasSellerRole){
           var seller = res.data || null;
-          _profile = {role:'seller', displayName:(seller && seller.name) || (profileRow && profileRow.display_name) || fallbackName, sellerId:(seller && seller.id) || null, authId:user.id, email:(seller && seller.email) || user.email, loginEmail:user.email, raw:seller || {data:{}, needsSellerLink:true}, needsSellerLink:!seller};
+          _profile = {role:'seller', displayName:(seller && seller.name) || (profileRow && profileRow.display_name) || fallbackName, sellerId:(seller && seller.id) || null, authId:user.id, email:(seller && seller.email) || user.email, loginEmail:user.email, raw:seller || {data:{}, needsSellerLink:true}, ownerSeller:normalizePrivateOwnerSeller(seller), sellerLookupStatus:seller?'loaded':'unlinked', needsSellerLink:!seller};
           cb(_profile); return;
         }
 
@@ -9175,10 +9187,22 @@ function sellerStorefrontCurrentValues(){
   };
 }
 function hmOwnSeller(){
+  var state=hmOwnSellerState();
+  return state.status==='loaded'?state.seller:null;
+}
+function hmOwnSellerState(){
   var p=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
-  var sid=(p&&p.sellerId)||SELLER_OWN_ID;
-  if(!sid) return null;
-  return SELLERS.find(function(s){return s.id===sid;}) || null;
+  return resolveOwnerSellerState(p,SELLERS,SELLER_OWN_ID);
+}
+function sellerProfileStateNotice(title,message,loading){
+  return '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:var(--shadow)">'
+    +'<div style="display:flex;gap:12px;align-items:flex-start">'
+      +'<div style="width:42px;height:42px;border-radius:14px;background:rgba(20,184,166,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--teal);font-weight:900">'+ic(loading?'clk':'shld',20,'var(--teal)')+'</div>'
+      +'<div><div style="font-size:16px;font-weight:800;color:var(--heading)">'+hmText(title)+'</div>'
+      +'<div style="font-size:13px;color:var(--body);line-height:1.55;margin-top:6px">'+hmText(message)+'</div>'
+      +(loading?'':'<button class="btn btn-gh btn-sm" style="margin-top:12px" onclick="window.location.reload()">Try again</button>')+'</div>'
+    +'</div>'
+  +'</div>';
 }
 function sellerProfileLinkNotice(){
   var p=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
@@ -9221,7 +9245,10 @@ function sellerStorefrontTextarea(label,id,value,placeholder,rows,field){
 }
 function buildSellerStorefrontPanel(){
   var p=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
-  var s=hmOwnSeller();
+  var ownerState=hmOwnSellerState();
+  if(ownerState.status==='loading') return sellerProfileStateNotice('Loading seller profile','Please wait while your seller profile loads.',true);
+  if(ownerState.status==='error') return sellerProfileStateNotice('Unable to load seller profile','Please try again.');
+  var s=ownerState.seller;
   if(!s) return sellerProfileLinkNotice();
   var d=s._data||s.data||{};
   var owns=Object.prototype.hasOwnProperty;
