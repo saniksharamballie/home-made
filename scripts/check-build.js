@@ -59,6 +59,7 @@ const storageKeyIncludeMarker = "/* @include src/helpers/storage-key-constants.j
 const inputNormalizationIncludeMarker = "/* @include src/helpers/input-normalization-helpers.js */";
 const sellerPostItemIncludeMarker = "/* @include src/helpers/seller-post-item-helpers.js */";
 const sellerPostValidationIncludeMarker = "/* @include src/helpers/seller-post-validation-helpers.js */";
+const sellerStorefrontSelectiveSaveIncludeMarker = "/* @include src/helpers/seller-storefront-selective-save-helpers.js */";
 const helperDeclarations = [
   "function hmNumber",
   "function tierRank",
@@ -109,6 +110,7 @@ const storageKeyRawValues = [
 const inputNormalizationDeclaration = "function normalizePhoneNumber";
 const sellerPostItemDeclaration = "function cleanPostItem";
 const sellerPostValidationDeclaration = "function postMissingForStep";
+const sellerStorefrontSelectiveSaveDeclaration = "function buildSellerStorefrontSelectivePatch";
 const sourcePartials = [
   {
     label: "formatting/tier helper",
@@ -212,6 +214,15 @@ const sourcePartials = [
     declarationLabel: "seller-post validation helper",
     classicScriptLabel: "the seller-post validation helper",
     classicMovedLabel: "Seller-post validation helper"
+  },
+  {
+    label: "seller storefront selective-save helper",
+    marker: sellerStorefrontSelectiveSaveIncludeMarker,
+    generatedMarkerPattern: /@include\s+src\/helpers\/seller-storefront-selective-save-helpers\.js/,
+    declarations: [sellerStorefrontSelectiveSaveDeclaration],
+    declarationLabel: "seller storefront selective-save helper",
+    classicScriptLabel: "the seller storefront selective-save helper",
+    classicMovedLabel: "Seller storefront selective-save helper"
   }
 ];
 

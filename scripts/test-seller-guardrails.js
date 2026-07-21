@@ -6,6 +6,8 @@ const root = path.resolve(__dirname, "..");
 const appPath = path.join(root, "src", "homemade-map-cleaned-1.html");
 const migrationPath = path.join(root, "supabase", "migrations", "20260718120000_phase1_seller_test_guardrails.sql");
 const latestDirectoryMigrationPath = path.join(root, "supabase", "migrations", "20260707134842_remove_public_whatsapp_fields_from_seller_directory.sql");
+const selectiveSaveHelperPath = path.join(root, "src", "helpers", "seller-storefront-selective-save-helpers.js");
+const { buildSellerStorefrontSelectivePatch } = require(selectiveSaveHelperPath);
 
 const app = fs.readFileSync(appPath, "utf8");
 const migration = fs.readFileSync(migrationPath, "utf8");
@@ -42,6 +44,55 @@ function normaliseSql(source) {
 const sellerRequestBody = functionBody(app, "submitSellerRequest");
 const migrationSql = normaliseSql(migration);
 const directorySql = normaliseSql(latestDirectoryMigration);
+const storefrontSaveBody = functionBody(app, "saveSellerStorefront");
+
+const storefrontBaseline = {
+  storeName: "Original Store",
+  bio: "Original bio",
+  contactName: "Original Owner",
+  contactEmail: "prefilled@example.invalid",
+  phone: "",
+  address: "",
+  paymentInfo: "",
+  dob: "",
+  storePic: "",
+  avatar: ""
+};
+const existingStorefrontData = {
+  storeName: storefrontBaseline.storeName,
+  bio: storefrontBaseline.bio,
+  contactName: storefrontBaseline.contactName,
+  contactEmail: "",
+  region: "Preserved Region",
+  category: "Preserved Category",
+  tier: "Preserved Tier",
+  lat: -1,
+  lng: 1,
+  fulfilment: ["collection"],
+  availability: { day: true },
+  menu: [{ name: "Preserved Item" }],
+  listingImages: ["preserved-image"]
+};
+
+function storefrontPatch(changes, dirty) {
+  return buildSellerStorefrontSelectivePatch(
+    existingStorefrontData,
+    Object.assign({}, storefrontBaseline, changes || {}),
+    storefrontBaseline,
+    dirty || {},
+    "2026-07-21T00:00:00.000Z"
+  );
+}
+
+function assertNoStorefrontSensitiveWrites(patch) {
+  for (const key of ["active", "region", "category", "tier", "lat", "lng", "fulfilment", "availability", "menu", "listingImages"]) {
+    assert.equal(Object.prototype.hasOwnProperty.call(patch.sellerValues, key), false, `${key} must not be a seller column patch`);
+    assert.equal(patch.changedDataKeys.includes(key), false, `${key} must not be a changed data key`);
+  }
+  for (const key of ["contactName", "contactEmail", "phone", "address", "paymentInfo", "sellerBirthMonth", "birthMonth", "birthdayLockedAt", "storePic", "avatar"]) {
+    assert.equal(patch.changedDataKeys.includes(key), false, `${key} must be excluded unless deliberately changed`);
+  }
+}
 
 check("seller access request does not create a local/admin message", () => {
   assert.equal(/\bsendMessage\s*\(/.test(sellerRequestBody), false, "submitSellerRequest must not call sendMessage");
@@ -92,6 +143,70 @@ check("storage key constants remain wired into the app build source", () => {
 check("map lifecycle guard remains present", () => {
   assert.match(app, /\bfunction\s+destroyLeafMap\s*\(/, "destroyLeafMap missing");
   assert.match(app, /\b_leafMapRenderId\b/, "stale map render guard missing");
+});
+
+check("name-only storefront edit writes only name and storeName", () => {
+  const patch = storefrontPatch({ storeName: "Changed Store" }, { storeName: true });
+  assert.deepEqual(Object.keys(patch.sellerValues).sort(), ["data", "name"]);
+  assert.deepEqual(patch.changedDataKeys, ["storeName"]);
+  assert.deepEqual(patch.profileValues, { display_name: "Changed Store" });
+  assert.equal(patch.sellerValues.data.region, existingStorefrontData.region);
+  assert.equal(patch.sellerValues.data.menu, existingStorefrontData.menu);
+  assertNoStorefrontSensitiveWrites(patch);
+});
+
+check("bio-only storefront edit writes only bio", () => {
+  const patch = storefrontPatch({ bio: "Changed bio" }, { bio: true });
+  assert.deepEqual(Object.keys(patch.sellerValues), ["data"]);
+  assert.deepEqual(patch.changedDataKeys, ["bio"]);
+  assert.deepEqual(patch.profileValues, {});
+  assertNoStorefrontSensitiveWrites(patch);
+});
+
+check("name-and-bio storefront edit contains only approved keys", () => {
+  const patch = storefrontPatch({ storeName: "Changed Store", bio: "Changed bio" }, { storeName: true, bio: true });
+  assert.deepEqual(Object.keys(patch.sellerValues).sort(), ["data", "name"]);
+  assert.deepEqual(patch.changedDataKeys.sort(), ["bio", "storeName"]);
+  assert.deepEqual(patch.profileValues, { display_name: "Changed Store" });
+  assertNoStorefrontSensitiveWrites(patch);
+});
+
+check("unchanged prefilled and blank storefront fields are omitted", () => {
+  const patch = storefrontPatch({}, {
+    contactEmail: true,
+    contactName: true,
+    phone: true,
+    address: true,
+    paymentInfo: true,
+    storePic: true,
+    avatar: true
+  });
+  assert.equal(patch.hasSellerChanges, false);
+  assert.equal(patch.hasProfileChanges, false);
+  assert.deepEqual(patch.changedFields, []);
+  assert.deepEqual(patch.sellerValues, {});
+});
+
+check("no-change and edit-then-revert storefront saves are database no-ops", () => {
+  const noChange = storefrontPatch({}, {});
+  const reverted = storefrontPatch({ bio: storefrontBaseline.bio }, { bio: true });
+  assert.equal(noChange.hasSellerChanges, false);
+  assert.equal(reverted.hasSellerChanges, false);
+  assert.match(storefrontSaveBody, /if\(!patch\.hasSellerChanges\)\{ showToast\('No changes to save\.'\); return; \}/);
+});
+
+check("deliberately cleared optional storefront field remains representable", () => {
+  const baseline = Object.assign({}, storefrontBaseline, { address: "Old pickup area" });
+  const patch = buildSellerStorefrontSelectivePatch(existingStorefrontData, Object.assign({}, baseline, { address: "" }), baseline, { address: true });
+  assert.deepEqual(patch.changedDataKeys, ["address"]);
+  assert.equal(patch.sellerValues.data.address, "");
+  assert.equal(patch.hasSellerChanges, true);
+});
+
+check("storefront save uses selective patch and avoids broad unconditional serialization", () => {
+  assert.match(storefrontSaveBody, /buildSellerStorefrontSelectivePatch\(/);
+  assert.equal(/Object\.assign\(\{\},\s*existingData,\s*\{storeName:hmField/.test(storefrontSaveBody), false);
+  assert.equal(/\bactive\s*:|\bregion\s*:|\bcategory\s*:|\btier\s*:|\blat\s*:|\blng\s*:/.test(storefrontSaveBody), false);
 });
 
 console.log(`Seller guardrail tests passed: ${checks}`);

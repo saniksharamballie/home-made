@@ -9146,9 +9146,33 @@ function swR(r){
 }
 /* ── refreshDashContent: swap only #prof-dash-content, never touch the tab bar ── */
 /* @include src/helpers/text-escape-helpers.js */
+/* @include src/helpers/seller-storefront-selective-save-helpers.js */
 function hmField(id){
   var el=document.getElementById(id);
   return el ? el.value.trim() : '';
+}
+var _sellerStorefrontBaseline=Object.freeze({});
+var _sellerStorefrontDirty={};
+function beginSellerStorefrontEdit(values){
+  _sellerStorefrontBaseline=Object.freeze(Object.assign({},values||{}));
+  _sellerStorefrontDirty={};
+}
+function markSellerStorefrontDirty(field){
+  _sellerStorefrontDirty[field]=true;
+}
+function sellerStorefrontCurrentValues(){
+  return {
+    storeName:hmField('seller_store_name'),
+    contactName:hmField('seller_contact_name'),
+    contactEmail:hmField('seller_contact_email'),
+    phone:hmField('seller_phone'),
+    dob:hmField('seller_dob'),
+    address:hmField('seller_address'),
+    paymentInfo:hmField('seller_payment'),
+    bio:hmField('seller_bio'),
+    storePic:hmField('seller_store_pic'),
+    avatar:hmField('seller_avatar')
+  };
 }
 function hmOwnSeller(){
   var p=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
@@ -9184,29 +9208,51 @@ function profileLockedDateInput(label, id, value, placeholder, lockedOverride){
 function profileTextarea(label, id, value, placeholder, rows){
   return '<div><div class="lsm" style="margin-bottom:7px">'+label+'</div><textarea id="'+id+'" class="inp" rows="'+(rows||3)+'" placeholder="'+hmText(placeholder||'')+'">'+hmText(value||'')+'</textarea></div>';
 }
+function sellerStorefrontInput(label,id,value,placeholder,field,type){
+  return '<div><div class="lsm" style="margin-bottom:7px">'+label+'</div><input id="'+id+'" class="inp" type="'+(type||'text')+'" value="'+hmText(value||'')+'" placeholder="'+hmText(placeholder||'')+'" oninput="markSellerStorefrontDirty(\''+field+'\')"/></div>';
+}
+function sellerStorefrontDateInput(label,id,value,lockedOverride,field){
+  var locked=!!value || !!lockedOverride;
+  return '<div><div class="lsm" style="margin-bottom:7px">'+label+'</div><input id="'+id+'" class="inp" type="date" value="'+hmText(value||'')+'" '+(locked?'disabled aria-describedby="'+id+'-note"':'oninput="markSellerStorefrontDirty(\''+field+'\')"')+'/>'
+    +'<div id="'+id+'-note" style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.45">'+(locked?'Birthday is locked after first save. Ask admin if this needs correcting.':'Used only for birthday-month seller boosts. This locks after first save.')+'</div></div>';
+}
+function sellerStorefrontTextarea(label,id,value,placeholder,rows,field){
+  return '<div><div class="lsm" style="margin-bottom:7px">'+label+'</div><textarea id="'+id+'" class="inp" rows="'+(rows||3)+'" placeholder="'+hmText(placeholder||'')+'" oninput="markSellerStorefrontDirty(\''+field+'\')">'+hmText(value||'')+'</textarea></div>';
+}
 function buildSellerStorefrontPanel(){
   var p=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
   var s=hmOwnSeller();
   if(!s) return sellerProfileLinkNotice();
-  var d=s.data || {};
-  var storePic=d.storePic || s.img || '';
-  var avatar=d.avatar || d.icon || '';
-  var contactEmail=d.contactEmail || s.email || (p&&p.email) || '';
+  var d=s._data||s.data||{};
+  var owns=Object.prototype.hasOwnProperty;
+  var formValues={
+    storePic:owns.call(d,'storePic') ? d.storePic : (s.img||''),
+    avatar:owns.call(d,'avatar') ? d.avatar : (d.icon||''),
+    storeName:s.name||d.storeName||'',
+    contactName:s.seller||d.contactName||'',
+    contactEmail:owns.call(d,'contactEmail') ? d.contactEmail : (s.email||(p&&p.email)||''),
+    phone:s.wa||d.phone||'',
+    dob:d.sellerDob||d.dateOfBirth||'',
+    address:d.address||'',
+    paymentInfo:d.paymentInfo||'',
+    bio:owns.call(d,'bio') ? d.bio : (s.desc||'')
+  };
+  beginSellerStorefrontEdit(formValues);
   return '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:var(--shadow)">'
     +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px"><div><div style="font-size:16px;font-weight:800;color:var(--heading)">Storefront Profile</div><div style="font-size:12px;color:var(--muted);margin-top:2px">This is the business information buyers see and use to contact you.</div></div><button class="btn btn-a btn-sm" onclick="saveSellerStorefront()">'+ic('save',14,'#fff')+' Save</button></div>'
     +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:14px">'
-      +'<div style="display:flex;gap:12px;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px"><div id="seller-storepic-preview">'+profileImagePreview(storePic,'🏪',86)+'</div><div style="flex:1;min-width:0"><div class="lsm" style="margin-bottom:7px">Store Picture</div><input id="seller_store_pic" type="hidden" value="'+hmText(storePic)+'"/><input class="inp" type="file" accept="image/*" onchange="uploadProfileImage(this,\'seller_store_pic\',\'seller-profiles\')" style="font-size:12px;padding:9px"/></div></div>'
-      +'<div style="display:flex;gap:12px;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px"><div id="seller-avatar-preview">'+profileImagePreview(avatar,'👤',86)+'</div><div style="flex:1;min-width:0"><div class="lsm" style="margin-bottom:7px">Icon / Avatar</div><input id="seller_avatar" type="hidden" value="'+hmText(avatar)+'"/><input class="inp" type="file" accept="image/*" onchange="uploadProfileImage(this,\'seller_avatar\',\'seller-profiles\')" style="font-size:12px;padding:9px"/></div></div>'
+      +'<div style="display:flex;gap:12px;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px"><div id="seller-storepic-preview">'+profileImagePreview(formValues.storePic,'🏪',86)+'</div><div style="flex:1;min-width:0"><div class="lsm" style="margin-bottom:7px">Store Picture</div><input id="seller_store_pic" type="hidden" value="'+hmText(formValues.storePic)+'"/><input class="inp" type="file" accept="image/*" onchange="uploadProfileImage(this,\'seller_store_pic\',\'seller-profiles\')" style="font-size:12px;padding:9px"/></div></div>'
+      +'<div style="display:flex;gap:12px;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px"><div id="seller-avatar-preview">'+profileImagePreview(formValues.avatar,'👤',86)+'</div><div style="flex:1;min-width:0"><div class="lsm" style="margin-bottom:7px">Icon / Avatar</div><input id="seller_avatar" type="hidden" value="'+hmText(formValues.avatar)+'"/><input class="inp" type="file" accept="image/*" onchange="uploadProfileImage(this,\'seller_avatar\',\'seller-profiles\')" style="font-size:12px;padding:9px"/></div></div>'
     +'</div>'
     +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">'
-      +profileInput('Name of Store','seller_store_name',s.name||d.storeName||'',"Thandi's Spice Pot")
-      +profileInput('Owner / Contact Name','seller_contact_name',s.seller||d.contactName||'','Thandi Naidoo')
-      +profileInput('Contact Email','seller_contact_email',contactEmail,'orders@example.co.za','email')
-      +profileInput('Contact Number','seller_phone',s.wa||d.phone||'','27821234567','tel')
-      +profileLockedDateInput('Date of Birth','seller_dob',d.sellerDob||d.dateOfBirth||'','',d.sellerBirthMonth||d.birthMonth)
-      +profileInput('Address / Pickup Area','seller_address',d.address||'','Street, suburb, city')
-      +profileInput('Payment Information','seller_payment',d.paymentInfo||'','Cash, EFT, bank details, eWallet')
-    +'</div><div style="margin-top:12px">'+profileTextarea('Store Bio','seller_bio',d.bio||s.desc||'','Tell buyers what you make, your style, and collection notes.',4)+'</div></div>';
+      +sellerStorefrontInput('Name of Store','seller_store_name',formValues.storeName,"Thandi's Spice Pot",'storeName')
+      +sellerStorefrontInput('Owner / Contact Name','seller_contact_name',formValues.contactName,'Thandi Naidoo','contactName')
+      +sellerStorefrontInput('Contact Email','seller_contact_email',formValues.contactEmail,'orders@example.co.za','contactEmail','email')
+      +sellerStorefrontInput('Contact Number','seller_phone',formValues.phone,'27821234567','phone','tel')
+      +sellerStorefrontDateInput('Date of Birth','seller_dob',formValues.dob,d.sellerBirthMonth||d.birthMonth,'dob')
+      +sellerStorefrontInput('Address / Pickup Area','seller_address',formValues.address,'Street, suburb, city','address')
+      +sellerStorefrontInput('Payment Information','seller_payment',formValues.paymentInfo,'Cash, EFT, bank details, eWallet','paymentInfo')
+    +'</div><div style="margin-top:12px">'+sellerStorefrontTextarea('Store Bio','seller_bio',formValues.bio,'Tell buyers what you make, your style, and collection notes.',4,'bio')+'</div></div>';
 }
 function buildBuyerBioPanel(){
   var p=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
@@ -9236,6 +9282,8 @@ function uploadProfileImage(input, targetId, folder){
       if(!res || !res.url){ showToast((res&&res.error)||'Could not upload image yet.'); return; }
       var target=document.getElementById(targetId);
       if(target) target.value=res.url;
+      if(targetId==='seller_store_pic') markSellerStorefrontDirty('storePic');
+      if(targetId==='seller_avatar') markSellerStorefrontDirty('avatar');
       var prevId=targetId==='seller_store_pic'?'seller-storepic-preview':targetId==='seller_avatar'?'seller-avatar-preview':'buyer-avatar-preview';
       var prev=document.getElementById(prevId);
       if(prev) prev.innerHTML=profileImagePreview(res.url,'👤',86);
@@ -9312,23 +9360,32 @@ function saveSellerStorefront(){
   var s=hmOwnSeller();
   if(!p || !s || !s.id){ showToast('Seller profile is not linked yet.'); return; }
   var existingData=s._data||s.data||{};
-  var lockedDob=existingData.sellerDob || existingData.dateOfBirth || '';
-  var lockedBirthMonth=existingData.sellerBirthMonth || existingData.birthMonth || (lockedDob&&String(lockedDob).slice(5,7)) || '';
-  var enteredDob=hmField('seller_dob');
-  var newBirthMonth=lockedBirthMonth || (enteredDob&&String(enteredDob).slice(5,7)) || '';
-  var data=Object.assign({}, existingData, {storeName:hmField('seller_store_name'),contactName:hmField('seller_contact_name'),contactEmail:hmField('seller_contact_email'),phone:hmField('seller_phone'),sellerBirthMonth:newBirthMonth,birthMonth:newBirthMonth,birthdayLockedAt:existingData.birthdayLockedAt || (newBirthMonth ? new Date().toISOString() : ''),address:hmField('seller_address'),paymentInfo:hmField('seller_payment'),bio:hmField('seller_bio'),storePic:hmField('seller_store_pic'),avatar:hmField('seller_avatar')});
-  delete data.sellerDob;
-  delete data.dateOfBirth;
-  delete data.dob;
-  delete data.birthDate;
-  var values={name:data.storeName || s.name,seller:data.contactName || s.seller,email:data.contactEmail || s.email || p.email,wa:data.phone || s.wa,data:data};
-  hmAuth.update('sellers',{id:s.id},values,function(res){
+  var current=sellerStorefrontCurrentValues();
+  var patch=buildSellerStorefrontSelectivePatch(existingData,current,_sellerStorefrontBaseline,_sellerStorefrontDirty,new Date().toISOString());
+  if(patch.changedFields.indexOf('storeName')>=0 && !current.storeName){ showToast('Store name cannot be blank.'); return; }
+  var emailEl=document.getElementById('seller_contact_email');
+  if(patch.changedFields.indexOf('contactEmail')>=0 && current.contactEmail && emailEl && !emailEl.checkValidity()){
+    showToast('Enter a valid contact email or leave it blank.');
+    return;
+  }
+  if(!patch.hasSellerChanges){ showToast('No changes to save.'); return; }
+  hmAuth.update('sellers',{id:s.id},patch.sellerValues,function(res){
     if(res&&res.error){ showToast('Could not save storefront: '+res.error); return; }
-    Object.assign(s, values, {_data:data,img:data.storePic || s.img, desc:data.bio || s.desc});
-    if(p){ p.displayName=values.name; p.raw=Object.assign({}, p.raw||{}, values); }
-    ST.bp.displayName=values.name;
-    if(hmAuth.upsert && p && p.authId){
-      hmAuth.update('profiles',{id:p.authId},{email:p.email||values.email,display_name:values.name},function(){});
+    Object.assign(s,patch.sellerValues);
+    if(patch.sellerValues.data){
+      s._data=patch.sellerValues.data;
+      s.data=patch.sellerValues.data;
+      if(patch.changedFields.indexOf('storePic')>=0) s.img=current.storePic;
+      if(patch.changedFields.indexOf('bio')>=0) s.desc=current.bio;
+    }
+    if(patch.changedFields.indexOf('storeName')>=0){
+      p.displayName=current.storeName;
+      ST.bp.displayName=current.storeName;
+    }
+    if(patch.changedFields.indexOf('contactEmail')>=0 && current.contactEmail) p.email=current.contactEmail;
+    p.raw=Object.assign({},p.raw||{},patch.sellerValues);
+    if(patch.hasProfileChanges && hmAuth.update && p.authId){
+      hmAuth.update('profiles',{id:p.authId},patch.profileValues,function(){});
     }
     showToast('Storefront saved.');
     updRole();
