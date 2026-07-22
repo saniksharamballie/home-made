@@ -6907,6 +6907,7 @@ function resetPostDraft(){
 
 /* @include src/helpers/seller-post-validation-helpers.js */
 /* @include src/helpers/listing-draft-helpers.js */
+/* @include src/helpers/listing-draft-navigation-helpers.js */
 
 var _inactiveListingDraftHydratedFor='';
 
@@ -7004,6 +7005,10 @@ function postCanContinue(step){
   return postMissingForStep(step).length===0;
 }
 
+function postCanNavigateForward(step){
+  return canNavigateInactiveListingDraft(hmPrivateOwnerSellerForDraft(),ST.ps||1,step)||postCanContinue(ST.ps||1);
+}
+
 function postHasMissing(key){
   return (ST.postMissing||[]).indexOf(key)>=0;
 }
@@ -7033,8 +7038,10 @@ function markPostMissing(missing, message){
 }
 
 function postNext(step){
-  var missing=postMissingForStep(ST.ps||1);
-  if(missing.length){ markPostMissing(missing,'Check outstanding items before continuing.'); return; }
+  if(!canNavigateInactiveListingDraft(hmPrivateOwnerSellerForDraft(),ST.ps||1,step)){
+    var missing=postMissingForStep(ST.ps||1);
+    if(missing.length){ markPostMissing(missing,'Check outstanding items before continuing.'); return; }
+  }
   ST.postMissing=[]; ST.postError=''; ST.postNudge=0;
   ST.ps=step;
   rPS();
@@ -7587,7 +7594,7 @@ function rPS(){
         </div>
       </div>`:''}
       ${f.del?`<div><div class="lsm" style="margin-bottom:7px">Delivery Fee (R)</div><input class="inp" type="number" placeholder="e.g. 35" value="${f.fee}" oninput="ST.pf.fee=this.value"/></div>`:''}
-      <div style="display:flex;justify-content:flex-end"><button class="btn btn-a ${(ST.postNudge&&step===1)?'post-nudge':''}" aria-disabled="${postCanContinue(1)?'false':'true'}" style="${postCanContinue(1)?'':'opacity:.62'}" onclick="goPS(2)">${ic('zap',14,'#fff')} ${postCanContinue(1)?'Next: Menu':'Check outstanding items'}</button></div>
+      <div style="display:flex;justify-content:flex-end"><button class="btn btn-a ${(ST.postNudge&&step===1)?'post-nudge':''}" aria-disabled="${postCanNavigateForward(2)?'false':'true'}" style="${postCanNavigateForward(2)?'':'opacity:.62'}" onclick="goPS(2)">${ic('zap',14,'#fff')} ${postCanNavigateForward(2)?'Next: Menu':'Check outstanding items'}</button></div>
     </div>`;
   } else if(step===2){
     /* Menu items with serving size */
@@ -7646,7 +7653,7 @@ function rPS(){
       </div>
       <div style="display:flex;gap:10px;margin-top:4px">
         <button class="btn btn-ol" onclick="goPS(1)">← Back</button>
-        <button class="btn btn-a ${(ST.postNudge&&step===2)?'post-nudge':''}" aria-disabled="${postCanContinue(2)?'false':'true'}" style="flex:1;justify-content:center;${postCanContinue(2)?'':'opacity:.62'}" onclick="goPS(3)">${postCanContinue(2)?'Next: Choose Tier →':'Check outstanding items'}</button>
+        <button class="btn btn-a ${(ST.postNudge&&step===2)?'post-nudge':''}" aria-disabled="${postCanNavigateForward(3)?'false':'true'}" style="flex:1;justify-content:center;${postCanNavigateForward(3)?'':'opacity:.62'}" onclick="goPS(3)">${postCanNavigateForward(3)?'Next: Choose Tier →':'Check outstanding items'}</button>
       </div>
     </div>`;
   } else {

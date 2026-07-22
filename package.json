@@ -18,6 +18,7 @@
     "test:storage-keys": "node scripts/test-storage-key-constants.js",
     "test:seller-guardrails": "node scripts/test-seller-guardrails.js",
     "test:listing-draft-guardrails": "node scripts/test-listing-draft-guardrails.js",
+    "test:listing-draft-navigation-guardrails": "node scripts/test-listing-draft-navigation-guardrails.js",
     "test:profile-rpc-guardrails": "node scripts/test-profile-rpc-guardrails.js",
     "test:input-normalization": "node scripts/test-input-normalization-helpers.js",
     "test:seller-post-item-helpers": "node scripts/test-seller-post-item-helpers.js",

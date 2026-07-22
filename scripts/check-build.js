@@ -61,6 +61,7 @@ const inputNormalizationIncludeMarker = "/* @include src/helpers/input-normaliza
 const sellerPostItemIncludeMarker = "/* @include src/helpers/seller-post-item-helpers.js */";
 const sellerPostValidationIncludeMarker = "/* @include src/helpers/seller-post-validation-helpers.js */";
 const listingDraftIncludeMarker = "/* @include src/helpers/listing-draft-helpers.js */";
+const listingDraftNavigationIncludeMarker = "/* @include src/helpers/listing-draft-navigation-helpers.js */";
 const sellerStorefrontSelectiveSaveIncludeMarker = "/* @include src/helpers/seller-storefront-selective-save-helpers.js */";
 const helperDeclarations = [
   "function hmNumber",
@@ -113,6 +114,7 @@ const inputNormalizationDeclaration = "function normalizePhoneNumber";
 const sellerPostItemDeclaration = "function cleanPostItem";
 const sellerPostValidationDeclaration = "function postMissingForStep";
 const listingDraftDeclaration = "function buildInactiveListingDraftPatch";
+const listingDraftNavigationDeclaration = "function canNavigateInactiveListingDraft";
 const sellerStorefrontSelectiveSaveDeclaration = "function buildSellerStorefrontSelectivePatch";
 const sellerOwnerHydrationDeclarations = [
   "function normalizePrivateOwnerSeller",
@@ -243,6 +245,15 @@ const sourcePartials = [
     classicMovedLabel: "Listing draft helper"
   },
   {
+    label: "listing draft navigation helper",
+    marker: listingDraftNavigationIncludeMarker,
+    generatedMarkerPattern: /@include\s+src\/helpers\/listing-draft-navigation-helpers\.js/,
+    declarations: [listingDraftNavigationDeclaration],
+    declarationLabel: "listing draft navigation helper",
+    classicScriptLabel: "the listing draft navigation helper",
+    classicMovedLabel: "Listing draft navigation helper"
+  },
+  {
     label: "seller storefront selective-save helper",
     marker: sellerStorefrontSelectiveSaveIncludeMarker,
     generatedMarkerPattern: /@include\s+src\/helpers\/seller-storefront-selective-save-helpers\.js/,
@@ -313,6 +324,9 @@ if (occurrenceCount(sourceHtml, "function goLiveListing()") !== 1 || occurrenceC
 if (html.indexOf(listingDraftDeclaration) > html.indexOf("function saveInactiveListingDraft()")) {
   throw new Error("Build check failed. Listing draft helper must be declared before draft save usage.");
 }
+if (html.indexOf(listingDraftNavigationDeclaration) > html.indexOf("function postNext(")) {
+  throw new Error("Build check failed. Listing draft navigation helper must be declared before navigation usage.");
+}
 if (!html.includes("Save Draft") || !html.includes("No draft changes to save.")) {
   throw new Error("Build check failed. Listing draft UI or no-op guard is missing.");
 }
@@ -329,6 +343,32 @@ for (const forbidden of [
 }
 if (/\bactive\s*[:=]/.test(draftSaveBody) || !draftSaveBody.includes("patch.sellerValues")) {
   throw new Error("Build check failed. Draft save may alter active state or bypass the selective patch.");
+}
+const draftNavigationStart = sourceHtml.indexOf("function postNext(");
+const draftNavigationEnd = sourceHtml.indexOf("\nfunction campaignEndForTimeframe(", draftNavigationStart);
+const draftNavigationBody = sourceHtml.slice(draftNavigationStart, draftNavigationEnd);
+if (!draftNavigationBody.includes("canNavigateInactiveListingDraft(hmPrivateOwnerSellerForDraft()") || !draftNavigationBody.includes("postMissingForStep(ST.ps||1)")) {
+  throw new Error("Build check failed. Draft navigation and publication validation are not separated safely.");
+}
+for (const forbidden of [
+  "saveInactiveListingDraft", "goLiveListing", "buildPublishedSeller", "persistPublishedSeller",
+  "uploadListingImg", "uploadMenuItemImg", "seller_directory", "SELLERS", "WhatsApp", "hmAuth.update"
+]) {
+  if (draftNavigationBody.includes(forbidden)) {
+    throw new Error(`Build check failed. Draft navigation references a write, upload, publish, contact or public path: ${forbidden}.`);
+  }
+}
+if (/\bactive\s*[:=]/.test(draftNavigationBody)) {
+  throw new Error("Build check failed. Draft navigation may mutate active state.");
+}
+const goLiveStart = sourceHtml.indexOf("function goLiveListing()");
+const goLiveEnd = sourceHtml.indexOf("\nfunction openSellerRequestModal(", goLiveStart);
+const goLiveBody = sourceHtml.slice(goLiveStart, goLiveEnd);
+if (!goLiveBody.includes("postMissingAll()") || !goLiveBody.includes("buildPublishedSeller()") || !goLiveBody.includes("persistPublishedSeller(")) {
+  throw new Error("Build check failed. Go Live no longer retains complete publication validation and persistence.");
+}
+if (!sourceHtml.includes("postCanNavigateForward(2)") || !sourceHtml.includes("postCanNavigateForward(3)")) {
+  throw new Error("Build check failed. Draft step controls are not using the navigation-only guard.");
 }
 for (const value of storageKeyRawValues) {
   const count = occurrenceCount(html, value);
