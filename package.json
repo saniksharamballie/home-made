@@ -19,6 +19,8 @@
     "test:seller-guardrails": "node scripts/test-seller-guardrails.js",
     "test:listing-draft-guardrails": "node scripts/test-listing-draft-guardrails.js",
     "test:listing-draft-navigation-guardrails": "node scripts/test-listing-draft-navigation-guardrails.js",
+    "test:listing-wizard-runtime": "node scripts/test-listing-wizard-runtime.js",
+    "test:signout-runtime": "node scripts/test-signout-runtime.js",
     "test:profile-rpc-guardrails": "node scripts/test-profile-rpc-guardrails.js",
     "test:input-normalization": "node scripts/test-input-normalization-helpers.js",
     "test:seller-post-item-helpers": "node scripts/test-seller-post-item-helpers.js",

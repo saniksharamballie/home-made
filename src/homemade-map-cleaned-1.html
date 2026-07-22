@@ -6988,7 +6988,7 @@ function saveInactiveListingDraft(){
 
 function inactiveListingDraftButton(){
   return hmPrivateOwnerSellerForDraft()
-    ? '<button class="btn btn-ol btn-sm" onclick="saveInactiveListingDraft()">'+ic('chk',14,'var(--accent)')+' Save Draft</button>'
+    ? '<button type="button" class="btn btn-ol btn-sm" onclick="saveInactiveListingDraft()">'+ic('chk',14,'var(--accent)')+' Save Draft</button>'
     : '';
 }
 
@@ -7594,7 +7594,7 @@ function rPS(){
         </div>
       </div>`:''}
       ${f.del?`<div><div class="lsm" style="margin-bottom:7px">Delivery Fee (R)</div><input class="inp" type="number" placeholder="e.g. 35" value="${f.fee}" oninput="ST.pf.fee=this.value"/></div>`:''}
-      <div style="display:flex;justify-content:flex-end"><button class="btn btn-a ${(ST.postNudge&&step===1)?'post-nudge':''}" aria-disabled="${postCanNavigateForward(2)?'false':'true'}" style="${postCanNavigateForward(2)?'':'opacity:.62'}" onclick="goPS(2)">${ic('zap',14,'#fff')} ${postCanNavigateForward(2)?'Next: Menu':'Check outstanding items'}</button></div>
+      <div style="display:flex;justify-content:flex-end"><button type="button" class="btn btn-a ${(ST.postNudge&&step===1)?'post-nudge':''}" aria-disabled="${postCanNavigateForward(2)?'false':'true'}" style="${postCanNavigateForward(2)?'':'opacity:.62'}" onclick="goPS(2)">${ic('zap',14,'#fff')} ${postCanNavigateForward(2)?'Next: Menu':'Check outstanding items'}</button></div>
     </div>`;
   } else if(step===2){
     /* Menu items with serving size */
@@ -7652,8 +7652,8 @@ function rPS(){
         </div>
       </div>
       <div style="display:flex;gap:10px;margin-top:4px">
-        <button class="btn btn-ol" onclick="goPS(1)">← Back</button>
-        <button class="btn btn-a ${(ST.postNudge&&step===2)?'post-nudge':''}" aria-disabled="${postCanNavigateForward(3)?'false':'true'}" style="flex:1;justify-content:center;${postCanNavigateForward(3)?'':'opacity:.62'}" onclick="goPS(3)">${postCanNavigateForward(3)?'Next: Choose Tier →':'Check outstanding items'}</button>
+        <button type="button" class="btn btn-ol" onclick="goPS(1)">← Back</button>
+        <button type="button" class="btn btn-a ${(ST.postNudge&&step===2)?'post-nudge':''}" aria-disabled="${postCanNavigateForward(3)?'false':'true'}" style="flex:1;justify-content:center;${postCanNavigateForward(3)?'':'opacity:.62'}" onclick="goPS(3)">${postCanNavigateForward(3)?'Next: Choose Tier →':'Check outstanding items'}</button>
       </div>
     </div>`;
   } else {
@@ -7713,7 +7713,7 @@ function rPS(){
       </label>
       ${postFieldError('legal','Confirm the seller terms before publishing.')}
       <div style="display:flex;gap:10px;margin-top:4px">
-        <button class="btn btn-ol" onclick="goPS(2)">← Back</button>
+        <button type="button" class="btn btn-ol" onclick="goPS(2)">← Back</button>
         <button class="btn btn-a ${(ST.postNudge&&step===3)?'post-nudge':''}" style="flex:1;justify-content:center;${overLimit||!postCanContinue(3)?'opacity:.62;':''}" aria-disabled="${(!overLimit&&postCanContinue(3))?'false':'true'}" ${overLimit?'disabled':''} onclick="${overLimit?'showUpgradeModal(\'post_extra_listings\',\'gold\')':'goLiveListing()'}">${ic('zap',14,'#fff')} ${overLimit?'Unlock to Go Live':(postCanContinue(3)?'Go Live!':'Check outstanding items')}</button>
       </div>
     </div>`;

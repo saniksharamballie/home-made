@@ -370,6 +370,23 @@ if (!goLiveBody.includes("postMissingAll()") || !goLiveBody.includes("buildPubli
 if (!sourceHtml.includes("postCanNavigateForward(2)") || !sourceHtml.includes("postCanNavigateForward(3)")) {
   throw new Error("Build check failed. Draft step controls are not using the navigation-only guard.");
 }
+const nextMenuButtonPattern = /<button\s+type="button"[^>]*onclick="goPS\(2\)"[^>]*>[\s\S]*?Next: Menu[\s\S]*?<\/button>/;
+if (!nextMenuButtonPattern.test(sourceHtml) || !nextMenuButtonPattern.test(html)) {
+  throw new Error("Build check failed. Next: Menu must remain an explicit non-submit goPS(2) control.");
+}
+if (/nav\(['"]rate['"]\)/.test(draftNavigationBody)) {
+  throw new Error("Build check failed. Listing wizard navigation must not depend on the rating route.");
+}
+const signOutControlPattern = /<button[^>]*onclick="hmAuth\.signOut\(\)"[^>]*>[\s\S]*?Sign Out[\s\S]*?<\/button>/;
+if (!signOutControlPattern.test(sourceHtml) || !signOutControlPattern.test(html)) {
+  throw new Error("Build check failed. The account Sign Out control must remain bound to hmAuth.signOut().");
+}
+const signOutStart = sourceHtml.indexOf("function signOut(");
+const signOutEnd = sourceHtml.indexOf("\n  /* Insert a row", signOutStart);
+const signOutBody = sourceHtml.slice(signOutStart, signOutEnd);
+if (!signOutBody.includes("forceLanding:'home'") || !signOutBody.includes("role:'guest'") || /nav\(['"]wantlist['"]\)/.test(signOutBody)) {
+  throw new Error("Build check failed. Sign out must apply Guest/Home state without routing to Want List.");
+}
 for (const value of storageKeyRawValues) {
   const count = occurrenceCount(html, value);
   if (count !== 1) {
