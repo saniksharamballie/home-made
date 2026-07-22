@@ -6906,6 +6906,90 @@ function resetPostDraft(){
 }
 
 /* @include src/helpers/seller-post-validation-helpers.js */
+/* @include src/helpers/listing-draft-helpers.js */
+
+var _inactiveListingDraftHydratedFor='';
+
+function hmPrivateOwnerSellerForDraft(){
+  var profile=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
+  if(!profile || profile.role!=='seller' || !profile.authId || profile.sellerId==null || profile.sellerLookupStatus!=='loaded') return null;
+  var seller=profile.ownerSeller||normalizePrivateOwnerSeller(profile.raw);
+  if(!seller || seller.id==null || !seller.auth_id) return null;
+  if(String(seller.id)!==String(profile.sellerId) || String(seller.auth_id)!==String(profile.authId)) return null;
+  return seller.active===false ? seller : null;
+}
+
+function hydrateInactiveListingDraft(){
+  var seller=hmPrivateOwnerSellerForDraft();
+  if(!seller) return false;
+  var ownerKey=String(seller.id);
+  if(_inactiveListingDraftHydratedFor===ownerKey) return true;
+  var data=seller._data||seller.data||{};
+  var stored=data.listingDraft;
+  resetPostDraft();
+  if(stored&&typeof stored==='object'){
+    var draft=normalizeListingDraft(stored);
+    ST.pf=Object.assign(defaultPostForm(),ST.pf||{}, {
+      name:draft.title,
+      desc:draft.description,
+      cat:draft.category||'african',
+      dietary:draft.dietaryTags.slice(),
+      timeframe:draft.timeframe||'weekly',
+      leadDays:draft.leadDays
+    });
+    ST.pi=draft.menuItems.length ? draft.menuItems.map(function(item){
+      return Object.assign({img:'',imgPath:'',imgName:'',imgUploading:false,imgError:''},item);
+    }) : [{n:'',p:'',svs:'',hot:false,img:'',imgPath:'',imgName:'',imgUploading:false,imgError:''}];
+  }
+  _inactiveListingDraftHydratedFor=ownerKey;
+  return true;
+}
+
+function saveInactiveListingDraft(){
+  var profile=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
+  var seller=hmPrivateOwnerSellerForDraft();
+  if(!profile || !seller || !hmAuth || !hmAuth.select || !hmAuth.update){
+    showToast('Inactive seller draft is unavailable.');
+    return;
+  }
+  hmAuth.select('sellers',{auth_id:profile.authId},function(rows){
+    if(!Array.isArray(rows) || rows.length!==1){
+      showToast('Unable to load the linked seller draft.');
+      return;
+    }
+    var freshSeller=normalizePrivateOwnerSeller(rows[0]);
+    if(!freshSeller || freshSeller.active!==false || String(freshSeller.id)!==String(seller.id) || String(freshSeller.auth_id)!==String(profile.authId)){
+      showToast('Inactive seller draft is unavailable.');
+      return;
+    }
+    var existingData=freshSeller._data||freshSeller.data||{};
+    var patch=buildInactiveListingDraftPatch(existingData,ST.pf,ST.pi,new Date().toISOString());
+    if(!patch.changed){
+      showToast('No draft changes to save.');
+      return;
+    }
+    hmAuth.update('sellers',{id:freshSeller.id,auth_id:profile.authId},patch.sellerValues,function(res){
+      if(res&&res.error){
+        showToast('Could not save draft. Please try again.');
+        return;
+      }
+      freshSeller.data=patch.sellerValues.data;
+      freshSeller._data=patch.sellerValues.data;
+      freshSeller.updated_at=patch.sellerValues.updated_at;
+      var raw=Object.assign({},rows[0],patch.sellerValues);
+      profile.raw=raw;
+      profile.ownerSeller=normalizePrivateOwnerSeller(raw);
+      _inactiveListingDraftHydratedFor=String(freshSeller.id);
+      showToast('Draft saved.');
+    });
+  });
+}
+
+function inactiveListingDraftButton(){
+  return hmPrivateOwnerSellerForDraft()
+    ? '<button class="btn btn-ol btn-sm" onclick="saveInactiveListingDraft()">'+ic('chk',14,'var(--accent)')+' Save Draft</button>'
+    : '';
+}
 
 function postMissingAll(){
   return postMissingForStep(1).concat(postMissingForStep(2),postMissingForStep(3));
@@ -7075,56 +7159,6 @@ function persistPublishedSeller(s, cb){
   hmAuth.insert('sellers',row,function(res){ cb(res||{ok:true}); });
 }
 function goLiveListing(){
-  var f=ST.pf, items=ST.pi, discs=ST.pd;
-  if(!f.name||!f.region||!f.cat){showToast('Please complete all required fields.');return;}
-  var phone=normalizePhoneNumber(f.wa);
-  var phoneConfirm=normalizePhoneNumber(f.waConfirm);
-  if(!phone||phone.length<9){showToast('Please enter the telephone number buyers should use.');return;}
-  if(phone!==phoneConfirm){showToast('Telephone numbers do not match yet.');return;}
-  if(!f.legalAccepted){showToast('Please confirm the seller terms before publishing.');return;}
-  var catObj=CATS.find(function(c){return c.id===f.cat;})||CATS[1];
-  var newId=Date.now(); // unique numeric id
-  var newSeller={
-    id:newId,
-    name:f.name,
-    seller:'You',
-    cat:f.cat,
-    desc:f.desc||'Fresh homemade food.',
-    dietary:f.dietary||[],
-    healthTags:f.healthTags||[],
-    tier:ST.tier||'standard',
-    badge:null,
-    del:!!f.del,
-    fee:parseFloat(f.fee)||0,
-    pu:!!f.pu,
-    rat:0,
-    rev:0,
-    region:f.region,
-    sch:'weekly',
-    yr:new Date().getFullYear()+'',
-    ord:'0',
-    e:catObj.e||'🍽️',
-    img:f.img||'',
-    imgPath:f.imgPath||'',
-    bg:'linear-gradient(135deg,#FFF0E0,#FFE0C0)',
-    ec:'#C44410',
-    items:items.length?items.map(cleanPostItem):[{n:'Homemade Special',p:100,svs:'1 person',hot:false,img:'',imgPath:'',imgName:''}],
-    discounts:discs||[],
-    cx:{x:50,y:50},
-    wa:phone,
-    _userCreated:true
-  };
-  SELLERS.push(newSeller);
-  SELLER_OWN_ID=newId;
-  ST.pdone=true;
-  // Reset form for next time
-  ST.pf={name:'',desc:'',region:'',cat:'african',dietary:[],healthTags:[],del:false,fee:'',pu:true,minOrder:10,maxOrder:100,leadDays:3,pricingModel:'per_person',eventTypes:[],serviceTypes:[],cookingStyle:'pre-cooked',setupIncluded:false,equipmentProvided:[],depositPct:0,travelRadius:30,cancellationPolicy:'',wa:'',waConfirm:'',img:'',imgPath:'',imgName:'',imgUploading:false,imgError:'',legalAccepted:false};
-  ST.pi=[{n:'',p:'',svs:'',hot:false,img:'',imgPath:'',imgName:'',imgUploading:false,imgError:''}]; ST.pd=[];
-  rPost();
-  showToast('🎉 Your listing is now live!');
-}
-
-function goLiveListing(){
   var missing=postMissingAll();
   if(missing.length){
     ST.ps=postFirstMissingStep();
@@ -7235,6 +7269,7 @@ function buildSellerAccessIntro(){
 function rPost(){
   if(!ST.role || ST.role==='guest' || ST.role==='buyer'){document.getElementById('page-post').innerHTML=buildSellerAccessIntro();return;}
   if(ST.pdone){document.getElementById('page-post').innerHTML=`<div style="padding:80px 28px;text-align:center;max-width:480px;margin:0 auto"><div style="width:84px;height:84px;border-radius:50%;background:var(--lime-l);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:36px;border:2px solid var(--lime)">✅</div><div style="font-family:var(--font-head);font-size:28px;color:var(--heading);margin-bottom:10px">You're Live!</div><p style="color:var(--muted);font-size:14px;margin-bottom:26px">Your listing is now visible to buyers across eThekwini.</p><button class="btn btn-a" onclick="ST.pdone=false;ST.ps=1;nav('browse')">${ic('eye',14,'#fff')} Browse Listings</button></div>`;return;}
+  hydrateInactiveListingDraft();
   var ownSeller=SELLERS.find(function(x){return x&&x.id===SELLER_OWN_ID;});
   if(ownSeller && (!ST.pt || (ST.pt==='standard' && sellerEffectiveTier(ownSeller)!=='standard' && !ST.postTierTouched))){
     ST.pt=sellerEffectiveTier(ownSeller);
@@ -7679,7 +7714,7 @@ function rPS(){
 
   document.getElementById('page-post').innerHTML=`
   <div style="padding:18px 26px 0;border-bottom:1px solid var(--border);background:rgba(253,246,238,.97);backdrop-filter:blur(12px);position:sticky;top:0;z-index:30">
-    <div style="font-family:var(--font-head);font-size:24px;color:var(--heading);margin-bottom:14px">Post Your Listing</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px 12px;flex-wrap:wrap;margin-bottom:14px"><div style="font-family:var(--font-head);font-size:24px;color:var(--heading)">Post Your Listing</div>${inactiveListingDraftButton()}</div>
     <div style="display:flex;gap:8px;margin-bottom:18px">${bars}</div>
   </div>
   <div style="padding:22px 26px;max-width:660px">${postFormAlert()+tierGuide+body}</div>`;

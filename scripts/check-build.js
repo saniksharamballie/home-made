@@ -60,6 +60,7 @@ const sellerOwnerHydrationIncludeMarker = "/* @include src/helpers/seller-owner-
 const inputNormalizationIncludeMarker = "/* @include src/helpers/input-normalization-helpers.js */";
 const sellerPostItemIncludeMarker = "/* @include src/helpers/seller-post-item-helpers.js */";
 const sellerPostValidationIncludeMarker = "/* @include src/helpers/seller-post-validation-helpers.js */";
+const listingDraftIncludeMarker = "/* @include src/helpers/listing-draft-helpers.js */";
 const sellerStorefrontSelectiveSaveIncludeMarker = "/* @include src/helpers/seller-storefront-selective-save-helpers.js */";
 const helperDeclarations = [
   "function hmNumber",
@@ -111,6 +112,7 @@ const storageKeyRawValues = [
 const inputNormalizationDeclaration = "function normalizePhoneNumber";
 const sellerPostItemDeclaration = "function cleanPostItem";
 const sellerPostValidationDeclaration = "function postMissingForStep";
+const listingDraftDeclaration = "function buildInactiveListingDraftPatch";
 const sellerStorefrontSelectiveSaveDeclaration = "function buildSellerStorefrontSelectivePatch";
 const sellerOwnerHydrationDeclarations = [
   "function normalizePrivateOwnerSeller",
@@ -232,6 +234,15 @@ const sourcePartials = [
     classicMovedLabel: "Seller-post validation helper"
   },
   {
+    label: "listing draft helper",
+    marker: listingDraftIncludeMarker,
+    generatedMarkerPattern: /@include\s+src\/helpers\/listing-draft-helpers\.js/,
+    declarations: [listingDraftDeclaration],
+    declarationLabel: "listing draft helper",
+    classicScriptLabel: "the listing draft helper",
+    classicMovedLabel: "Listing draft helper"
+  },
+  {
     label: "seller storefront selective-save helper",
     marker: sellerStorefrontSelectiveSaveIncludeMarker,
     generatedMarkerPattern: /@include\s+src\/helpers\/seller-storefront-selective-save-helpers\.js/,
@@ -292,6 +303,32 @@ for (const needle of required) {
 }
 for (const partial of sourcePartials) {
   checkSourcePartial(partial);
+}
+if (occurrenceCount(sourceHtml, "function saveInactiveListingDraft()") !== 1 || occurrenceCount(html, "function saveInactiveListingDraft()") !== 1) {
+  throw new Error("Build check failed. Expected exactly one inactive listing draft save implementation.");
+}
+if (occurrenceCount(sourceHtml, "function goLiveListing()") !== 1 || occurrenceCount(html, "function goLiveListing()") !== 1) {
+  throw new Error("Build check failed. Expected exactly one goLiveListing implementation.");
+}
+if (html.indexOf(listingDraftDeclaration) > html.indexOf("function saveInactiveListingDraft()")) {
+  throw new Error("Build check failed. Listing draft helper must be declared before draft save usage.");
+}
+if (!html.includes("Save Draft") || !html.includes("No draft changes to save.")) {
+  throw new Error("Build check failed. Listing draft UI or no-op guard is missing.");
+}
+const draftSaveStart = sourceHtml.indexOf("function saveInactiveListingDraft()");
+const draftSaveEnd = sourceHtml.indexOf("\nfunction inactiveListingDraftButton()", draftSaveStart);
+const draftSaveBody = sourceHtml.slice(draftSaveStart, draftSaveEnd);
+for (const forbidden of [
+  "goLiveListing", "buildPublishedSeller", "persistPublishedSeller", "uploadListingImg", "uploadMenuItemImg",
+  "seller-images", "listing-uploads", "getPublicUrl", "seller_directory", "SELLERS", "WhatsApp"
+]) {
+  if (draftSaveBody.includes(forbidden)) {
+    throw new Error(`Build check failed. Draft save references forbidden publish, storage or public state: ${forbidden}.`);
+  }
+}
+if (/\bactive\s*[:=]/.test(draftSaveBody) || !draftSaveBody.includes("patch.sellerValues")) {
+  throw new Error("Build check failed. Draft save may alter active state or bypass the selective patch.");
 }
 for (const value of storageKeyRawValues) {
   const count = occurrenceCount(html, value);
