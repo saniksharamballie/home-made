@@ -1,5 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const { findEnvScriptElements, findScriptElements } = require("./env-script-utils");
 
 const root = path.resolve(__dirname, "..");
 const htmlPath = path.join(root, "public", "index.html");
@@ -53,6 +54,26 @@ const html = fs.readFileSync(htmlPath, "utf8");
 const env = fs.readFileSync(envPath, "utf8");
 const sourceHtml = fs.readFileSync(path.join(root, "src", "homemade-map-cleaned-1.html"), "utf8");
 const serviceWorker = fs.readFileSync(serviceWorkerPath, "utf8");
+const envScriptElements = findEnvScriptElements(html);
+if (envScriptElements.length !== 1) {
+  throw new Error(`Build check failed. Expected exactly one env.js script element, found ${envScriptElements.length}.`);
+}
+const envScriptIndex = envScriptElements[0].start;
+const supabaseLibrary = findScriptElements(html).find((script) => /(?:@supabase\/supabase-js|supabase(?:\.min)?\.js)/i.test(script.src));
+if (!supabaseLibrary || envScriptIndex > supabaseLibrary.start) {
+  throw new Error("Build check failed. env.js must load before the Supabase library.");
+}
+for (const [label, marker] of [
+  ["HM_CONFIG read", "window.HM_CONFIG"],
+  ["Supabase URL resolution", "var SUPABASE_URL"],
+  ["hmAuth initialization", "var hmAuth = (function()"],
+  ["auth boot", "hmAuth.boot("]
+]) {
+  const markerIndex = html.indexOf(marker);
+  if (markerIndex < 0 || envScriptIndex > markerIndex) {
+    throw new Error(`Build check failed. env.js must load before ${label}.`);
+  }
+}
 const removedContactFieldPattern = new RegExp(`contact(?:${"I"}d|_${"i"}d)`, "i");
 const helperIncludeMarker = "/* @include src/helpers/formatting-tier-helpers.js */";
 const textHelperIncludeMarker = "/* @include src/helpers/text-escape-helpers.js */";

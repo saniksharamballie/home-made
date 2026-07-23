@@ -8,6 +8,7 @@ const out = path.join(outDir, "index.html");
 const envOut = path.join(outDir, "env.js");
 const { buildSeoPages } = require("./build-seo-pages");
 const { buildLegalPages } = require("./build-legal-pages");
+const { ensureEnvScript } = require("./env-script-utils");
 const sourcePartials = [
   {
     label: "formatting/tier helper",
@@ -107,12 +108,7 @@ async function build() {
   html = html.replace(/^\s*\+''/, "");
   html = includeSourcePartials(html);
 
-  if (!html.includes("/env.js")) {
-    html = html.replace(
-      "</head>",
-      '<script src="/env.js"></script>\n</head>'
-    );
-  }
+  html = ensureEnvScript(html).html;
 
   html = html
     .replace(
