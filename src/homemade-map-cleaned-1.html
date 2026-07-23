@@ -2941,7 +2941,7 @@ var hmAuth = (function(){
         _profile={role:'seller',displayName:profileRow.display_name||fallbackName,sellerId:null,authId:user.id,email:user.email,loginEmail:user.email,raw:null,ownerSeller:null,sellerLookupStatus:'loading',needsSellerLink:false};
       }
 
-      _sb.from('sellers').select('*').eq('auth_id', user.id).maybeSingle()
+      _sb.from('sellers').select('*').eq('auth_id', user.id).limit(1).maybeSingle()
       .then(function(res){
         if(res.error && hasSellerRole){
           console.warn('[hmAuth] Seller profile lookup failed.');
@@ -2952,6 +2952,7 @@ var hmAuth = (function(){
         if(res.data || hasSellerRole){
           var seller = res.data || null;
           _profile = {role:'seller', displayName:(seller && seller.name) || (profileRow && profileRow.display_name) || fallbackName, sellerId:(seller && seller.id) || null, authId:user.id, email:(seller && seller.email) || user.email, loginEmail:user.email, raw:seller || {data:{}, needsSellerLink:true}, ownerSeller:normalizePrivateOwnerSeller(seller), sellerLookupStatus:seller?'loaded':'unlinked', needsSellerLink:!seller};
+          if(seller && typeof applyFreshPrivateSellerState==='function') applyFreshPrivateSellerState(_profile,seller,{rerender:false});
           cb(_profile); return;
         }
 
@@ -2982,6 +2983,7 @@ var hmAuth = (function(){
 
   function _applyProfile(p, opts){
     opts = opts || {};
+    if(typeof syncInactiveListingDraftAccount==='function') syncInactiveListingDraftAccount(p);
     ST.role = p.role;
     ST.bp.displayName = p.displayName || p.role;
     applyStoredPreferences(p);
@@ -3815,6 +3817,7 @@ function clearSignedOutState(){
     if(profile&&profile.authId) keys.push(prefStorageKey(profile.authId));
     keys.forEach(function(k){ try{ localStorage.removeItem(k); }catch(e){} });
   }catch(e){}
+  if(typeof clearInactiveListingDraftHydrationState==='function') clearInactiveListingDraftHydrationState();
   if(!ST) return;
   ST.userDietary=[];
   ST.dietLock=false;
@@ -6909,7 +6912,80 @@ function resetPostDraft(){
 /* @include src/helpers/listing-draft-helpers.js */
 /* @include src/helpers/listing-draft-navigation-helpers.js */
 
-var _inactiveListingDraftHydratedFor='';
+var _inactiveListingDraftHydration={
+  accountId:'',
+  sellerId:'',
+  key:'',
+  fingerprint:'',
+  snapshot:null,
+  dirty:false,
+  hydrated:false
+};
+
+function clearInactiveListingDraftHydrationState(){
+  _inactiveListingDraftHydration={
+    accountId:'',
+    sellerId:'',
+    key:'',
+    fingerprint:'',
+    snapshot:null,
+    dirty:false,
+    hydrated:false
+  };
+}
+
+function syncInactiveListingDraftAccount(profile){
+  var next=profile&&profile.role==='seller'&&profile.authId ? String(profile.authId) : '';
+  var current=_inactiveListingDraftHydration.accountId;
+  if(current&&current!==next){
+    clearInactiveListingDraftHydrationState();
+    if(typeof resetPostDraft==='function') resetPostDraft();
+  }
+  _inactiveListingDraftHydration.accountId=next;
+}
+
+function markInactiveListingDraftDirty(){
+  _inactiveListingDraftHydration.dirty=true;
+}
+
+function inactiveListingDraftFormDirty(){
+  if(_inactiveListingDraftHydration.dirty) return true;
+  if(!_inactiveListingDraftHydration.snapshot) return false;
+  return !listingDraftEqual(_inactiveListingDraftHydration.snapshot,listingDraftContent(ST.pf,ST.pi));
+}
+
+function markInactiveListingDraftHydrated(seller,draft){
+  var normalized=normalizeListingDraft(draft);
+  _inactiveListingDraftHydration.accountId=String(seller.auth_id);
+  _inactiveListingDraftHydration.sellerId=String(seller.id);
+  _inactiveListingDraftHydration.key=listingDraftHydrationKey(seller.id,draft);
+  _inactiveListingDraftHydration.fingerprint=listingDraftFingerprint(draft);
+  _inactiveListingDraftHydration.snapshot=normalized;
+  _inactiveListingDraftHydration.dirty=false;
+  _inactiveListingDraftHydration.hydrated=true;
+}
+
+function applyFreshPrivateSellerState(profile,rawSeller,opts){
+  opts=opts||{};
+  if(!profile || profile.role!=='seller' || !profile.authId || !rawSeller) return false;
+  var seller=normalizePrivateOwnerSeller(rawSeller);
+  if(!seller || seller.id==null || !seller.auth_id || String(seller.auth_id)!==String(profile.authId)) return false;
+  if(profile.sellerId!=null && String(profile.sellerId)!==String(seller.id)) return false;
+  var previous=profile.ownerSeller||normalizePrivateOwnerSeller(profile.raw);
+  var previousData=previous&&(previous._data||previous.data)||{};
+  var nextData=seller._data||seller.data||{};
+  var previousKey=listingDraftHydrationKey(seller.id,previousData.listingDraft);
+  var nextKey=listingDraftHydrationKey(seller.id,nextData.listingDraft);
+  profile.sellerId=seller.id;
+  profile.raw=rawSeller;
+  profile.ownerSeller=seller;
+  profile.sellerLookupStatus='loaded';
+  profile.needsSellerLink=false;
+  if(opts.rerender!==false && previousKey!==nextKey && ST.page==='post' && !inactiveListingDraftFormDirty()){
+    if(hydrateInactiveListingDraft()) rPS();
+  }
+  return true;
+}
 
 function hmPrivateOwnerSellerForDraft(){
   var profile=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
@@ -6923,12 +6999,21 @@ function hmPrivateOwnerSellerForDraft(){
 function hydrateInactiveListingDraft(){
   var seller=hmPrivateOwnerSellerForDraft();
   if(!seller) return false;
-  var ownerKey=String(seller.id);
-  if(_inactiveListingDraftHydratedFor===ownerKey) return true;
   var data=seller._data||seller.data||{};
   var stored=data.listingDraft;
+  var hasStored=!!stored&&typeof stored==='object';
+  var hydrationKey=listingDraftHydrationKey(seller.id,stored);
+  if(hasStored&&_inactiveListingDraftHydration.hydrated&&_inactiveListingDraftHydration.key===hydrationKey) return true;
+  if(inactiveListingDraftFormDirty()) return false;
   resetPostDraft();
-  if(stored&&typeof stored==='object'){
+  _inactiveListingDraftHydration.accountId=String(seller.auth_id);
+  _inactiveListingDraftHydration.sellerId=String(seller.id);
+  _inactiveListingDraftHydration.key='';
+  _inactiveListingDraftHydration.fingerprint='';
+  _inactiveListingDraftHydration.snapshot=listingDraftContent(ST.pf,ST.pi);
+  _inactiveListingDraftHydration.dirty=false;
+  _inactiveListingDraftHydration.hydrated=false;
+  if(hasStored){
     var draft=normalizeListingDraft(stored);
     ST.pf=Object.assign(defaultPostForm(),ST.pf||{}, {
       name:draft.title,
@@ -6941,8 +7026,8 @@ function hydrateInactiveListingDraft(){
     ST.pi=draft.menuItems.length ? draft.menuItems.map(function(item){
       return Object.assign({img:'',imgPath:'',imgName:'',imgUploading:false,imgError:''},item);
     }) : [{n:'',p:'',svs:'',hot:false,img:'',imgPath:'',imgName:'',imgUploading:false,imgError:''}];
+    markInactiveListingDraftHydrated(seller,stored);
   }
-  _inactiveListingDraftHydratedFor=ownerKey;
   return true;
 }
 
@@ -6964,8 +7049,17 @@ function saveInactiveListingDraft(){
       return;
     }
     var existingData=freshSeller._data||freshSeller.data||{};
+    var persistedDraft=existingData.listingDraft;
+    var expectedHydrationKey=listingDraftHydrationKey(freshSeller.id,persistedDraft);
+    if(persistedDraft&&typeof persistedDraft==='object'&&
+      (!_inactiveListingDraftHydration.hydrated||_inactiveListingDraftHydration.key!==expectedHydrationKey)&&
+      listingDraftIsBlank(ST.pf,ST.pi)&&!_inactiveListingDraftHydration.dirty){
+      showToast('Your saved draft could not be loaded. Refresh and try again before saving.');
+      return;
+    }
     var patch=buildInactiveListingDraftPatch(existingData,ST.pf,ST.pi,new Date().toISOString());
     if(!patch.changed){
+      if(persistedDraft&&typeof persistedDraft==='object') markInactiveListingDraftHydrated(freshSeller,persistedDraft);
       showToast('No draft changes to save.');
       return;
     }
@@ -6978,9 +7072,8 @@ function saveInactiveListingDraft(){
       freshSeller._data=patch.sellerValues.data;
       freshSeller.updated_at=patch.sellerValues.updated_at;
       var raw=Object.assign({},rows[0],patch.sellerValues);
-      profile.raw=raw;
-      profile.ownerSeller=normalizePrivateOwnerSeller(raw);
-      _inactiveListingDraftHydratedFor=String(freshSeller.id);
+      applyFreshPrivateSellerState(profile,raw,{rerender:false});
+      markInactiveListingDraftHydrated(freshSeller,patch.draft);
       showToast('Draft saved.');
     });
   });
@@ -7454,8 +7547,8 @@ function rPS(){
   let body='';
   if(step===1){
     body=`<div style="display:flex;flex-direction:column;gap:16px">
-      <div><div class="lsm" style="margin-bottom:7px">Business Name</div><input class="inp" placeholder="e.g. Rose's Kitchen" value="${f.name}" oninput="ST.pf.name=this.value" style="${postFieldStyle('name')}"/>${postFieldError('name','Enter the store or kitchen name.')}</div>
-      <div><div class="lsm" style="margin-bottom:7px">Description</div><textarea class="inp" rows="3" placeholder="Tell buyers about your food…" oninput="ST.pf.desc=this.value">${f.desc}</textarea></div>
+      <div><div class="lsm" style="margin-bottom:7px">Business Name</div><input class="inp" placeholder="e.g. Rose's Kitchen" value="${f.name}" oninput="markInactiveListingDraftDirty();ST.pf.name=this.value" style="${postFieldStyle('name')}"/>${postFieldError('name','Enter the store or kitchen name.')}</div>
+      <div><div class="lsm" style="margin-bottom:7px">Description</div><textarea class="inp" rows="3" placeholder="Tell buyers about your food…" oninput="markInactiveListingDraftDirty();ST.pf.desc=this.value">${f.desc}</textarea></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div><div class="lsm" style="margin-bottom:7px">Telephone / WhatsApp Number</div><input class="inp" type="tel" autocomplete="tel" placeholder="e.g. 27821234567" value="${f.wa||''}" oninput="ST.pf.wa=this.value" style="${postFieldStyle('wa')}"/>${postFieldError('wa','Enter the telephone number buyers should use.')}</div>
         <div><div class="lsm" style="margin-bottom:7px">Confirm Telephone Number</div><input class="inp" type="tel" autocomplete="tel" placeholder="Repeat number" value="${f.waConfirm||''}" oninput="ST.pf.waConfirm=this.value" style="${postFieldStyle('waConfirm')}"/>${postFieldError('waConfirm','Telephone numbers must match.')}</div>
@@ -7481,7 +7574,7 @@ function rPS(){
         <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-top:7px">Only upload photos you own or are authorised to use. Uploading grants Home-Made a limited licence to display and market your listing. <a href="/legal" target="_blank">Read notices</a>.</div>
       </div>
       <div><div class="lsm" style="margin-bottom:7px">Durban Area</div><select class="inp" onchange="ST.pf.region=this.value"><option value="">Select area…</option>${REGIONS.slice(1).map(r=>`<option ${f.region===r?'selected':''}>${r}</option>`).join('')}</select></div>
-      <div><div class="lsm" style="margin-bottom:7px">Food Category</div><select class="inp" onchange="ST.pf.cat=this.value;rPS()" style="${postFieldStyle('cat')}">${CATS.filter(c=>c.id!=='all').map(c=>`<option value="${c.id}" ${f.cat===c.id?'selected':''}>${c.e} ${c.l}</option>`).join('')}</select>${postFieldError('cat','Choose a food category.')}</div>
+      <div><div class="lsm" style="margin-bottom:7px">Food Category</div><select class="inp" onchange="markInactiveListingDraftDirty();ST.pf.cat=this.value;rPS()" style="${postFieldStyle('cat')}">${CATS.filter(c=>c.id!=='all').map(c=>`<option value="${c.id}" ${f.cat===c.id?'selected':''}>${c.e} ${c.l}</option>`).join('')}</select>${postFieldError('cat','Choose a food category.')}</div>
       ${f.cat==='catering'?`
       <div style="background:linear-gradient(135deg,rgba(229,90,24,.06),rgba(212,138,0,.06));border:1.5px solid rgba(229,90,24,.2);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:12px">
         <div style="font-size:13px;font-weight:700;color:var(--heading)">🍽️ Home Caterer Settings</div>
@@ -7493,7 +7586,7 @@ function rPS(){
           <div><div class="lsm" style="margin-bottom:5px">Maximum Pax</div>
           <input class="inp" type="number" min="1" placeholder="e.g. 200" value="${f.maxOrder||''}" oninput="ST.pf.maxOrder=parseInt(this.value)||0"/></div>
           <div><div class="lsm" style="margin-bottom:5px">Days Notice Required</div>
-          <input class="inp" type="number" min="1" placeholder="e.g. 3" value="${f.leadDays||''}" oninput="ST.pf.leadDays=parseInt(this.value)||0"/></div>
+          <input class="inp" type="number" min="1" placeholder="e.g. 3" value="${f.leadDays||''}" oninput="markInactiveListingDraftDirty();ST.pf.leadDays=parseInt(this.value)||0"/></div>
           <div><div class="lsm" style="margin-bottom:5px">Pricing Model</div>
           <select class="inp" onchange="ST.pf.pricingModel=this.value">
             <option value="per_person" ${(f.pricingModel||'per_person')==='per_person'?'selected':''}>Per Person</option>
@@ -7602,13 +7695,13 @@ function rPS(){
       <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:14px;box-shadow:var(--shadow)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
           <span style="font-size:12px;font-weight:700;color:var(--muted)">Item ${i+1}</span>
-          ${items.length>1?`<button onclick="ST.pi.splice(${i},1);rPS()" style="background:rgba(204,48,48,.1);border:none;border-radius:8px;padding:4px 10px;display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;font-weight:600;color:var(--red);font-family:var(--font-body)">${ic('x',11,'var(--red)')} Remove</button>`:''}
+          ${items.length>1?`<button onclick="markInactiveListingDraftDirty();ST.pi.splice(${i},1);rPS()" style="background:rgba(204,48,48,.1);border:none;border-radius:8px;padding:4px 10px;display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;font-weight:600;color:var(--red);font-family:var(--font-body)">${ic('x',11,'var(--red)')} Remove</button>`:''}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-          <div><div class="lsm" style="margin-bottom:5px;font-size:10px">Item Name</div><input class="inp" placeholder="e.g. Jollof Rice" value="${it.n}" oninput="ST.pi[${i}].n=this.value" style="${postFieldStyle('itemName_'+i,'font-size:13px;padding:9px 12px')}"/>${postFieldError('itemName_'+i,'Enter the dish name.')}</div>
-          <div><div class="lsm" style="margin-bottom:5px;font-size:10px">Price (R)</div><input class="inp" type="number" placeholder="0.00" value="${it.p}" oninput="ST.pi[${i}].p=this.value" style="${postFieldStyle('itemPrice_'+i,'font-size:13px;padding:9px 12px')}"/>${postFieldError('itemPrice_'+i,'Enter a price greater than zero.')}</div>
+          <div><div class="lsm" style="margin-bottom:5px;font-size:10px">Item Name</div><input class="inp" placeholder="e.g. Jollof Rice" value="${it.n}" oninput="markInactiveListingDraftDirty();ST.pi[${i}].n=this.value" style="${postFieldStyle('itemName_'+i,'font-size:13px;padding:9px 12px')}"/>${postFieldError('itemName_'+i,'Enter the dish name.')}</div>
+          <div><div class="lsm" style="margin-bottom:5px;font-size:10px">Price (R)</div><input class="inp" type="number" placeholder="0.00" value="${it.p}" oninput="markInactiveListingDraftDirty();ST.pi[${i}].p=this.value" style="${postFieldStyle('itemPrice_'+i,'font-size:13px;padding:9px 12px')}"/>${postFieldError('itemPrice_'+i,'Enter a price greater than zero.')}</div>
         </div>
-        <div><div class="lsm" style="margin-bottom:5px;font-size:10px">Serving Size</div><input class="inp" placeholder="e.g. 1 person / 2–3 people / 6 pieces" value="${it.svs||''}" oninput="ST.pi[${i}].svs=this.value" style="font-size:13px;padding:9px 12px"/></div>
+        <div><div class="lsm" style="margin-bottom:5px;font-size:10px">Serving Size</div><input class="inp" placeholder="e.g. 1 person / 2–3 people / 6 pieces" value="${it.svs||''}" oninput="markInactiveListingDraftDirty();ST.pi[${i}].svs=this.value" style="font-size:13px;padding:9px 12px"/></div>
         ${menuItemUploadControl(it,i)}
         ${postFieldError('itemServing_'+i,'Enter the serving size.')}${postFieldError('itemPhoto_'+i,'Upload a photo for this dish.')}
         <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
@@ -7635,7 +7728,7 @@ function rPS(){
           <span style="font-size:11px;color:var(--muted)">${items.length} item${items.length!==1?'s':''}</span>
         </div>
         ${itemRows}
-        <button class="btn btn-gh btn-fw" style="margin-top:10px" onclick="ST.pi.push({n:'',p:'',svs:'',hot:false,img:'',imgPath:'',imgName:'',imgUploading:false,imgError:''});rPS()">${ic('plus',14)} Add Menu Item</button>
+        <button class="btn btn-gh btn-fw" style="margin-top:10px" onclick="markInactiveListingDraftDirty();ST.pi.push({n:'',p:'',svs:'',hot:false,img:'',imgPath:'',imgName:'',imgUploading:false,imgError:''});rPS()">${ic('plus',14)} Add Menu Item</button>
       </div>
       <div style="border-top:1.5px solid var(--border);padding-top:16px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
@@ -7700,7 +7793,7 @@ function rPS(){
       ${tcards}
       <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:12px 13px;margin:14px 0">
         <div class="lsm" style="margin-bottom:7px">Advert Time Frame</div>
-        <select class="inp" onchange="ST.pf.timeframe=this.value" style="${postFieldStyle('timeframe')}">
+        <select class="inp" onchange="markInactiveListingDraftDirty();ST.pf.timeframe=this.value" style="${postFieldStyle('timeframe')}">
           <option value="daily" ${(f.timeframe||'weekly')==='daily'?'selected':''}>Daily campaign</option>
           <option value="weekly" ${(f.timeframe||'weekly')==='weekly'?'selected':''}>Weekly campaign</option>
         </select>
@@ -7730,7 +7823,7 @@ function goPS(n){
   if(n>ST.ps){postNext(n);return;}
   ST.postMissing=[];ST.postError='';ST.postNudge=0;ST.ps=n;rPS();
 }
-function togPD(d){ST.pf.dietary=ST.pf.dietary.includes(d)?ST.pf.dietary.filter(x=>x!==d):[...ST.pf.dietary,d];rPS();}
+function togPD(d){markInactiveListingDraftDirty();ST.pf.dietary=ST.pf.dietary.includes(d)?ST.pf.dietary.filter(x=>x!==d):[...ST.pf.dietary,d];rPS();}
 function togPH(h){ST.pf.healthTags=ST.pf.healthTags||[];ST.pf.healthTags=ST.pf.healthTags.includes(h)?ST.pf.healthTags.filter(x=>x!==h):[...ST.pf.healthTags,h];rPS();}
 function togPEv(ev){ST.pf.eventTypes=ST.pf.eventTypes||[];ST.pf.eventTypes=ST.pf.eventTypes.includes(ev)?ST.pf.eventTypes.filter(x=>x!==ev):[...ST.pf.eventTypes,ev];rPS();}
 function togPST(st){ST.pf.serviceTypes=ST.pf.serviceTypes||[];ST.pf.serviceTypes=ST.pf.serviceTypes.includes(st)?ST.pf.serviceTypes.filter(x=>x!==st):[...ST.pf.serviceTypes,st];rPS();}
@@ -16031,38 +16124,36 @@ function renderPassport(){
       .catch(function(){
         /* Fall back to inline blob SW with smart caching */
         var swCode = [
-          'var SV="hm-v65",SH=SV+"-shell",IM=SV+"-img",DT=SV+"-data";',
+          'var SV="hm-prod-v67",SH=SV+"-shell",RT=SV+"-runtime";',
           'self.addEventListener("install",function(e){',
           '  e.waitUntil(caches.open(SH).then(function(c){return c.addAll(["./"]);})',
           '    .then(function(){return self.skipWaiting();})',
           '    .catch(function(){return self.skipWaiting();}));',
           '});',
           'self.addEventListener("activate",function(e){',
-          '  var VALID=[SH,IM,DT];',
+          '  var VALID=[SH,RT];',
           '  e.waitUntil(caches.keys().then(function(ks){',
-          '    return Promise.all(ks.filter(function(k){return !VALID.includes(k);}).map(function(k){return caches.delete(k);}));',
+          '    return Promise.all(ks.filter(function(k){return isHmCache(k)&&!VALID.includes(k);}).map(function(k){return caches.delete(k);}));',
           '  }).then(function(){return self.clients.claim();}));',
           '});',
-          'function netFirst(req,cn){',
-          '  return fetch(req).then(function(r){',
-          '    if(r&&r.status===200&&r.type!=="opaque"){var cl=r.clone();caches.open(cn).then(function(c){c.put(req,cl);});}',
-          '    return r;',
-          '  }).catch(function(){return caches.match(req);});',
-          '}',
-          'function swr(req,cn){',
-          '  return caches.open(cn).then(function(c){return c.match(req).then(function(cached){',
-          '    var fp=fetch(req).then(function(r){if(r&&r.status===200&&r.type!=="opaque")c.put(req,r.clone());return r;}).catch(function(){return cached;});',
-          '    return cached||fp;',
-          '  });});',
-          '}',
+          'function isHmCache(k){return /^hm-(?:prod-)?v\\d+-(?:shell|runtime|img|data)$/.test(String(k||""));}',
+          'function hasPrivateHeaders(r){return !!(r.headers&&(r.headers.has("authorization")||r.headers.has("apikey")||r.headers.has("x-client-info")));}',
+          'function isSupabase(u){var h=u.hostname.toLowerCase();return h.endsWith(".supabase.co")||h.endsWith(".supabase.in")||/^\\/(?:auth|rest|storage|realtime|functions)\\/v1(?:\\/|$)/.test(u.pathname);}',
+          'function isAuthRedirect(u){if(/\\/(?:auth|login|logout|callback|reset-password)(?:\\/|$)/i.test(u.pathname))return true;return ["code","access_token","refresh_token","token","token_hash"].some(function(k){return u.searchParams.has(k);});}',
+          'function isPrivate(r,u){if(r.method!=="GET"||hasPrivateHeaders(r)||r.credentials==="include"||u.origin!==self.location.origin)return true;if(isSupabase(u)||isAuthRedirect(u))return true;return u.pathname==="/api/contact-seller"||u.pathname.indexOf("/api/")===0;}',
+          'function isPublicStatic(r,u){if(u.origin!==self.location.origin)return false;if(["style","script","font","image","manifest"].indexOf(r.destination)>=0)return true;return /^\\/(?:icons|images)\\//.test(u.pathname)||/\\.(?:css|js|mjs|png|jpe?g|gif|webp|svg|ico|woff2?|webmanifest)$/i.test(u.pathname);}',
+          'function netFirst(req){return fetch(req).then(function(r){if(r&&r.ok){var cl=r.clone();caches.open(RT).then(function(c){c.put(req,cl);});}return r;}).catch(function(){return caches.match(req);});}',
+          'function cacheFirst(req){return caches.match(req).then(function(cached){return cached||fetch(req).then(function(r){if(r&&r.ok){var cl=r.clone();caches.open(RT).then(function(c){c.put(req,cl);});}return r;});});}',
           'self.addEventListener("fetch",function(e){',
           '  var req=e.request,url=new URL(req.url);',
-          '  if(req.method!=="GET")return;',
-          '  if(req.destination==="image"||/\.(png|jpg|jpeg|gif|webp|svg|ico)/.test(url.pathname)){e.respondWith(swr(req,IM));return;}',
+          '  if(url.protocol!=="http:"&&url.protocol!=="https:")return;',
+          '  if(isPrivate(req,url)){e.respondWith(fetch(req));return;}',
           '  if(req.mode==="navigate"){e.respondWith(fetch(req).then(function(r){',
           '    if(r&&r.status===200){var cl=r.clone();caches.open(SH).then(function(ch){ch.put(req,cl);});}return r;',
           '  }).catch(function(){return caches.match(req).then(function(c){return c||caches.match("./");});}));return;}',
-          '  e.respondWith(netFirst(req,DT));',
+          '  if(!isPublicStatic(req,url)){e.respondWith(fetch(req));return;}',
+          '  if(url.pathname==="/"||url.pathname==="/index.html"||url.pathname==="/env.js"||/\\.js$/i.test(url.pathname)){e.respondWith(netFirst(req));return;}',
+          '  e.respondWith(cacheFirst(req));',
           '});'
         ].join('\n');
         try {

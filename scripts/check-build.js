@@ -3,6 +3,7 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 const htmlPath = path.join(root, "public", "index.html");
+const serviceWorkerPath = path.join(root, "public", "sw.js");
 const envPath = path.join(root, "public", "env.js");
 const sitemapPath = path.join(root, "public", "sitemap.xml");
 const robotsPath = path.join(root, "public", "robots.txt");
@@ -35,6 +36,9 @@ if (!fs.existsSync(htmlPath)) {
 if (!fs.existsSync(envPath)) {
   throw new Error("Missing public/env.js. Run npm run build first.");
 }
+if (!fs.existsSync(serviceWorkerPath)) {
+  throw new Error("Missing public/sw.js.");
+}
 if (!fs.existsSync(sitemapPath) || !fs.existsSync(robotsPath) || !fs.existsSync(sellerDir) || !fs.existsSync(durbanDir) || !fs.existsSync(cuisineDir)) {
   throw new Error("Missing generated SEO pages. Run npm run build first.");
 }
@@ -48,6 +52,7 @@ for (const page of legalPages) {
 const html = fs.readFileSync(htmlPath, "utf8");
 const env = fs.readFileSync(envPath, "utf8");
 const sourceHtml = fs.readFileSync(path.join(root, "src", "homemade-map-cleaned-1.html"), "utf8");
+const serviceWorker = fs.readFileSync(serviceWorkerPath, "utf8");
 const removedContactFieldPattern = new RegExp(`contact(?:${"I"}d|_${"i"}d)`, "i");
 const helperIncludeMarker = "/* @include src/helpers/formatting-tier-helpers.js */";
 const textHelperIncludeMarker = "/* @include src/helpers/text-escape-helpers.js */";
@@ -386,6 +391,63 @@ const signOutEnd = sourceHtml.indexOf("\n  /* Insert a row", signOutStart);
 const signOutBody = sourceHtml.slice(signOutStart, signOutEnd);
 if (!signOutBody.includes("forceLanding:'home'") || !signOutBody.includes("role:'guest'") || /nav\(['"]wantlist['"]\)/.test(signOutBody)) {
   throw new Error("Build check failed. Sign out must apply Guest/Home state without routing to Want List.");
+}
+const externalCacheVersion = /const VERSION = "(hm-prod-v\d+)"/.exec(serviceWorker);
+const inlineCacheVersion = /var SV="(hm-prod-v\d+)"/.exec(sourceHtml);
+if (!externalCacheVersion || !inlineCacheVersion || externalCacheVersion[1] !== "hm-prod-v67" || inlineCacheVersion[1] !== externalCacheVersion[1]) {
+  throw new Error("Build check failed. External and inline service workers must share hm-prod-v67.");
+}
+for (const needle of [
+  "isPrivateRequest(request, url)",
+  "request.headers.has(\"authorization\")",
+  "request.headers.has(\"apikey\")",
+  "host.endsWith(\".supabase.co\")",
+  "url.pathname.startsWith(\"/api/\")",
+  "url.origin !== self.location.origin",
+  "isPublicStaticRequest(request, url)"
+]) {
+  if (!serviceWorker.includes(needle)) {
+    throw new Error(`Build check failed. External service-worker private-cache guard is missing: ${needle}.`);
+  }
+}
+for (const needle of [
+  "isPrivate(req,url)",
+  "r.headers.has(\"authorization\")",
+  "r.headers.has(\"apikey\")",
+  "h.endsWith(\".supabase.co\")",
+  "u.pathname.indexOf(\"/api/\")===0",
+  "u.origin!==self.location.origin",
+  "isPublicStatic(req,url)"
+]) {
+  if (!sourceHtml.includes(needle)) {
+    throw new Error(`Build check failed. Inline service-worker private-cache guard is missing: ${needle}.`);
+  }
+}
+if (!serviceWorker.includes("isHomeMadeCacheName(key) && ![SHELL, RUNTIME].includes(key)") ||
+    !sourceHtml.includes("isHmCache(k)&&!VALID.includes(k)")) {
+  throw new Error("Build check failed. Cache activation must remove old Home-Made caches without deleting unrelated caches.");
+}
+if (occurrenceCount(sourceHtml, "function hydrateInactiveListingDraft()") !== 1 ||
+    occurrenceCount(html, "function hydrateInactiveListingDraft()") !== 1) {
+  throw new Error("Build check failed. Expected exactly one inactive listing draft hydration implementation.");
+}
+if (sourceHtml.includes("_inactiveListingDraftHydratedFor") || html.includes("_inactiveListingDraftHydratedFor")) {
+  throw new Error("Build check failed. Seller-only draft hydration state remains.");
+}
+for (const needle of [
+  "listingDraftHydrationKey(seller.id,stored)",
+  "inactiveListingDraftFormDirty()",
+  "applyFreshPrivateSellerState",
+  "clearInactiveListingDraftHydrationState",
+  "Your saved draft could not be loaded. Refresh and try again before saving."
+]) {
+  if (!sourceHtml.includes(needle) || !html.includes(needle)) {
+    throw new Error(`Build check failed. Draft rehydration guard is missing: ${needle}.`);
+  }
+}
+if (!sourceHtml.includes("if(typeof syncInactiveListingDraftAccount==='function') syncInactiveListingDraftAccount(p)") ||
+    !sourceHtml.includes("if(typeof clearInactiveListingDraftHydrationState==='function') clearInactiveListingDraftHydrationState()")) {
+  throw new Error("Build check failed. Account application and sign-out must clear seller-specific draft hydration state.");
 }
 for (const value of storageKeyRawValues) {
   const count = occurrenceCount(html, value);

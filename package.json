@@ -21,6 +21,8 @@
     "test:listing-draft-navigation-guardrails": "node scripts/test-listing-draft-navigation-guardrails.js",
     "test:listing-wizard-runtime": "node scripts/test-listing-wizard-runtime.js",
     "test:signout-runtime": "node scripts/test-signout-runtime.js",
+    "test:service-worker-private-cache": "node scripts/test-service-worker-private-cache.js",
+    "test:listing-draft-rehydration": "node scripts/test-listing-draft-rehydration-runtime.js",
     "test:profile-rpc-guardrails": "node scripts/test-profile-rpc-guardrails.js",
     "test:input-normalization": "node scripts/test-input-normalization-helpers.js",
     "test:seller-post-item-helpers": "node scripts/test-seller-post-item-helpers.js",

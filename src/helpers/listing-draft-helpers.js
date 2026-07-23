@@ -59,6 +59,28 @@ function listingDraftEqual(left,right){
   return JSON.stringify(normalizeListingDraft(left))===JSON.stringify(normalizeListingDraft(right));
 }
 
+function listingDraftFingerprint(value){
+  var source=JSON.stringify(normalizeListingDraft(value));
+  var hash=2166136261;
+  for(var i=0;i<source.length;i++){
+    hash^=source.charCodeAt(i);
+    hash=Math.imul(hash,16777619);
+  }
+  return ('00000000'+(hash>>>0).toString(16)).slice(-8);
+}
+
+function listingDraftHydrationKey(sellerId,value){
+  if(sellerId==null || !value || typeof value!=='object') return '';
+  return String(sellerId)+':'+listingDraftFingerprint(value);
+}
+
+function listingDraftIsBlank(postForm,items){
+  var draft=listingDraftContent(postForm,items);
+  return !draft.title&&!draft.description&&!draft.dietaryTags.length&&!draft.menuItems.some(function(item){
+    return !!(item.n||item.p!==''||item.svs);
+  });
+}
+
 function buildInactiveListingDraftPatch(existingData,postForm,items,nowIso){
   existingData=existingData&&typeof existingData==='object'?existingData:{};
   var content=listingDraftContent(postForm,items);
@@ -79,6 +101,9 @@ if(typeof module!=='undefined' && module.exports){
     listingDraftContent:listingDraftContent,
     normalizeListingDraft:normalizeListingDraft,
     listingDraftEqual:listingDraftEqual,
+    listingDraftFingerprint:listingDraftFingerprint,
+    listingDraftHydrationKey:listingDraftHydrationKey,
+    listingDraftIsBlank:listingDraftIsBlank,
     buildInactiveListingDraftPatch:buildInactiveListingDraftPatch
   };
 }
