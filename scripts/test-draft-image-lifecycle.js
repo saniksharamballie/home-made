@@ -63,10 +63,16 @@ function extractFunction(input, name) {
 }
 
 const saveRuntimeSource = [
+  "inactiveDraftSaveBusy",
+  "snapshotInactiveDraftField",
+  "beginInactiveDraftSaveOperation",
+  "inactiveDraftSaveOperationCurrent",
+  "finishInactiveDraftSaveOperation",
   "inactiveDraftImageUploadSlots",
   "uploadInactiveDraftImageSlots",
   "inactiveDraftImageSaveState",
   "rollbackInactiveDraftImages",
+  "rollbackInactiveDraftSaveOperation",
   "applyInactiveDraftImageSaveState",
   "cleanupPersistedInactiveDraftImages",
   "retryInactiveDraftImageCleanup",
@@ -98,8 +104,11 @@ function saveScenario({ updateFails = false, cleanupFails = false, removeOnly = 
   }
   const profile = { role: "seller", authId: authA, sellerId: 42, sellerLookupStatus: "loaded", ownerSeller: seller, raw: seller };
   const context = vm.createContext(Object.assign({
-    ST: { pf: form, pi: items },
+    ST: { page: "post", pf: form, pi: items },
     _inactiveDraftImageCleanupQueue: [],
+    _inactiveDraftSaveSequence: 0,
+    _inactiveDraftSaveGeneration: 0,
+    _inactiveDraftSaveOperation: null,
     _inactiveListingDraftHydration: { hydrated: true, key: draftHelpers.listingDraftHydrationKey(42, persistedDraft), dirty: !noChange },
     hmAuth: {
       getProfile() { return profile; },
@@ -125,6 +134,8 @@ function saveScenario({ updateFails = false, cleanupFails = false, removeOnly = 
     markInactiveListingDraftHydrated() {},
     revokeInactiveDraftPreview(field) { field.previewUrl = ""; field.img = ""; },
     refreshInactiveDraftSignedPreviews() {},
+    secureDraftImageId() { return "77777777-7777-4777-8777-777777777777"; },
+    rPS() {},
     showToast(message) { toasts.push(message); }
   }, draftHelpers, helpers));
   vm.runInContext(saveRuntimeSource, context);

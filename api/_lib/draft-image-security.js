@@ -5,6 +5,9 @@ const {
   listingDraftImageOwnedBy
 } = require("../../src/helpers/listing-draft-image-helpers.js");
 
+const MAX_DRAFT_IMAGE_COUNT = 1 + 25;
+const MAX_STORAGE_CHECK_CONCURRENCY = 3;
+
 function requiredConfig(env = process.env) {
   const url = env.NEXT_PUBLIC_SUPABASE_URL || "";
   const anonKey = env.NEXT_PUBLIC_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY || "";
@@ -94,19 +97,50 @@ async function loadPrivateObjectInfo(image, config, deps = {}) {
   return { mimeType, size };
 }
 
-async function validateDraftImagesForPublication(req, body, deps = {}) {
+function normalizeDraftImagePublicationRequest(body) {
   if (!body || body.action !== "validate-publication") {
     const error = new Error("Unsupported draft image action");
     error.status = 400;
     throw error;
   }
   const sellerId = String(body.sellerId || "");
-  const images = (Array.isArray(body.images) ? body.images : []).map(listingDraftImageMetadata);
-  if (!/^[0-9]+$/.test(sellerId) || !images.length || images.some((image) => !image)) {
+  const rawImages = Array.isArray(body.images) ? body.images : [];
+  if (!/^[0-9]+$/.test(sellerId) || !rawImages.length || rawImages.length > MAX_DRAFT_IMAGE_COUNT) {
     const error = new Error("Invalid draft image request");
     error.status = 400;
     throw error;
   }
+  const images = [];
+  const paths = new Set();
+  for (const value of rawImages) {
+    const image = listingDraftImageMetadata(value);
+    if (!image) {
+      const error = new Error("Invalid draft image request");
+      error.status = 400;
+      throw error;
+    }
+    if (!paths.has(image.path)) {
+      paths.add(image.path);
+      images.push(image);
+    }
+  }
+  return { sellerId, images };
+}
+
+async function mapWithConcurrency(values, limit, worker) {
+  let index = 0;
+  async function next() {
+    while (index < values.length) {
+      const current = values[index++];
+      await worker(current);
+    }
+  }
+  const workerCount = Math.min(Math.max(1, limit), values.length);
+  await Promise.all(Array.from({ length: workerCount }, next));
+}
+
+async function validateDraftImagesForPublication(req, body, deps = {}) {
+  const { sellerId, images } = normalizeDraftImagePublicationRequest(body);
   const { user, config } = await authenticateRequest(req, deps);
   await loadInactiveOwnedSeller(user.id, sellerId, config, deps);
   if (images.some((image) => !listingDraftImageOwnedBy(image, user.id, sellerId))) {
@@ -114,15 +148,19 @@ async function validateDraftImagesForPublication(req, body, deps = {}) {
     error.status = 403;
     throw error;
   }
-  await Promise.all(images.map((image) => loadPrivateObjectInfo(image, config, deps)));
+  await mapWithConcurrency(images, MAX_STORAGE_CHECK_CONCURRENCY, (image) => loadPrivateObjectInfo(image, config, deps));
   return { ok: true, count: images.length, finalizationRequired: true };
 }
 
 module.exports = {
+  MAX_DRAFT_IMAGE_COUNT,
+  MAX_STORAGE_CHECK_CONCURRENCY,
   requiredConfig,
   bearerToken,
   authenticateRequest,
   loadInactiveOwnedSeller,
   loadPrivateObjectInfo,
+  normalizeDraftImagePublicationRequest,
+  mapWithConcurrency,
   validateDraftImagesForPublication
 };

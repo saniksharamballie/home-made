@@ -88,6 +88,13 @@ const context = vm.createContext(Object.assign({
   localStorage: { removeItem() {} },
   showToast(message) { calls.toast.push(message); },
   rPS() { calls.render += 1; },
+  inactiveDraftSaveBusy() { return false; },
+  beginInactiveDraftSaveOperation(currentProfile, currentSeller) {
+    return { accountId: currentProfile.authId, sellerId: currentSeller.id, createdObjects: [], invalidated: false };
+  },
+  inactiveDraftSaveOperationCurrent() { return true; },
+  finishInactiveDraftSaveOperation() {},
+  rollbackInactiveDraftSaveOperation(operation, callback) { operation.createdObjects = []; callback({ ok: true }); },
   discardInactiveDraftImageState() {},
   revokeInactiveDraftPreview(field) { if (field) { field.previewUrl = ""; field.img = ""; } },
   refreshInactiveDraftSignedPreviews() {},

@@ -450,10 +450,18 @@ if (!/'seller-draft-images'[\s\S]*public[\s\S]*false/i.test(draftImageMigration)
     /to\s+(?:anon|public)/i.test(draftImageMigration)) {
   throw new Error("Build check failed. Private draft image bucket or owner policies are incomplete.");
 }
+const insertPolicy = draftImageMigration.slice(draftImageMigration.indexOf("create policy seller_draft_images_owner_insert"), draftImageMigration.indexOf("drop policy if exists seller_draft_images_owner_select"));
+const selectPolicy = draftImageMigration.slice(draftImageMigration.indexOf("create policy seller_draft_images_owner_select"), draftImageMigration.indexOf("drop policy if exists seller_draft_images_owner_delete"));
+const deletePolicy = draftImageMigration.slice(draftImageMigration.indexOf("create policy seller_draft_images_owner_delete"));
+if (!/s\.active\s*=\s*false/i.test(insertPolicy) ||
+    /s\.active\s*=/i.test(selectPolicy) ||
+    /s\.active\s*=/i.test(deletePolicy)) {
+  throw new Error("Build check failed. Draft image INSERT must be inactive-only while SELECT and DELETE remain ownership-only.");
+}
 const draftImageSaveBody = draftSaveBody;
 for (const requiredNeedle of [
   "uploadInactiveDraftImageSlots",
-  "rollbackInactiveDraftImages",
+  "rollbackInactiveDraftSaveOperation",
   "listingDraftImageRemoved",
   "cleanupPersistedInactiveDraftImages"
 ]) {
@@ -464,6 +472,21 @@ for (const requiredNeedle of [
 if (draftImageSaveBody.indexOf("hmAuth.update(") > draftImageSaveBody.indexOf("cleanupPersistedInactiveDraftImages(")) {
   throw new Error("Build check failed. Replaced images may be deleted before draft persistence.");
 }
+for (const requiredNeedle of [
+  "beginInactiveDraftSaveOperation",
+  "inactiveDraftSaveOperationCurrent",
+  "finishInactiveDraftSaveOperation",
+  "operation.createdObjects"
+]) {
+  if (!sourceHtml.includes(requiredNeedle)) {
+    throw new Error(`Build check failed. Draft save single-flight guard is missing ${requiredNeedle}.`);
+  }
+}
+if (!sourceHtml.includes("<fieldset ${draftSaving?'disabled':''}") ||
+    !sourceHtml.includes("if(inactiveDraftSaveBusy())") ||
+    !sourceHtml.includes("invalidateInactiveDraftSaveOperation()")) {
+  throw new Error("Build check failed. Draft mutation, publication, or stale-operation controls are incomplete.");
+}
 const listingDraftHelperSource = fs.readFileSync(path.join(root, "src", "helpers", "listing-draft-helpers.js"), "utf8");
 if (!listingDraftHelperSource.includes("listingDraftSafeImage") ||
     /signedUrl|publicUrl|["'](?:data|blob):/i.test(listingDraftHelperSource)) {
@@ -472,8 +495,28 @@ if (!listingDraftHelperSource.includes("listingDraftSafeImage") ||
 const draftImageServer = fs.readFileSync(draftImageServerPath, "utf8");
 if (!draftImageServer.includes("listingDraftImageOwnedBy") ||
     !draftImageServer.includes("loadInactiveOwnedSeller") ||
-    !draftImageServer.includes("finalizationRequired: true")) {
+    !draftImageServer.includes("finalizationRequired: true") ||
+    !draftImageServer.includes("MAX_DRAFT_IMAGE_COUNT") ||
+    !draftImageServer.includes("MAX_STORAGE_CHECK_CONCURRENCY") ||
+    !draftImageServer.includes("paths.has(image.path)")) {
   throw new Error("Build check failed. Trusted draft image publication validation is incomplete.");
+}
+const draftImageApi = fs.readFileSync(draftImageApiPath, "utf8");
+if (!draftImageApi.includes("MAX_DRAFT_IMAGE_REQUEST_BYTES = 64 * 1024") ||
+    !draftImageApi.includes("readJsonLimited")) {
+  throw new Error("Build check failed. Draft image API request body limit is missing.");
+}
+const draftImageCleanup = fs.readFileSync(draftImageCleanupPath, "utf8");
+for (const requiredNeedle of [
+  "APPROVED_STAGING_REF",
+  "FORBIDDEN_PRODUCTION_REF",
+  "assertCleanupExecutionTarget",
+  "DEFAULT_DELETE_BATCH_SIZE",
+  "MAX_DELETE_BATCH_SIZE"
+]) {
+  if (!draftImageCleanup.includes(requiredNeedle)) {
+    throw new Error(`Build check failed. Draft image cleanup safety is missing ${requiredNeedle}.`);
+  }
 }
 if (!sourceHtml.includes("postCanNavigateForward(2)") || !sourceHtml.includes("postCanNavigateForward(3)")) {
   throw new Error("Build check failed. Draft step controls are not using the navigation-only guard.");

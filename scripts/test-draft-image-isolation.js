@@ -59,9 +59,14 @@ assert.equal(imageHelpers.listingDraftImageUnsafeReference("https://example.test
 assert.match(migration, /'seller-draft-images'[\s\S]*false[\s\S]*5242880/);
 assert.match(migration, /array\['image\/jpeg', 'image\/png', 'image\/webp'\]/);
 assert.doesNotMatch(migration, /image\/gif|image\/svg/);
-assert.match(migration, /for insert[\s\S]*auth\.uid\(\)::text[\s\S]*s\.active = false/i);
-assert.match(migration, /for select[\s\S]*to authenticated/i);
-assert.match(migration, /for delete[\s\S]*to authenticated/i);
+const insertPolicy = migration.slice(migration.indexOf("create policy seller_draft_images_owner_insert"), migration.indexOf("drop policy if exists seller_draft_images_owner_select"));
+const selectPolicy = migration.slice(migration.indexOf("create policy seller_draft_images_owner_select"), migration.indexOf("drop policy if exists seller_draft_images_owner_delete"));
+const deletePolicy = migration.slice(migration.indexOf("create policy seller_draft_images_owner_delete"));
+assert.match(insertPolicy, /for insert[\s\S]*auth\.uid\(\)::text[\s\S]*s\.active = false/i);
+assert.match(selectPolicy, /for select[\s\S]*to authenticated[\s\S]*s\.auth_id = auth\.uid\(\)/i);
+assert.doesNotMatch(selectPolicy, /s\.active\s*=/i);
+assert.match(deletePolicy, /for delete[\s\S]*to authenticated[\s\S]*s\.auth_id = auth\.uid\(\)/i);
+assert.doesNotMatch(deletePolicy, /s\.active\s*=/i);
 assert.doesNotMatch(migration, /for update/i);
 assert.doesNotMatch(migration, /to anon|to public/i);
 assert.match(migration, /array_length\(storage\.foldername\(name\), 1\) = 3/);
@@ -103,6 +108,7 @@ const selectionContext = vm.createContext({
     pi: [{ imgUploading: false, imgError: "", draftImage: null, stagedImage: null }]
   },
   HM_DRAFT_IMAGE_MAX_MENU_IMAGES: 25,
+  inactiveDraftMutationAllowed() { return true; },
   stageInactiveDraftImage() { stageCalls += 1; },
   showToast() {},
   rPS() {}

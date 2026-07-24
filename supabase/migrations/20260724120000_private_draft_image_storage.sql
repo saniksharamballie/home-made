@@ -13,6 +13,8 @@ set
   allowed_mime_types = excluded.allowed_mime_types;
 
 drop policy if exists seller_draft_images_owner_insert on storage.objects;
+-- New private draft objects may only be created for an inactive seller owned
+-- by the authenticated user. Published/active sellers must use finalization.
 create policy seller_draft_images_owner_insert
 on storage.objects
 for insert
@@ -34,6 +36,8 @@ with check (
 );
 
 drop policy if exists seller_draft_images_owner_select on storage.objects;
+-- Ownership remains sufficient for reads after activation so the seller can
+-- preview or recover any residual private draft object.
 create policy seller_draft_images_owner_select
 on storage.objects
 for select
@@ -50,11 +54,12 @@ using (
     from public.sellers s
     where s.id::text = (storage.foldername(name))[3]
       and s.auth_id = auth.uid()
-      and s.active = false
   )
 );
 
 drop policy if exists seller_draft_images_owner_delete on storage.objects;
+-- Ownership remains sufficient for deletes after activation so residual
+-- private draft objects can still be cleaned up safely.
 create policy seller_draft_images_owner_delete
 on storage.objects
 for delete
@@ -71,6 +76,5 @@ using (
     from public.sellers s
     where s.id::text = (storage.foldername(name))[3]
       and s.auth_id = auth.uid()
-      and s.active = false
   )
 );

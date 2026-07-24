@@ -76,6 +76,7 @@ const context = vm.createContext({
   },
   location: { hash: "#/post" },
   hmPrivateOwnerSellerForDraft: () => ownerSeller,
+  inactiveDraftSaveBusy: () => false,
   canNavigateInactiveListingDraft: (seller, current, target) => !!seller && seller.active === false && Math.abs(target - current) === 1,
   postMissingForStep: () => [],
   markPostMissing: () => { throw new Error("Draft navigation unexpectedly invoked publication errors"); },

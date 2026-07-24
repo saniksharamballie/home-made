@@ -6987,6 +6987,62 @@ function toggleSave(id){
 /* @include src/helpers/seller-post-item-helpers.js */
 
 var _inactiveDraftImageCleanupQueue=[];
+var _inactiveDraftSaveSequence=0;
+var _inactiveDraftSaveGeneration=0;
+var _inactiveDraftSaveOperation=null;
+
+function inactiveDraftSaveBusy(){
+  return !!_inactiveDraftSaveOperation;
+}
+
+function inactiveDraftMutationAllowed(){
+  if(!inactiveDraftSaveBusy()) return true;
+  showToast('Wait for the current draft save to finish.');
+  return false;
+}
+
+function invalidateInactiveDraftSaveOperation(){
+  _inactiveDraftSaveGeneration+=1;
+  if(_inactiveDraftSaveOperation) _inactiveDraftSaveOperation.invalidated=true;
+  _inactiveDraftSaveOperation=null;
+}
+
+function snapshotInactiveDraftField(field){
+  var snapshot=Object.assign({},field||{});
+  ['dietary','healthTags','eventTypes','serviceTypes','equipmentProvided'].forEach(function(key){
+    if(Array.isArray(snapshot[key])) snapshot[key]=snapshot[key].slice();
+  });
+  return snapshot;
+}
+
+function beginInactiveDraftSaveOperation(profile,seller){
+  if(inactiveDraftSaveBusy()) return null;
+  var operation={
+    id:(typeof secureDraftImageId==='function'&&secureDraftImageId())||('draft-save-'+(++_inactiveDraftSaveSequence)),
+    generation:_inactiveDraftSaveGeneration,
+    accountId:String(profile&&profile.authId||''),
+    sellerId:String(seller&&seller.id||''),
+    initialFingerprint:listingDraftFingerprint(listingDraftContent(ST.pf,ST.pi)),
+    formSnapshot:snapshotInactiveDraftField(ST.pf),
+    itemSnapshots:(ST.pi||[]).map(snapshotInactiveDraftField),
+    createdObjects:[],
+    invalidated:false
+  };
+  _inactiveDraftSaveOperation=operation;
+  return operation;
+}
+
+function inactiveDraftSaveOperationCurrent(operation){
+  if(!operation||operation.invalidated||_inactiveDraftSaveOperation!==operation||operation.generation!==_inactiveDraftSaveGeneration) return false;
+  var profile=hmAuth&&hmAuth.getProfile?hmAuth.getProfile():null;
+  var seller=hmPrivateOwnerSellerForDraft();
+  return !!profile&&!!seller&&String(profile.authId||'')===operation.accountId&&String(seller.id||'')===operation.sellerId;
+}
+
+function finishInactiveDraftSaveOperation(operation){
+  if(_inactiveDraftSaveOperation===operation) _inactiveDraftSaveOperation=null;
+  if(typeof ST!=='undefined'&&ST&&ST.page==='post'&&typeof rPS==='function') rPS();
+}
 
 function revokeInactiveDraftPreview(field){
   if(!field) return;
@@ -7007,6 +7063,7 @@ function discardInactiveDraftImageField(field){
 }
 
 function discardInactiveDraftImageState(){
+  invalidateInactiveDraftSaveOperation();
   if(typeof ST==='undefined'||!ST) return;
   discardInactiveDraftImageField(ST.pf);
   (ST.pi||[]).forEach(discardInactiveDraftImageField);
@@ -7014,6 +7071,7 @@ function discardInactiveDraftImageState(){
 }
 
 function removeInactiveDraftListingImage(){
+  if(!inactiveDraftMutationAllowed()) return;
   var field=ST.pf;
   revokeInactiveDraftPreview(field);
   field.stagedImage=null;
@@ -7026,6 +7084,7 @@ function removeInactiveDraftListingImage(){
 }
 
 function removeInactiveDraftMenuImage(index){
+  if(!inactiveDraftMutationAllowed()) return;
   var field=ST.pi[index];
   if(!field) return;
   revokeInactiveDraftPreview(field);
@@ -7039,11 +7098,19 @@ function removeInactiveDraftMenuImage(index){
 }
 
 function removeInactiveDraftMenuItem(index){
+  if(!inactiveDraftMutationAllowed()) return;
   var field=ST.pi[index];
   if(!field) return;
   discardInactiveDraftImageField(field);
   ST.pi.splice(index,1);
   markInactiveListingDraftDirty();
+  rPS();
+}
+
+function addInactiveDraftMenuItem(){
+  if(!inactiveDraftMutationAllowed()) return;
+  markInactiveListingDraftDirty();
+  ST.pi.push({n:'',p:'',svs:'',hot:false,img:'',draftImage:null,stagedImage:null,previewUrl:'',removeImage:false,imgName:'',imgUploading:false,imgError:''});
   rPS();
 }
 
@@ -7210,36 +7277,41 @@ function hydrateInactiveListingDraft(){
   return true;
 }
 
-function inactiveDraftImageUploadSlots(){
+function inactiveDraftImageUploadSlots(operation){
+  var form=operation&&operation.formSnapshot||ST.pf;
+  var items=operation&&operation.itemSnapshots||ST.pi||[];
   var slots=[];
-  if(ST.pf&&ST.pf.stagedImage) slots.push({field:ST.pf,kind:'listing',index:-1,staged:ST.pf.stagedImage});
-  (ST.pi||[]).forEach(function(item,index){
+  if(form&&form.stagedImage) slots.push({field:form,kind:'listing',index:-1,staged:form.stagedImage});
+  items.forEach(function(item,index){
     if(item&&item.stagedImage) slots.push({field:item,kind:'menu',index:index,staged:item.stagedImage});
   });
   return slots;
 }
 
-function uploadInactiveDraftImageSlots(seller,slots,cb){
-  var uploaded=[];
+function uploadInactiveDraftImageSlots(seller,slots,operation,cb){
   var index=0;
   function next(){
-    if(index>=slots.length){cb({uploaded:uploaded});return;}
+    if(!inactiveDraftSaveOperationCurrent(operation)){cb({stale:true});return;}
+    if(index>=slots.length){cb({uploaded:operation.createdObjects.slice()});return;}
     var slot=slots[index++];
     hmAuth.uploadPrivateDraftImage(slot.staged.file,seller.id,{width:slot.staged.width,height:slot.staged.height},function(res){
-      if(!res||res.error||!res.image){cb({error:(res&&res.error)||'Private image upload failed.',uploaded:uploaded});return;}
+      if(res&&res.image) operation.createdObjects.push(res.image);
+      if(!inactiveDraftSaveOperationCurrent(operation)){cb({stale:true});return;}
+      if(!res||res.error||!res.image){cb({error:(res&&res.error)||'Private image upload failed.',uploaded:operation.createdObjects.slice()});return;}
       slot.uploadedImage=res.image;
-      uploaded.push(res.image);
       next();
     });
   }
   next();
 }
 
-function inactiveDraftImageSaveState(slots){
-  var form=Object.assign({},ST.pf,{
-    draftImage:ST.pf.removeImage?null:(ST.pf.draftImage||null)
+function inactiveDraftImageSaveState(slots,operation){
+  var sourceForm=operation&&operation.formSnapshot||ST.pf;
+  var sourceItems=operation&&operation.itemSnapshots||ST.pi||[];
+  var form=Object.assign({},sourceForm,{
+    draftImage:sourceForm.removeImage?null:(sourceForm.draftImage||null)
   });
-  var items=(ST.pi||[]).map(function(item){
+  var items=sourceItems.map(function(item){
     return Object.assign({},item,{draftImage:item.removeImage?null:(item.draftImage||null)});
   });
   slots.forEach(function(slot){
@@ -7252,6 +7324,12 @@ function inactiveDraftImageSaveState(slots){
 function rollbackInactiveDraftImages(images,sellerId,cb){
   if(!images.length){cb({ok:true});return;}
   hmAuth.removePrivateDraftImages(images,sellerId,function(res){cb(res||{error:'Private image rollback failed.'});});
+}
+
+function rollbackInactiveDraftSaveOperation(operation,cb){
+  var images=operation&&Array.isArray(operation.createdObjects)?operation.createdObjects.slice():[];
+  if(operation) operation.createdObjects=[];
+  rollbackInactiveDraftImages(images,operation&&operation.sellerId,function(res){cb(res);});
 }
 
 function applyInactiveDraftImageSaveState(savedDraft,seller){
@@ -7271,11 +7349,14 @@ function applyInactiveDraftImageSaveState(savedDraft,seller){
   refreshInactiveDraftSignedPreviews(seller);
 }
 
-function cleanupPersistedInactiveDraftImages(images,sellerId,cb){
+function cleanupPersistedInactiveDraftImages(images,sellerId,operation,cb){
+  if(typeof operation==='function'){cb=operation;operation=null;}
   if(!images.length){cb({ok:true});return;}
   hmAuth.removePrivateDraftImages(images,sellerId,function(res){
-    if(res&&res.error) _inactiveDraftImageCleanupQueue=images.slice();
-    else _inactiveDraftImageCleanupQueue=[];
+    if(!operation||inactiveDraftSaveOperationCurrent(operation)){
+      if(res&&res.error) _inactiveDraftImageCleanupQueue=images.slice();
+      else _inactiveDraftImageCleanupQueue=[];
+    }
     cb(res||{error:'Private image cleanup failed.'});
   });
 }
@@ -7285,20 +7366,27 @@ function retryInactiveDraftImageCleanup(sellerId,cb){
 }
 
 function saveInactiveListingDraft(){
+  if(inactiveDraftSaveBusy()) return;
   var profile=hmAuth&&hmAuth.getProfile ? hmAuth.getProfile() : null;
   var seller=hmPrivateOwnerSellerForDraft();
   if(!profile || !seller || !hmAuth || !hmAuth.select || !hmAuth.update){
     showToast('Inactive seller draft is unavailable.');
     return;
   }
+  var operation=beginInactiveDraftSaveOperation(profile,seller);
+  if(!operation) return;
+  rPS();
   hmAuth.select('sellers',{auth_id:profile.authId},function(rows){
+    if(!inactiveDraftSaveOperationCurrent(operation)) return;
     if(!Array.isArray(rows) || rows.length!==1){
       showToast('Unable to load the linked seller draft.');
+      finishInactiveDraftSaveOperation(operation);
       return;
     }
     var freshSeller=normalizePrivateOwnerSeller(rows[0]);
     if(!freshSeller || freshSeller.active!==false || String(freshSeller.id)!==String(seller.id) || String(freshSeller.auth_id)!==String(profile.authId)){
       showToast('Inactive seller draft is unavailable.');
+      finishInactiveDraftSaveOperation(operation);
       return;
     }
     var existingData=freshSeller._data||freshSeller.data||{};
@@ -7308,36 +7396,57 @@ function saveInactiveListingDraft(){
       (!_inactiveListingDraftHydration.hydrated||_inactiveListingDraftHydration.key!==expectedHydrationKey)&&
       listingDraftIsBlank(ST.pf,ST.pi)&&!_inactiveListingDraftHydration.dirty){
       showToast('Your saved draft could not be loaded. Refresh and try again before saving.');
+      finishInactiveDraftSaveOperation(operation);
       return;
     }
-    var slots=inactiveDraftImageUploadSlots();
-    var initialState=inactiveDraftImageSaveState([]);
+    var slots=inactiveDraftImageUploadSlots(operation);
+    var initialState=inactiveDraftImageSaveState([],operation);
     var initialPatch=buildInactiveListingDraftPatch(existingData,initialState.form,initialState.items,new Date().toISOString());
     if(!slots.length&&!initialPatch.changed){
       if(persistedDraft&&typeof persistedDraft==='object') markInactiveListingDraftHydrated(freshSeller,persistedDraft);
       if(_inactiveDraftImageCleanupQueue.length){
         retryInactiveDraftImageCleanup(freshSeller.id,function(cleanupRes){
-          showToast(cleanupRes&&cleanupRes.error?'No draft changes. Private image cleanup still needs attention.':'No draft changes to save.');
+          if(inactiveDraftSaveOperationCurrent(operation)) showToast(cleanupRes&&cleanupRes.error?'No draft changes. Private image cleanup still needs attention.':'No draft changes to save.');
+          finishInactiveDraftSaveOperation(operation);
         });
-      }else showToast('No draft changes to save.');
+      }else{
+        showToast('No draft changes to save.');
+        finishInactiveDraftSaveOperation(operation);
+      }
       return;
     }
-    uploadInactiveDraftImageSlots(freshSeller,slots,function(uploadRes){
+    uploadInactiveDraftImageSlots(freshSeller,slots,operation,function(uploadRes){
+      if(uploadRes.stale){
+        rollbackInactiveDraftSaveOperation(operation,function(){ finishInactiveDraftSaveOperation(operation); });
+        return;
+      }
       if(uploadRes.error){
-        rollbackInactiveDraftImages(uploadRes.uploaded||[],freshSeller.id,function(rollbackRes){
-          showToast(rollbackRes&&rollbackRes.error?'Image upload failed and cleanup still needs attention.':'Could not upload private draft images.');
+        rollbackInactiveDraftSaveOperation(operation,function(rollbackRes){
+          if(inactiveDraftSaveOperationCurrent(operation)) showToast(rollbackRes&&rollbackRes.error?'Image upload failed and cleanup still needs attention.':'Could not upload private draft images.');
+          finishInactiveDraftSaveOperation(operation);
         });
         return;
       }
-      var nextState=inactiveDraftImageSaveState(slots);
+      if(!inactiveDraftSaveOperationCurrent(operation)){
+        rollbackInactiveDraftSaveOperation(operation,function(){ finishInactiveDraftSaveOperation(operation); });
+        return;
+      }
+      var nextState=inactiveDraftImageSaveState(slots,operation);
       var patch=buildInactiveListingDraftPatch(existingData,nextState.form,nextState.items,new Date().toISOString());
       hmAuth.update('sellers',{id:freshSeller.id,auth_id:profile.authId},patch.sellerValues,function(res){
+        if(!inactiveDraftSaveOperationCurrent(operation)){
+          if(res&&res.error) rollbackInactiveDraftSaveOperation(operation,function(){ finishInactiveDraftSaveOperation(operation); });
+          else finishInactiveDraftSaveOperation(operation);
+          return;
+        }
         if(res&&res.error){
-          rollbackInactiveDraftImages(uploadRes.uploaded||[],freshSeller.id,function(rollbackRes){
+          rollbackInactiveDraftSaveOperation(operation,function(rollbackRes){
             showToast(rollbackRes&&rollbackRes.error?'Draft save failed and image cleanup still needs attention.':'Could not save draft. New images were removed.');
+            finishInactiveDraftSaveOperation(operation);
           });
           return;
         }
+        operation.createdObjects=[];
         var removedImages=listingDraftImageRemoved(persistedDraft,patch.draft);
         freshSeller.data=patch.sellerValues.data;
         freshSeller._data=patch.sellerValues.data;
@@ -7346,8 +7455,9 @@ function saveInactiveListingDraft(){
         applyFreshPrivateSellerState(profile,raw,{rerender:false});
         applyInactiveDraftImageSaveState(patch.draft,freshSeller);
         markInactiveListingDraftHydrated(freshSeller,patch.draft);
-        cleanupPersistedInactiveDraftImages(removedImages,freshSeller.id,function(cleanupRes){
-          showToast(cleanupRes&&cleanupRes.error?'Draft saved. Private image cleanup still needs attention.':'Draft saved.');
+        cleanupPersistedInactiveDraftImages(removedImages,freshSeller.id,operation,function(cleanupRes){
+          if(inactiveDraftSaveOperationCurrent(operation)) showToast(cleanupRes&&cleanupRes.error?'Draft saved. Private image cleanup still needs attention.':'Draft saved.');
+          finishInactiveDraftSaveOperation(operation);
         });
       });
     });
@@ -7355,8 +7465,9 @@ function saveInactiveListingDraft(){
 }
 
 function inactiveListingDraftButton(){
+  var saving=inactiveDraftSaveBusy();
   return hmPrivateOwnerSellerForDraft()
-    ? '<button type="button" class="btn btn-ol btn-sm" onclick="saveInactiveListingDraft()">'+ic('chk',14,'var(--accent)')+' Save Draft</button>'
+    ? '<button type="button" class="btn btn-ol btn-sm" onclick="saveInactiveListingDraft()" '+(saving?'disabled aria-busy="true"':'')+'>'+ic('chk',14,'var(--accent)')+' Save Draft</button>'
     : '';
 }
 
@@ -7552,6 +7663,10 @@ function blockUnfinalizedListingImagePublication(){
 }
 
 function goLiveListing(){
+  if(inactiveDraftSaveBusy()){
+    showToast('Wait for the current draft save to finish before going live.');
+    return;
+  }
   var missing=postMissingAll();
   if(missing.length){
     ST.ps=postFirstMissingStep();
@@ -7708,8 +7823,14 @@ function prepareDraftImageFile(file,cb,opts){
 }
 
 function stageInactiveDraftImage(field,file,opts){
+  if(!inactiveDraftMutationAllowed()) return;
   prepareDraftImageFile(file,function(result){
     field.imgUploading=false;
+    if(inactiveDraftSaveBusy()){
+      showToast('Wait for the current draft save to finish.');
+      rPS();
+      return;
+    }
     if(result.error){
       field.imgError=result.error;
       showToast(result.error);
@@ -7730,6 +7851,7 @@ function stageInactiveDraftImage(field,file,opts){
 }
 
 function uploadListingImg(input){
+  if(!inactiveDraftMutationAllowed()){input.value='';return;}
   var file=input.files&&input.files[0];
   if(!file) return;
   input.value='';
@@ -7740,6 +7862,7 @@ function uploadListingImg(input){
 }
 
 function uploadMenuItemImg(index,input){
+  if(!inactiveDraftMutationAllowed()){input.value='';return;}
   var file=input.files&&input.files[0];
   if(!file||!ST.pi[index]) return;
   input.value='';
@@ -7835,6 +7958,7 @@ function prepareListingImage(file, cb, opts){
 
 function rPS(){
   const step=ST.ps,f=ST.pf,items=ST.pi,discs=ST.pd;
+  const draftSaving=inactiveDraftSaveBusy();
   const postSeller=SELLERS.find(function(x){return x&&x.id===SELLER_OWN_ID;});
   const accountTier=postSeller?sellerEffectiveTier(postSeller):(ST.pt||'standard');
   if(!ST.pt) ST.pt=accountTier;
@@ -8025,7 +8149,7 @@ function rPS(){
           <span style="font-size:11px;color:var(--muted)">${items.length} item${items.length!==1?'s':''}</span>
         </div>
         ${itemRows}
-        <button type="button" class="btn btn-gh btn-fw" style="margin-top:10px" onclick="markInactiveListingDraftDirty();ST.pi.push({n:'',p:'',svs:'',hot:false,img:'',draftImage:null,stagedImage:null,previewUrl:'',removeImage:false,imgName:'',imgUploading:false,imgError:''});rPS()">${ic('plus',14)} Add Menu Item</button>
+        <button type="button" class="btn btn-gh btn-fw" style="margin-top:10px" onclick="addInactiveDraftMenuItem()">${ic('plus',14)} Add Menu Item</button>
       </div>
       <div style="border-top:1.5px solid var(--border);padding-top:16px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
@@ -8114,7 +8238,7 @@ function rPS(){
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px 12px;flex-wrap:wrap;margin-bottom:14px"><div style="font-family:var(--font-head);font-size:24px;color:var(--heading)">Post Your Listing</div>${inactiveListingDraftButton()}</div>
     <div style="display:flex;gap:8px;margin-bottom:18px">${bars}</div>
   </div>
-  <div style="padding:22px 26px;max-width:660px">${postFormAlert()+tierGuide+body}</div>`;
+  <div style="padding:22px 26px;max-width:660px"><fieldset ${draftSaving?'disabled':''} style="border:0;padding:0;margin:0;min-width:0">${postFormAlert()+tierGuide+body}</fieldset></div>`;
 }
 function goPS(n){
   if(n>ST.ps){postNext(n);return;}

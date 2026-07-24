@@ -23,12 +23,12 @@ for (const required of [
   "inactiveDraftImageUploadSlots",
   "uploadInactiveDraftImageSlots",
   "buildInactiveListingDraftPatch",
-  "rollbackInactiveDraftImages",
+  "rollbackInactiveDraftSaveOperation",
   "listingDraftImageRemoved",
   "cleanupPersistedInactiveDraftImages"
 ]) assert.match(save, new RegExp(required));
 assert.ok(save.indexOf("hmAuth.update(") < save.indexOf("cleanupPersistedInactiveDraftImages("), "Persist before old-image cleanup");
-assert.match(save, /if\(res&&res\.error\)[\s\S]*rollbackInactiveDraftImages/);
+assert.match(save, /if\(res&&res\.error\)[\s\S]*rollbackInactiveDraftSaveOperation/);
 
 const goLive = body("goLiveListing", "openSellerRequestModal");
 assert.match(goLive, /postMissingAll\(\)/);
