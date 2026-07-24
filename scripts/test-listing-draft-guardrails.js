@@ -77,13 +77,15 @@ check("inactive text-only draft produces a narrow seller patch", () => {
   assert.deepEqual(patch.sellerValues.data.listingDraft.dietaryTags, ["halal", "vegan"]);
 });
 
-check("draft contains only approved text fields and no upload, contact, legal or publication data", () => {
+check("draft contains approved text fields plus normalized private image slots and no contact, legal or publication data", () => {
   const draft = buildInactiveListingDraftPatch(existingData, form, items, now).draft;
   assert.deepEqual(Object.keys(draft).sort(), [
-    "category", "description", "dietaryTags", "leadDays", "menuItems", "timeframe", "title", "updatedAt", "version"
+    "category", "description", "dietaryTags", "leadDays", "listingImage", "menuItems", "timeframe", "title", "updatedAt", "version"
   ]);
-  assert.deepEqual(Object.keys(draft.menuItems[0]).sort(), ["n", "p", "svs"]);
-  for (const forbidden of ["active", "contact", "phone", "wa", "whatsapp", "image", "legal", "campaign", "publication", "tier", "subscription"]) {
+  assert.deepEqual(Object.keys(draft.menuItems[0]).sort(), ["image", "n", "p", "svs"]);
+  assert.equal(draft.listingImage, null);
+  assert.equal(draft.menuItems[0].image, null);
+  for (const forbidden of ["active", "contact", "phone", "wa", "whatsapp", "legal", "campaign", "publication", "tier", "subscription"]) {
     assert.equal(JSON.stringify(draft).toLowerCase().includes(`\"${forbidden}`), false, `${forbidden} leaked into draft data`);
   }
 });

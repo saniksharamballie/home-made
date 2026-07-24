@@ -6,6 +6,7 @@ const vm = require("node:vm");
 const root = path.resolve(__dirname, "..");
 const source = fs.readFileSync(path.join(root, "src", "homemade-map-cleaned-1.html"), "utf8");
 const draftHelpers = require(path.join(root, "src", "helpers", "listing-draft-helpers.js"));
+const draftImageHelpers = require(path.join(root, "src", "helpers", "listing-draft-image-helpers.js"));
 
 function extractFunction(input, name) {
   const marker = new RegExp(`function\\s+${name}\\s*\\(`).exec(input);
@@ -74,6 +75,9 @@ const context = vm.createContext(Object.assign({
     update(table, match, values, callback) {
       calls.update += 1;
       callback({ ok: true });
+    },
+    removePrivateDraftImages(images, sellerId, callback) {
+      callback({ ok: true });
     }
   },
   normalizePrivateOwnerSeller(raw) {
@@ -83,8 +87,12 @@ const context = vm.createContext(Object.assign({
   sessionStorage: { removeItem() {} },
   localStorage: { removeItem() {} },
   showToast(message) { calls.toast.push(message); },
-  rPS() { calls.render += 1; }
-}, draftHelpers));
+  rPS() { calls.render += 1; },
+  discardInactiveDraftImageState() {},
+  revokeInactiveDraftPreview(field) { if (field) { field.previewUrl = ""; field.img = ""; } },
+  refreshInactiveDraftSignedPreviews() {},
+  _inactiveDraftImageCleanupQueue: []
+}, draftHelpers, draftImageHelpers));
 
 vm.runInContext([
   extractFunction(source, "defaultPostForm"),

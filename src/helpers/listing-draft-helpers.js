@@ -1,3 +1,13 @@
+var listingDraftImageHelpers=(typeof module!=='undefined'&&module.exports)
+  ? require('./listing-draft-image-helpers.js')
+  : null;
+
+function listingDraftSafeImage(value){
+  var normalize=(listingDraftImageHelpers&&listingDraftImageHelpers.listingDraftImageMetadata)||
+    (typeof listingDraftImageMetadata==='function'?listingDraftImageMetadata:null);
+  return normalize?normalize(value):null;
+}
+
 function listingDraftText(value){
   return String(value == null ? '' : value).trim();
 }
@@ -24,7 +34,8 @@ function listingDraftMenuItems(items){
     return {
       n:listingDraftText(item.n),
       p:listingDraftPrice(item.p),
-      svs:listingDraftText(item.svs)
+      svs:listingDraftText(item.svs),
+      image:listingDraftSafeImage(item.draftImage||item.image)
     };
   });
 }
@@ -32,13 +43,14 @@ function listingDraftMenuItems(items){
 function listingDraftContent(postForm,items){
   postForm=postForm||{};
   return {
-    version:1,
+    version:2,
     title:listingDraftText(postForm.name),
     description:listingDraftText(postForm.desc),
     category:listingDraftText(postForm.cat),
     dietaryTags:listingDraftTags(postForm.dietary),
     timeframe:listingDraftText(postForm.timeframe),
     leadDays:listingDraftText(postForm.leadDays),
+    listingImage:listingDraftSafeImage(postForm.draftImage||postForm.listingImage),
     menuItems:listingDraftMenuItems(items)
   };
 }
@@ -51,7 +63,8 @@ function normalizeListingDraft(value){
     cat:value.category,
     dietary:value.dietaryTags,
     timeframe:value.timeframe,
-    leadDays:value.leadDays
+    leadDays:value.leadDays,
+    draftImage:value.listingImage
   },value.menuItems);
 }
 
@@ -76,8 +89,8 @@ function listingDraftHydrationKey(sellerId,value){
 
 function listingDraftIsBlank(postForm,items){
   var draft=listingDraftContent(postForm,items);
-  return !draft.title&&!draft.description&&!draft.dietaryTags.length&&!draft.menuItems.some(function(item){
-    return !!(item.n||item.p!==''||item.svs);
+  return !draft.title&&!draft.description&&!draft.dietaryTags.length&&!draft.listingImage&&!draft.menuItems.some(function(item){
+    return !!(item.n||item.p!==''||item.svs||item.image);
   });
 }
 

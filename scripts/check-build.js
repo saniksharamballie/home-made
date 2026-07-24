@@ -13,6 +13,10 @@ const durbanDir = path.join(root, "public", "durban");
 const cuisineDir = path.join(root, "public", "cuisine");
 const legalPages = ["terms", "privacy", "legal"].map((slug) => path.join(root, "public", `${slug}.html`));
 const publicBrandLogo = "/icons/home-made-desktop-logo.jpeg";
+const draftImageMigrationPath = path.join(root, "supabase", "migrations", "20260724120000_private_draft_image_storage.sql");
+const draftImageApiPath = path.join(root, "api", "draft-images.js");
+const draftImageServerPath = path.join(root, "api", "_lib", "draft-image-security.js");
+const draftImageCleanupPath = path.join(root, "scripts", "cleanup-draft-image-orphans.js");
 
 function htmlFiles(dir) {
   if (!fs.existsSync(dir)) return [];
@@ -86,6 +90,7 @@ const sellerOwnerHydrationIncludeMarker = "/* @include src/helpers/seller-owner-
 const inputNormalizationIncludeMarker = "/* @include src/helpers/input-normalization-helpers.js */";
 const sellerPostItemIncludeMarker = "/* @include src/helpers/seller-post-item-helpers.js */";
 const sellerPostValidationIncludeMarker = "/* @include src/helpers/seller-post-validation-helpers.js */";
+const listingDraftImageIncludeMarker = "/* @include src/helpers/listing-draft-image-helpers.js */";
 const listingDraftIncludeMarker = "/* @include src/helpers/listing-draft-helpers.js */";
 const listingDraftNavigationIncludeMarker = "/* @include src/helpers/listing-draft-navigation-helpers.js */";
 const sellerStorefrontSelectiveSaveIncludeMarker = "/* @include src/helpers/seller-storefront-selective-save-helpers.js */";
@@ -139,6 +144,7 @@ const storageKeyRawValues = [
 const inputNormalizationDeclaration = "function normalizePhoneNumber";
 const sellerPostItemDeclaration = "function cleanPostItem";
 const sellerPostValidationDeclaration = "function postMissingForStep";
+const listingDraftImageDeclaration = "function listingDraftImageMetadata";
 const listingDraftDeclaration = "function buildInactiveListingDraftPatch";
 const listingDraftNavigationDeclaration = "function canNavigateInactiveListingDraft";
 const sellerStorefrontSelectiveSaveDeclaration = "function buildSellerStorefrontSelectivePatch";
@@ -262,6 +268,15 @@ const sourcePartials = [
     classicMovedLabel: "Seller-post validation helper"
   },
   {
+    label: "listing draft image helper",
+    marker: listingDraftImageIncludeMarker,
+    generatedMarkerPattern: /@include\s+src\/helpers\/listing-draft-image-helpers\.js/,
+    declarations: [listingDraftImageDeclaration],
+    declarationLabel: "listing draft image helper",
+    classicScriptLabel: "the listing draft image helper",
+    classicMovedLabel: "Listing draft image helper"
+  },
+  {
     label: "listing draft helper",
     marker: listingDraftIncludeMarker,
     generatedMarkerPattern: /@include\s+src\/helpers\/listing-draft-helpers\.js/,
@@ -350,6 +365,9 @@ if (occurrenceCount(sourceHtml, "function goLiveListing()") !== 1 || occurrenceC
 if (html.indexOf(listingDraftDeclaration) > html.indexOf("function saveInactiveListingDraft()")) {
   throw new Error("Build check failed. Listing draft helper must be declared before draft save usage.");
 }
+if (html.indexOf(listingDraftImageDeclaration) > html.indexOf(listingDraftDeclaration)) {
+  throw new Error("Build check failed. Listing draft image helper must be declared before draft normalization.");
+}
 if (html.indexOf(listingDraftNavigationDeclaration) > html.indexOf("function postNext(")) {
   throw new Error("Build check failed. Listing draft navigation helper must be declared before navigation usage.");
 }
@@ -392,6 +410,70 @@ const goLiveEnd = sourceHtml.indexOf("\nfunction openSellerRequestModal(", goLiv
 const goLiveBody = sourceHtml.slice(goLiveStart, goLiveEnd);
 if (!goLiveBody.includes("postMissingAll()") || !goLiveBody.includes("buildPublishedSeller()") || !goLiveBody.includes("persistPublishedSeller(")) {
   throw new Error("Build check failed. Go Live no longer retains complete publication validation and persistence.");
+}
+if (!goLiveBody.includes("blockUnfinalizedListingImagePublication()") ||
+    goLiveBody.indexOf("blockUnfinalizedListingImagePublication()") > goLiveBody.indexOf("buildPublishedSeller()")) {
+  throw new Error("Build check failed. Image publication must fail closed before seller publication.");
+}
+
+for (const [name, nextName] of [["uploadListingImg", "uploadMenuItemImg"], ["uploadMenuItemImg", "buildPostTierGuide"]]) {
+  const start = sourceHtml.indexOf(`function ${name}(`);
+  const end = sourceHtml.indexOf(`\nfunction ${nextName}(`, start);
+  const body = sourceHtml.slice(start, end);
+  if (start < 0 || end < 0 || /storage\.from|uploadPublicImage|uploadPrivateDraftImage|hmAuth\.update/.test(body)) {
+    throw new Error(`Build check failed. ${name} must remain a local-only selector.`);
+  }
+  if (!body.includes("stagedImage") && name === "uploadMenuItemImg") {
+    throw new Error("Build check failed. Menu image selection must stage data in memory.");
+  }
+}
+
+for (const declaration of [
+  "function uploadListingImg(",
+  "function uploadMenuItemImg(",
+  "function uploadPrivateDraftImage(",
+  "function saveInactiveListingDraft(",
+  "function goLiveListing("
+]) {
+  if (occurrenceCount(sourceHtml, declaration) !== 1 || occurrenceCount(html, declaration) !== 1) {
+    throw new Error(`Build check failed. Expected one source and generated implementation for ${declaration}.`);
+  }
+}
+
+for (const file of [draftImageMigrationPath, draftImageApiPath, draftImageServerPath, draftImageCleanupPath]) {
+  if (!fs.existsSync(file)) throw new Error(`Build check failed. Missing draft image guardrail source: ${path.relative(root, file)}`);
+}
+const draftImageMigration = fs.readFileSync(draftImageMigrationPath, "utf8");
+if (!/'seller-draft-images'[\s\S]*public[\s\S]*false/i.test(draftImageMigration) ||
+    !/for insert[\s\S]*for select[\s\S]*for delete/is.test(draftImageMigration) ||
+    /for update/i.test(draftImageMigration) ||
+    /to\s+(?:anon|public)/i.test(draftImageMigration)) {
+  throw new Error("Build check failed. Private draft image bucket or owner policies are incomplete.");
+}
+const draftImageSaveBody = draftSaveBody;
+for (const requiredNeedle of [
+  "uploadInactiveDraftImageSlots",
+  "rollbackInactiveDraftImages",
+  "listingDraftImageRemoved",
+  "cleanupPersistedInactiveDraftImages"
+]) {
+  if (!draftImageSaveBody.includes(requiredNeedle)) {
+    throw new Error(`Build check failed. Coordinated draft image save is missing ${requiredNeedle}.`);
+  }
+}
+if (draftImageSaveBody.indexOf("hmAuth.update(") > draftImageSaveBody.indexOf("cleanupPersistedInactiveDraftImages(")) {
+  throw new Error("Build check failed. Replaced images may be deleted before draft persistence.");
+}
+const listingDraftHelperSource = fs.readFileSync(path.join(root, "src", "helpers", "listing-draft-helpers.js"), "utf8");
+if (!listingDraftHelperSource.includes("listingDraftSafeImage") ||
+    /signedUrl|publicUrl|["'](?:data|blob):/i.test(listingDraftHelperSource)) {
+  throw new Error("Build check failed. Draft image persistence is not path-only.");
+}
+const draftImageServer = fs.readFileSync(draftImageServerPath, "utf8");
+if (!draftImageServer.includes("listingDraftImageOwnedBy") ||
+    !draftImageServer.includes("loadInactiveOwnedSeller") ||
+    !draftImageServer.includes("finalizationRequired: true")) {
+  throw new Error("Build check failed. Trusted draft image publication validation is incomplete.");
 }
 if (!sourceHtml.includes("postCanNavigateForward(2)") || !sourceHtml.includes("postCanNavigateForward(3)")) {
   throw new Error("Build check failed. Draft step controls are not using the navigation-only guard.");

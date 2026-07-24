@@ -66,6 +66,11 @@ const sourcePartials = [
     path: path.join(root, "src", "helpers", "seller-post-validation-helpers.js")
   },
   {
+    label: "listing draft image helper",
+    marker: "/* @include src/helpers/listing-draft-image-helpers.js */",
+    path: path.join(root, "src", "helpers", "listing-draft-image-helpers.js")
+  },
+  {
     label: "listing draft helper",
     marker: "/* @include src/helpers/listing-draft-helpers.js */",
     path: path.join(root, "src", "helpers", "listing-draft-helpers.js")

@@ -3386,6 +3386,97 @@ var hmAuth = (function(){
     });
   }
 
+  function secureDraftImageId(){
+    if(typeof crypto==='undefined') return '';
+    if(typeof crypto.randomUUID==='function') return crypto.randomUUID().toLowerCase();
+    if(typeof crypto.getRandomValues!=='function') return '';
+    var bytes=new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    bytes[6]=(bytes[6]&15)|64;
+    bytes[8]=(bytes[8]&63)|128;
+    var hex=Array.prototype.map.call(bytes,function(value){return ('0'+value.toString(16)).slice(-2);}).join('');
+    return hex.slice(0,8)+'-'+hex.slice(8,12)+'-'+hex.slice(12,16)+'-'+hex.slice(16,20)+'-'+hex.slice(20);
+  }
+
+  function freshInactiveDraftOwner(sellerId, cb){
+    var profile=_profile;
+    var userId=profile&&profile.authId;
+    if(_demoMode||!_sb||!profile||profile.role!=='seller'||profile.sellerLookupStatus!=='loaded'||!userId||String(profile.sellerId)!==String(sellerId)){
+      cb({error:'Inactive seller image storage is unavailable.'});
+      return;
+    }
+    _sb.from('sellers').select('id,auth_id,active').eq('auth_id',userId).then(function(res){
+      var rows=res&&res.data;
+      if(res&&res.error){cb({error:'Unable to verify the linked seller.'});return;}
+      if(!Array.isArray(rows)||rows.length!==1){cb({error:'Unable to verify the linked seller.'});return;}
+      var seller=rows[0];
+      if(String(seller.id)!==String(sellerId)||String(seller.auth_id)!==String(userId)||seller.active!==false){
+        cb({error:'Inactive seller image storage is unavailable.'});
+        return;
+      }
+      cb({seller:seller,profile:profile});
+    });
+  }
+
+  function uploadPrivateDraftImage(file,sellerId,dimensions,cb){
+    freshInactiveDraftOwner(sellerId,function(owner){
+      if(owner.error){cb(owner);return;}
+      var randomId=secureDraftImageId();
+      var path=listingDraftImageBuildPath(owner.profile.authId,sellerId,randomId,'webp');
+      if(!path){cb({error:'Secure image path generation failed.'});return;}
+      _sb.storage.from(HM_DRAFT_IMAGE_BUCKET).upload(path,file,{
+        cacheControl:'0',
+        contentType:'image/webp',
+        upsert:false
+      }).then(function(res){
+        if(res&&res.error){cb({error:'Private image upload failed.'});return;}
+        var image=listingDraftImageMetadata({
+          bucket:HM_DRAFT_IMAGE_BUCKET,
+          path:path,
+          mimeType:'image/webp',
+          size:file.size,
+          width:dimensions&&dimensions.width,
+          height:dimensions&&dimensions.height
+        });
+        if(!image){
+          _sb.storage.from(HM_DRAFT_IMAGE_BUCKET).remove([path]).then(function(){
+            cb({error:'Private image metadata was rejected.'});
+          });
+          return;
+        }
+        cb({image:image});
+      });
+    });
+  }
+
+  function signPrivateDraftImage(image,sellerId,cb){
+    var profile=_profile;
+    if(_demoMode||!_sb||!profile||profile.sellerLookupStatus!=='loaded'||!listingDraftImageOwnedBy(image,profile.authId,sellerId)){
+      cb({error:'Private image preview is unavailable.'});
+      return;
+    }
+    _sb.storage.from(HM_DRAFT_IMAGE_BUCKET).createSignedUrl(image.path,HM_DRAFT_IMAGE_SIGNED_SECONDS).then(function(res){
+      if(res&&res.error){cb({error:'Private image preview is unavailable.'});return;}
+      var signedUrl=res&&res.data&&res.data.signedUrl;
+      cb(signedUrl?{url:signedUrl}:{error:'Private image preview is unavailable.'});
+    });
+  }
+
+  function removePrivateDraftImages(images,sellerId,cb){
+    var profile=_profile;
+    images=(Array.isArray(images)?images:[]).map(listingDraftImageMetadata).filter(Boolean);
+    if(!images.length){cb({ok:true});return;}
+    if(_demoMode||!_sb||!profile||profile.sellerLookupStatus!=='loaded'||images.some(function(image){
+      return !listingDraftImageOwnedBy(image,profile.authId,sellerId);
+    })){
+      cb({error:'Private image cleanup is unavailable.'});
+      return;
+    }
+    _sb.storage.from(HM_DRAFT_IMAGE_BUCKET).remove(images.map(function(image){return image.path;})).then(function(res){
+      cb(res&&res.error?{error:'Private image cleanup failed.'}:{ok:true});
+    });
+  }
+
   function getProfile(){ return _profile; }
   function isDemoMode(){ return _demoMode; }
 
@@ -3760,6 +3851,7 @@ var hmAuth = (function(){
           insert:insert, update:update, remove:remove, upsert:upsert, select:select, rpc:rpc, subscribe:subscribe,
           apiFetch:apiFetch,
           uploadPublicImage:uploadPublicImage, listPublicImages:listPublicImages,
+          uploadPrivateDraftImage:uploadPrivateDraftImage, signPrivateDraftImage:signPrivateDraftImage, removePrivateDraftImages:removePrivateDraftImages,
           getProfile:getProfile, isDemoMode:isDemoMode, togglePasswordField:togglePasswordField,
           submitLogin:submitLogin, _demoSkip:_demoSkip, showLogin:showLogin,
           _applyProfile:_applyProfile, _quickLogin:_quickLogin, _launchApp:_launchApp,
@@ -3803,12 +3895,13 @@ let ST={page:'home',ctx:{},saved:[1,8],role:'buyer',notif:true,aiOpen:false,detL
   bf:{q:'',cat:'all',region:'',dietary:[],health:[],sort:'featured'},browseLimit:0,
   mf:'',mapTx:0,mapTy:0,_mapDragged:false,
   ps:1,pt:'standard',
-  pf:{name:'',desc:'',region:'',cat:'african',dietary:[],healthTags:[],del:false,fee:'',pu:true,minOrder:10,maxOrder:100,leadDays:3,pricingModel:'per_person',eventTypes:[],serviceTypes:[],cookingStyle:'pre-cooked',setupIncluded:false,equipmentProvided:[],depositPct:0,travelRadius:30,cancellationPolicy:'',pickupType:'gate',timeframe:'weekly',wa:'',waConfirm:'',img:'',imgPath:'',imgName:'',imgUploading:false,imgError:'',legalAccepted:false},
-  pi:[{n:'',p:'',svs:'',hot:false,img:'',imgPath:'',imgName:'',imgUploading:false,imgError:''}],
+  pf:{name:'',desc:'',region:'',cat:'african',dietary:[],healthTags:[],del:false,fee:'',pu:true,minOrder:10,maxOrder:100,leadDays:3,pricingModel:'per_person',eventTypes:[],serviceTypes:[],cookingStyle:'pre-cooked',setupIncluded:false,equipmentProvided:[],depositPct:0,travelRadius:30,cancellationPolicy:'',pickupType:'gate',timeframe:'weekly',wa:'',waConfirm:'',img:'',draftImage:null,stagedImage:null,previewUrl:'',removeImage:false,imgName:'',imgUploading:false,imgError:'',legalAccepted:false},
+  pi:[{n:'',p:'',svs:'',hot:false,img:'',draftImage:null,stagedImage:null,previewUrl:'',removeImage:false,imgName:'',imgUploading:false,imgError:''}],
   pd:[{qty:2,pct:10}],
   pdone:false,dtab:'menu',homeView:'grid',scrollPos:{}};
 
 function clearSignedOutState(){
+  if(typeof discardInactiveDraftImageState==='function') discardInactiveDraftImageState();
   try{ sessionStorage.removeItem('hm_safety_ack'); }catch(e){}
   var profile=null;
   try{ profile=hmAuth&&hmAuth.getProfile?hmAuth.getProfile():null; }catch(e){}
@@ -3853,7 +3946,7 @@ function clearSignedOutState(){
     savedDeals:0
   };
   if(typeof defaultPostForm==='function') ST.pf=defaultPostForm();
-  ST.pi=[{n:'',p:'',svs:'',hot:false,img:'',imgPath:'',imgName:'',imgUploading:false,imgError:''}];
+  ST.pi=[{n:'',p:'',svs:'',hot:false,img:'',draftImage:null,stagedImage:null,previewUrl:'',removeImage:false,imgName:'',imgUploading:false,imgError:''}];
   ST.pd=[{qty:2,pct:10}];
   if(typeof clearCart==='function') clearCart();
   else if(typeof CART==='object'&&CART){CART.items=[];CART.sellerId=null;CART.sellerRef=null;CART.buyerName='';CART.fulfil=null;}
@@ -6893,13 +6986,75 @@ function toggleSave(id){
 /* @include src/helpers/input-normalization-helpers.js */
 /* @include src/helpers/seller-post-item-helpers.js */
 
+var _inactiveDraftImageCleanupQueue=[];
+
+function revokeInactiveDraftPreview(field){
+  if(!field) return;
+  var url=field.previewUrl||'';
+  if(/^blob:/.test(url)&&typeof URL!=='undefined'&&URL.revokeObjectURL){
+    try{URL.revokeObjectURL(url);}catch(e){}
+  }
+  field.previewUrl='';
+  if(/^blob:/.test(field.img||'')) field.img='';
+}
+
+function discardInactiveDraftImageField(field){
+  if(!field) return;
+  revokeInactiveDraftPreview(field);
+  field.stagedImage=null;
+  field.imgUploading=false;
+  field.imgError='';
+}
+
+function discardInactiveDraftImageState(){
+  if(typeof ST==='undefined'||!ST) return;
+  discardInactiveDraftImageField(ST.pf);
+  (ST.pi||[]).forEach(discardInactiveDraftImageField);
+  _inactiveDraftImageCleanupQueue=[];
+}
+
+function removeInactiveDraftListingImage(){
+  var field=ST.pf;
+  revokeInactiveDraftPreview(field);
+  field.stagedImage=null;
+  field.removeImage=!!field.draftImage;
+  field.img='';
+  field.imgName='';
+  field.imgError='';
+  markInactiveListingDraftDirty();
+  rPS();
+}
+
+function removeInactiveDraftMenuImage(index){
+  var field=ST.pi[index];
+  if(!field) return;
+  revokeInactiveDraftPreview(field);
+  field.stagedImage=null;
+  field.removeImage=!!field.draftImage;
+  field.img='';
+  field.imgName='';
+  field.imgError='';
+  markInactiveListingDraftDirty();
+  rPS();
+}
+
+function removeInactiveDraftMenuItem(index){
+  var field=ST.pi[index];
+  if(!field) return;
+  discardInactiveDraftImageField(field);
+  ST.pi.splice(index,1);
+  markInactiveListingDraftDirty();
+  rPS();
+}
+
 function defaultPostForm(){
-  return {name:'',desc:'',region:'',cat:'african',dietary:[],healthTags:[],del:false,fee:'',pu:true,minOrder:10,maxOrder:100,leadDays:3,pricingModel:'per_person',eventTypes:[],serviceTypes:[],cookingStyle:'pre-cooked',setupIncluded:false,equipmentProvided:[],depositPct:0,travelRadius:30,cancellationPolicy:'',pickupType:'gate',timeframe:'weekly',wa:'',waConfirm:'',img:'',imgPath:'',imgName:'',imgUploading:false,imgError:'',legalAccepted:false};
+  return {name:'',desc:'',region:'',cat:'african',dietary:[],healthTags:[],del:false,fee:'',pu:true,minOrder:10,maxOrder:100,leadDays:3,pricingModel:'per_person',eventTypes:[],serviceTypes:[],cookingStyle:'pre-cooked',setupIncluded:false,equipmentProvided:[],depositPct:0,travelRadius:30,cancellationPolicy:'',pickupType:'gate',timeframe:'weekly',wa:'',waConfirm:'',img:'',draftImage:null,stagedImage:null,previewUrl:'',removeImage:false,imgName:'',imgUploading:false,imgError:'',legalAccepted:false};
 }
 
 function resetPostDraft(){
+  discardInactiveDraftImageState();
   ST.pf=defaultPostForm();
-  ST.pi=[{n:'',p:'',svs:'',hot:false,img:'',imgPath:'',imgName:'',imgUploading:false,imgError:''}];
+  ST.pi=[{n:'',p:'',svs:'',hot:false,img:'',draftImage:null,stagedImage:null,previewUrl:'',removeImage:false,imgName:'',imgUploading:false,imgError:''}];
   ST.pd=[{qty:2,pct:10}];
   ST.ps=1;
   ST.postMissing=[];
@@ -6909,6 +7064,7 @@ function resetPostDraft(){
 }
 
 /* @include src/helpers/seller-post-validation-helpers.js */
+/* @include src/helpers/listing-draft-image-helpers.js */
 /* @include src/helpers/listing-draft-helpers.js */
 /* @include src/helpers/listing-draft-navigation-helpers.js */
 
@@ -6923,6 +7079,7 @@ var _inactiveListingDraftHydration={
 };
 
 function clearInactiveListingDraftHydrationState(){
+  discardInactiveDraftImageState();
   _inactiveListingDraftHydration={
     accountId:'',
     sellerId:'',
@@ -6996,6 +7153,22 @@ function hmPrivateOwnerSellerForDraft(){
   return seller.active===false ? seller : null;
 }
 
+function refreshInactiveDraftSignedPreview(field,seller){
+  if(!field||!field.draftImage||field.stagedImage||field.removeImage||!hmAuth||!hmAuth.signPrivateDraftImage) return;
+  hmAuth.signPrivateDraftImage(field.draftImage,seller.id,function(res){
+    if(!res||!res.url||field.stagedImage||field.removeImage) return;
+    field.previewUrl=res.url;
+    field.img=res.url;
+    if(ST.page==='post') rPS();
+  });
+}
+
+function refreshInactiveDraftSignedPreviews(seller){
+  if(!seller) return;
+  refreshInactiveDraftSignedPreview(ST.pf,seller);
+  (ST.pi||[]).forEach(function(item){refreshInactiveDraftSignedPreview(item,seller);});
+}
+
 function hydrateInactiveListingDraft(){
   var seller=hmPrivateOwnerSellerForDraft();
   if(!seller) return false;
@@ -7003,7 +7176,10 @@ function hydrateInactiveListingDraft(){
   var stored=data.listingDraft;
   var hasStored=!!stored&&typeof stored==='object';
   var hydrationKey=listingDraftHydrationKey(seller.id,stored);
-  if(hasStored&&_inactiveListingDraftHydration.hydrated&&_inactiveListingDraftHydration.key===hydrationKey) return true;
+  if(hasStored&&_inactiveListingDraftHydration.hydrated&&_inactiveListingDraftHydration.key===hydrationKey){
+    refreshInactiveDraftSignedPreviews(seller);
+    return true;
+  }
   if(inactiveListingDraftFormDirty()) return false;
   resetPostDraft();
   _inactiveListingDraftHydration.accountId=String(seller.auth_id);
@@ -7021,14 +7197,91 @@ function hydrateInactiveListingDraft(){
       cat:draft.category||'african',
       dietary:draft.dietaryTags.slice(),
       timeframe:draft.timeframe||'weekly',
-      leadDays:draft.leadDays
+      leadDays:draft.leadDays,
+      draftImage:draft.listingImage,
+      removeImage:false
     });
     ST.pi=draft.menuItems.length ? draft.menuItems.map(function(item){
-      return Object.assign({img:'',imgPath:'',imgName:'',imgUploading:false,imgError:''},item);
-    }) : [{n:'',p:'',svs:'',hot:false,img:'',imgPath:'',imgName:'',imgUploading:false,imgError:''}];
+      return Object.assign({img:'',draftImage:item.image||null,stagedImage:null,previewUrl:'',removeImage:false,imgName:'',imgUploading:false,imgError:''},item);
+    }) : [{n:'',p:'',svs:'',hot:false,img:'',draftImage:null,stagedImage:null,previewUrl:'',removeImage:false,imgName:'',imgUploading:false,imgError:''}];
     markInactiveListingDraftHydrated(seller,stored);
+    refreshInactiveDraftSignedPreviews(seller);
   }
   return true;
+}
+
+function inactiveDraftImageUploadSlots(){
+  var slots=[];
+  if(ST.pf&&ST.pf.stagedImage) slots.push({field:ST.pf,kind:'listing',index:-1,staged:ST.pf.stagedImage});
+  (ST.pi||[]).forEach(function(item,index){
+    if(item&&item.stagedImage) slots.push({field:item,kind:'menu',index:index,staged:item.stagedImage});
+  });
+  return slots;
+}
+
+function uploadInactiveDraftImageSlots(seller,slots,cb){
+  var uploaded=[];
+  var index=0;
+  function next(){
+    if(index>=slots.length){cb({uploaded:uploaded});return;}
+    var slot=slots[index++];
+    hmAuth.uploadPrivateDraftImage(slot.staged.file,seller.id,{width:slot.staged.width,height:slot.staged.height},function(res){
+      if(!res||res.error||!res.image){cb({error:(res&&res.error)||'Private image upload failed.',uploaded:uploaded});return;}
+      slot.uploadedImage=res.image;
+      uploaded.push(res.image);
+      next();
+    });
+  }
+  next();
+}
+
+function inactiveDraftImageSaveState(slots){
+  var form=Object.assign({},ST.pf,{
+    draftImage:ST.pf.removeImage?null:(ST.pf.draftImage||null)
+  });
+  var items=(ST.pi||[]).map(function(item){
+    return Object.assign({},item,{draftImage:item.removeImage?null:(item.draftImage||null)});
+  });
+  slots.forEach(function(slot){
+    if(slot.kind==='listing') form.draftImage=slot.uploadedImage;
+    else if(items[slot.index]) items[slot.index].draftImage=slot.uploadedImage;
+  });
+  return {form:form,items:items};
+}
+
+function rollbackInactiveDraftImages(images,sellerId,cb){
+  if(!images.length){cb({ok:true});return;}
+  hmAuth.removePrivateDraftImages(images,sellerId,function(res){cb(res||{error:'Private image rollback failed.'});});
+}
+
+function applyInactiveDraftImageSaveState(savedDraft,seller){
+  var draft=normalizeListingDraft(savedDraft);
+  revokeInactiveDraftPreview(ST.pf);
+  ST.pf.draftImage=draft.listingImage;
+  ST.pf.stagedImage=null;
+  ST.pf.removeImage=false;
+  ST.pf.img='';
+  (ST.pi||[]).forEach(function(item,index){
+    revokeInactiveDraftPreview(item);
+    item.draftImage=draft.menuItems[index]&&draft.menuItems[index].image||null;
+    item.stagedImage=null;
+    item.removeImage=false;
+    item.img='';
+  });
+  refreshInactiveDraftSignedPreviews(seller);
+}
+
+function cleanupPersistedInactiveDraftImages(images,sellerId,cb){
+  if(!images.length){cb({ok:true});return;}
+  hmAuth.removePrivateDraftImages(images,sellerId,function(res){
+    if(res&&res.error) _inactiveDraftImageCleanupQueue=images.slice();
+    else _inactiveDraftImageCleanupQueue=[];
+    cb(res||{error:'Private image cleanup failed.'});
+  });
+}
+
+function retryInactiveDraftImageCleanup(sellerId,cb){
+  cleanupPersistedInactiveDraftImages(_inactiveDraftImageCleanupQueue,sellerId,cb);
 }
 
 function saveInactiveListingDraft(){
@@ -7057,24 +7310,46 @@ function saveInactiveListingDraft(){
       showToast('Your saved draft could not be loaded. Refresh and try again before saving.');
       return;
     }
-    var patch=buildInactiveListingDraftPatch(existingData,ST.pf,ST.pi,new Date().toISOString());
-    if(!patch.changed){
+    var slots=inactiveDraftImageUploadSlots();
+    var initialState=inactiveDraftImageSaveState([]);
+    var initialPatch=buildInactiveListingDraftPatch(existingData,initialState.form,initialState.items,new Date().toISOString());
+    if(!slots.length&&!initialPatch.changed){
       if(persistedDraft&&typeof persistedDraft==='object') markInactiveListingDraftHydrated(freshSeller,persistedDraft);
-      showToast('No draft changes to save.');
+      if(_inactiveDraftImageCleanupQueue.length){
+        retryInactiveDraftImageCleanup(freshSeller.id,function(cleanupRes){
+          showToast(cleanupRes&&cleanupRes.error?'No draft changes. Private image cleanup still needs attention.':'No draft changes to save.');
+        });
+      }else showToast('No draft changes to save.');
       return;
     }
-    hmAuth.update('sellers',{id:freshSeller.id,auth_id:profile.authId},patch.sellerValues,function(res){
-      if(res&&res.error){
-        showToast('Could not save draft. Please try again.');
+    uploadInactiveDraftImageSlots(freshSeller,slots,function(uploadRes){
+      if(uploadRes.error){
+        rollbackInactiveDraftImages(uploadRes.uploaded||[],freshSeller.id,function(rollbackRes){
+          showToast(rollbackRes&&rollbackRes.error?'Image upload failed and cleanup still needs attention.':'Could not upload private draft images.');
+        });
         return;
       }
-      freshSeller.data=patch.sellerValues.data;
-      freshSeller._data=patch.sellerValues.data;
-      freshSeller.updated_at=patch.sellerValues.updated_at;
-      var raw=Object.assign({},rows[0],patch.sellerValues);
-      applyFreshPrivateSellerState(profile,raw,{rerender:false});
-      markInactiveListingDraftHydrated(freshSeller,patch.draft);
-      showToast('Draft saved.');
+      var nextState=inactiveDraftImageSaveState(slots);
+      var patch=buildInactiveListingDraftPatch(existingData,nextState.form,nextState.items,new Date().toISOString());
+      hmAuth.update('sellers',{id:freshSeller.id,auth_id:profile.authId},patch.sellerValues,function(res){
+        if(res&&res.error){
+          rollbackInactiveDraftImages(uploadRes.uploaded||[],freshSeller.id,function(rollbackRes){
+            showToast(rollbackRes&&rollbackRes.error?'Draft save failed and image cleanup still needs attention.':'Could not save draft. New images were removed.');
+          });
+          return;
+        }
+        var removedImages=listingDraftImageRemoved(persistedDraft,patch.draft);
+        freshSeller.data=patch.sellerValues.data;
+        freshSeller._data=patch.sellerValues.data;
+        freshSeller.updated_at=patch.sellerValues.updated_at;
+        var raw=Object.assign({},rows[0],patch.sellerValues);
+        applyFreshPrivateSellerState(profile,raw,{rerender:false});
+        applyInactiveDraftImageSaveState(patch.draft,freshSeller);
+        markInactiveListingDraftHydrated(freshSeller,patch.draft);
+        cleanupPersistedInactiveDraftImages(removedImages,freshSeller.id,function(cleanupRes){
+          showToast(cleanupRes&&cleanupRes.error?'Draft saved. Private image cleanup still needs attention.':'Draft saved.');
+        });
+      });
     });
   });
 }
@@ -7258,6 +7533,24 @@ function persistPublishedSeller(s, cb){
   }
   hmAuth.insert('sellers',row,function(res){ cb(res||{ok:true}); });
 }
+
+function blockUnfinalizedListingImagePublication(){
+  if(!listingDraftImagePublicationBlocked(ST.pf,ST.pi)) return false;
+  var seller=hmPrivateOwnerSellerForDraft();
+  var draft=listingDraftContent(ST.pf,ST.pi);
+  var images=listingDraftImageCollect(draft);
+  if(seller&&images.length&&hmAuth&&hmAuth.apiFetch){
+    hmAuth.apiFetch('/api/draft-images',{method:'POST',body:{action:'validate-publication',sellerId:seller.id,images:images}},function(res){
+      showToast(res&&res.ok
+        ? 'Private draft images are verified but require trusted finalization before publication.'
+        : 'Private draft images could not be verified for publication.');
+    });
+  }else{
+    showToast('Listing images require trusted finalization before publication.');
+  }
+  return true;
+}
+
 function goLiveListing(){
   var missing=postMissingAll();
   if(missing.length){
@@ -7265,6 +7558,7 @@ function goLiveListing(){
     markPostMissing(postMissingForStep(ST.ps),'Check outstanding items before publishing.');
     return;
   }
+  if(blockUnfinalizedListingImagePublication()) return;
   var seller=buildPublishedSeller();
   persistPublishedSeller(seller,function(res){
     if(res&&res.error){
@@ -7376,85 +7670,88 @@ function rPost(){
   }
   rPS();
 }
-function uploadListingImg(input){
-  var file = input.files && input.files[0];
-  if(!file) return;
-  if(!/^image\/(jpeg|png|webp|gif)$/.test(file.type)){ showToast('Please upload a JPG, PNG, WebP or GIF image.'); input.value=''; return; }
-  if(file.size > 5*1024*1024){ showToast('Image must be under 5 MB'); input.value=''; return; }
+function prepareDraftImageFile(file,cb,opts){
+  opts=opts||{};
+  var sourceError=listingDraftImageSourceError(file);
+  if(sourceError){cb({error:sourceError});return;}
+  var image=new Image();
+  var sourceUrl=URL.createObjectURL(file);
+  var settled=false;
+  function finish(result){
+    if(settled) return;
+    settled=true;
+    URL.revokeObjectURL(sourceUrl);
+    cb(result);
+  }
+  image.onload=function(){
+    var decodedError=listingDraftImageSourceError(file,image.naturalWidth||image.width,image.naturalHeight||image.height);
+    if(decodedError){finish({error:decodedError});return;}
+    var sourceWidth=image.naturalWidth||image.width;
+    var sourceHeight=image.naturalHeight||image.height;
+    var max=opts.max||1600;
+    var scale=Math.min(1,max/Math.max(sourceWidth,sourceHeight));
+    var width=Math.max(1,Math.round(sourceWidth*scale));
+    var height=Math.max(1,Math.round(sourceHeight*scale));
+    var canvas=document.createElement('canvas');
+    canvas.width=width;
+    canvas.height=height;
+    var context=canvas.getContext&&canvas.getContext('2d');
+    if(!context){finish({error:'The image could not be processed.'});return;}
+    try{context.drawImage(image,0,0,width,height);}catch(e){finish({error:'The image could not be processed.'});return;}
+    canvas.toBlob(function(blob){
+      if(!blob||!blob.size||blob.size>HM_DRAFT_IMAGE_MAX_BYTES){finish({error:'The image could not be re-encoded safely.'});return;}
+      finish({file:new File([blob],'draft.webp',{type:'image/webp'}),width:width,height:height});
+    },'image/webp',opts.quality||0.78);
+  };
+  image.onerror=function(){finish({error:'The image could not be decoded.'});};
+  image.src=sourceUrl;
+}
 
-  ST.pf.imgError = '';
-  ST.pf.imgUploading = !(hmAuth && hmAuth.isDemoMode && hmAuth.isDemoMode());
-  ST.pf.imgName = file.name;
-
-  var reader = new FileReader();
-  reader.onload = function(ev){
-    ST.pf.img = ev.target.result;
-    rPS();
-
-    if(!hmAuth || !hmAuth.uploadPublicImage || (hmAuth.isDemoMode && hmAuth.isDemoMode())){
-      ST.pf.imgUploading = false;
+function stageInactiveDraftImage(field,file,opts){
+  prepareDraftImageFile(file,function(result){
+    field.imgUploading=false;
+    if(result.error){
+      field.imgError=result.error;
+      showToast(result.error);
       rPS();
       return;
     }
+    revokeInactiveDraftPreview(field);
+    var previewUrl=URL.createObjectURL(result.file);
+    field.stagedImage={file:result.file,width:result.width,height:result.height};
+    field.previewUrl=previewUrl;
+    field.img=previewUrl;
+    field.removeImage=false;
+    field.imgName='Ready to save privately';
+    field.imgError='';
+    markInactiveListingDraftDirty();
+    rPS();
+  },opts);
+}
 
-    prepareListingImage(file, function(uploadFile){
-      hmAuth.uploadPublicImage(uploadFile, 'listing-uploads', function(res){
-        ST.pf.imgUploading = false;
-        if(res && res.url){
-          ST.pf.img = res.url;
-          ST.pf.imgPath = res.path || '';
-          ST.pf.imgName = file.name + ' (hosted)';
-          showToast('Photo uploaded to secure hosting.');
-        }else{
-          ST.pf.imgError = (res && res.error) || 'Could not upload photo yet.';
-          showToast('Photo preview saved, but hosting upload failed.');
-        }
-        rPS();
-      });
-    });
-  };
-  reader.readAsDataURL(file);
+function uploadListingImg(input){
+  var file=input.files&&input.files[0];
+  if(!file) return;
   input.value='';
+  ST.pf.imgUploading=true;
+  ST.pf.imgError='';
+  rPS();
+  stageInactiveDraftImage(ST.pf,file,{max:1600,quality:0.78});
 }
 
 function uploadMenuItemImg(index,input){
   var file=input.files&&input.files[0];
-  if(!file) return;
-  if(!/^image\/(jpeg|png|webp|gif)$/.test(file.type)){ showToast('Please upload a JPG, PNG, WebP or GIF image.'); input.value=''; return; }
-  if(file.size>5*1024*1024){ showToast('Dish image must be under 5 MB'); input.value=''; return; }
-  if(!ST.pi[index]) return;
-  ST.pi[index].imgError='';
-  ST.pi[index].imgUploading=!(hmAuth&&hmAuth.isDemoMode&&hmAuth.isDemoMode());
-  ST.pi[index].imgName=file.name;
-  var reader=new FileReader();
-  reader.onload=function(ev){
-    if(!ST.pi[index]) return;
-    ST.pi[index].img=ev.target.result;
-    rPS();
-    if(!hmAuth||!hmAuth.uploadPublicImage||(hmAuth.isDemoMode&&hmAuth.isDemoMode())){
-      ST.pi[index].imgUploading=false;
-      rPS();
-      return;
-    }
-    prepareListingImage(file,function(uploadFile){
-      hmAuth.uploadPublicImage(uploadFile,'listing-uploads',function(res){
-        if(!ST.pi[index]) return;
-        ST.pi[index].imgUploading=false;
-        if(res&&res.url){
-          ST.pi[index].img=res.url;
-          ST.pi[index].imgPath=res.path||'';
-          ST.pi[index].imgName=file.name+' (hosted)';
-          showToast('Dish photo uploaded.');
-        }else{
-          ST.pi[index].imgError=(res&&res.error)||'Could not upload dish photo yet.';
-          showToast('Dish preview saved, but hosting upload failed.');
-        }
-        rPS();
-      });
-    },{max:900,quality:0.78});
-  };
-  reader.readAsDataURL(file);
+  if(!file||!ST.pi[index]) return;
   input.value='';
+  var imageCount=(ST.pi||[]).filter(function(item){return item&&(item.draftImage||item.stagedImage);}).length;
+  if(!ST.pi[index].draftImage&&!ST.pi[index].stagedImage&&imageCount>=HM_DRAFT_IMAGE_MAX_MENU_IMAGES){
+    showToast('The draft image limit has been reached.');
+    return;
+  }
+  ST.pi[index].imgUploading=true;
+  ST.pi[index].imgError='';
+  rPS();
+  stageInactiveDraftImage(ST.pi[index],file,{max:900,quality:0.78});
 }
 
 function buildPostTierGuide(currentTier, selectedTier){
@@ -7490,25 +7787,25 @@ function buildPostTierGuide(currentTier, selectedTier){
 
 function menuItemUploadControl(it,index){
   it=it||{};
-  var status=it.imgUploading?'Uploading to secure hosting...':(it.imgError?it.imgError:(it.imgPath?'Dish photo hosted securely':(it.imgName||'Dish photo added')));
+  var status=it.imgUploading?'Preparing private preview...':(it.imgError?it.imgError:(it.stagedImage?'Ready to save privately':(it.draftImage?'Private draft photo saved':(it.imgName||'Dish photo added'))));
   var color=it.imgError?'var(--red)':(it.imgUploading?'var(--accent)':'var(--muted)');
   if(it.img){
     return '<div style="margin-top:8px;display:grid;grid-template-columns:64px minmax(0,1fr);gap:10px;align-items:center">'
       +'<div style="position:relative;width:64px;height:64px;border-radius:12px;overflow:hidden;border:1.5px solid var(--border);background:var(--bg);box-shadow:var(--shadow)">'
         +'<img src="'+hmText(it.img)+'" alt="Dish photo preview" style="width:100%;height:100%;object-fit:cover;display:block">'
-        +'<button aria-label="Remove dish photo" onclick="ST.pi['+index+'].img=\'\';ST.pi['+index+'].imgPath=\'\';ST.pi['+index+'].imgName=\'\';ST.pi['+index+'].imgUploading=false;ST.pi['+index+'].imgError=\'\';rPS()" style="position:absolute;top:3px;right:3px;background:rgba(30,14,4,.68);border:none;border-radius:50%;width:22px;height:22px;color:#fff;font-size:13px;cursor:pointer;line-height:1">x</button>'
+        +'<button type="button" aria-label="Remove dish photo" onclick="removeInactiveDraftMenuImage('+index+')" style="position:absolute;top:3px;right:3px;background:rgba(30,14,4,.68);border:none;border-radius:50%;width:22px;height:22px;color:#fff;font-size:13px;cursor:pointer;line-height:1">x</button>'
       +'</div>'
       +'<div style="min-width:0">'
         +'<div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Dish photo</div>'
         +'<div style="font-size:11px;color:'+color+';line-height:1.4;margin-bottom:6px">'+hmText(status)+'</div>'
-        +'<label class="chip" style="display:inline-flex;cursor:pointer">Change photo<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none" onchange="uploadMenuItemImg('+index+',this)"></label>'
+        +'<label class="chip" style="display:inline-flex;cursor:pointer">Change photo<input type="file" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="uploadMenuItemImg('+index+',this)"></label>'
       +'</div>'
     +'</div>';
   }
   return '<label style="margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px dashed var(--border);border-radius:12px;padding:10px 12px;background:var(--bg);cursor:pointer;color:var(--muted);font-size:12px;font-weight:700">'
     +ic('plus',12,'var(--accent)')
-    +'<span>Upload dish photo</span>'
-    +'<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none" onchange="uploadMenuItemImg('+index+',this)">'
+    +'<span>Choose dish photo</span>'
+    +'<input type="file" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="uploadMenuItemImg('+index+',this)">'
   +'</label>';
 }
 
@@ -7558,16 +7855,16 @@ function rPS(){
         ${f.img
           ? `<div style="position:relative;display:inline-block;width:100%">
                <img src="${f.img}" alt="Listing photo preview" style="width:100%;max-height:220px;object-fit:cover;border-radius:14px;border:1.5px solid var(--border);display:block"/>
-               <button onclick="ST.pf.img='';ST.pf.imgPath='';ST.pf.imgName='';ST.pf.imgUploading=false;ST.pf.imgError='';rPS()" style="position:absolute;top:8px;right:8px;background:rgba(30,14,4,.65);border:none;border-radius:50%;width:30px;height:30px;color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">×</button>
-               <div style="font-size:11px;color:${f.imgError?'var(--danger)':(f.imgUploading?'var(--accent)':'var(--muted)')};margin-top:6px">📷 ${f.imgUploading?'Uploading to secure hosting...':(f.imgError?f.imgError:(f.imgPath?'Photo hosted securely':(f.imgName||'Photo uploaded')))} ${!f.imgUploading?'— tap × to remove':''}</div>
+               <button type="button" onclick="removeInactiveDraftListingImage()" style="position:absolute;top:8px;right:8px;background:rgba(30,14,4,.65);border:none;border-radius:50%;width:30px;height:30px;color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">×</button>
+               <div style="font-size:11px;color:${f.imgError?'var(--danger)':(f.imgUploading?'var(--accent)':'var(--muted)')};margin-top:6px">📷 ${f.imgUploading?'Preparing private preview...':(f.imgError?f.imgError:(f.stagedImage?'Ready to save privately':(f.draftImage?'Private draft photo saved':(f.imgName||'Photo added'))))} ${!f.imgUploading?'— tap × to remove':''}</div>
              </div>`
           : `<label style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:var(--surface);border:2px dashed var(--border);border-radius:14px;padding:28px 20px;cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
                <span style="font-size:36px">📷</span>
                <div style="text-align:center">
-                 <div style="font-size:13px;font-weight:700;color:var(--heading)">Tap to upload a photo</div>
+                 <div style="font-size:13px;font-weight:700;color:var(--heading)">Choose a photo</div>
                  <div style="font-size:11px;color:var(--muted);margin-top:3px">JPG, PNG or WebP · Max 5 MB</div>
                </div>
-               <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none" onchange="uploadListingImg(this)"/>
+               <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="uploadListingImg(this)"/>
              </label>`
         }
         ${postFieldError('listingPhoto','Upload a main listing photo.')}
@@ -7695,7 +7992,7 @@ function rPS(){
       <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:14px;box-shadow:var(--shadow)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
           <span style="font-size:12px;font-weight:700;color:var(--muted)">Item ${i+1}</span>
-          ${items.length>1?`<button onclick="markInactiveListingDraftDirty();ST.pi.splice(${i},1);rPS()" style="background:rgba(204,48,48,.1);border:none;border-radius:8px;padding:4px 10px;display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;font-weight:600;color:var(--red);font-family:var(--font-body)">${ic('x',11,'var(--red)')} Remove</button>`:''}
+          ${items.length>1?`<button type="button" onclick="removeInactiveDraftMenuItem(${i})" style="background:rgba(204,48,48,.1);border:none;border-radius:8px;padding:4px 10px;display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;font-weight:600;color:var(--red);font-family:var(--font-body)">${ic('x',11,'var(--red)')} Remove</button>`:''}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
           <div><div class="lsm" style="margin-bottom:5px;font-size:10px">Item Name</div><input class="inp" placeholder="e.g. Jollof Rice" value="${it.n}" oninput="markInactiveListingDraftDirty();ST.pi[${i}].n=this.value" style="${postFieldStyle('itemName_'+i,'font-size:13px;padding:9px 12px')}"/>${postFieldError('itemName_'+i,'Enter the dish name.')}</div>
@@ -7728,7 +8025,7 @@ function rPS(){
           <span style="font-size:11px;color:var(--muted)">${items.length} item${items.length!==1?'s':''}</span>
         </div>
         ${itemRows}
-        <button class="btn btn-gh btn-fw" style="margin-top:10px" onclick="markInactiveListingDraftDirty();ST.pi.push({n:'',p:'',svs:'',hot:false,img:'',imgPath:'',imgName:'',imgUploading:false,imgError:''});rPS()">${ic('plus',14)} Add Menu Item</button>
+        <button type="button" class="btn btn-gh btn-fw" style="margin-top:10px" onclick="markInactiveListingDraftDirty();ST.pi.push({n:'',p:'',svs:'',hot:false,img:'',draftImage:null,stagedImage:null,previewUrl:'',removeImage:false,imgName:'',imgUploading:false,imgError:''});rPS()">${ic('plus',14)} Add Menu Item</button>
       </div>
       <div style="border-top:1.5px solid var(--border);padding-top:16px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
